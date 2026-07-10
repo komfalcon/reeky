@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+celery
+redis
+playwright
+python-pptx
+pydub
+aiohttp

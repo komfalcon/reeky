@@ -1,0 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String   @id @default(uuid())
+  email               String   @unique
+  passwordHash        String
+  fullName            String?
+  basePreferences     String?  
+  createdAt           DateTime @default(now())
+  
+  assets              AssetBundle[] 
+}
+
+model AssetBundle {
+  id                  String   @id @default(uuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id])
+  
+  pdfTargetUrl        String   
+  customInstructions  String?  
+  
+  flashcardsJson      Json?
+  quizzesJson         Json?
+  mindmapJson         Json?
+  
+  podcastAudioUrl     String?
+  videoOverviewUrl    String?
+  infographicUrl      String?
+  slideDeckUrl        String?
+  studyReportUrl      String?
+  dataTableUrl        String?
+
+  status              String   @default("QUEUED") // QUEUED, PROCESSING, COMPLETED
+  createdAt           DateTime @default(now())
+}

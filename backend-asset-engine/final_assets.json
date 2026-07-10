@@ -1,0 +1,539 @@
+{
+  "task_id": "92757045-33b1-4902-8d37-c700ab01e0d2",
+  "task_status": "SUCCESS",
+  "interactive_assets": {
+    "flashcards": [
+      {
+        "f": "What limitation exists when using TF-IDF cosine similarity for question deduplication?",
+        "b": "It measures surface wording similarity rather than underlying tested concepts.",
+        "c": 1
+      },
+      {
+        "f": "The phenomenon where a student recognizes a small set of underlying facts through repeated exposure to differently worded questions is called _____.",
+        "b": "Exposure saturation",
+        "c": 2
+      },
+      {
+        "f": "Why is a sample size of $n \\approx 4$ per subtopic considered statistically indefensible for performance reporting?",
+        "b": "The difference between strong and weak performance is indistinguishable from ordinary chance variance.",
+        "c": 1
+      },
+      {
+        "f": "In the Aurikrex question schema, which organizational field is required free text versus which is optional?",
+        "b": "Topic is required free text, while subtopic is an optional field.",
+        "c": 1
+      },
+      {
+        "f": "How does the required depth of taxonomy differ between Mathematics and History subjects?",
+        "b": "Mathematics requires a deep skill structure, whereas History uses a flatter, fact-based structure.",
+        "c": 1
+      },
+      {
+        "f": "What is the 'Actionability Gap' in a student analytics interface?",
+        "b": "Providing specific performance advice without providing an in-app path to act on it (e.g., a practice button).",
+        "c": 3
+      },
+      {
+        "f": "According to the Nigeria Data Protection Act (2023), what is required for processing data from minors?",
+        "b": "A lawful basis such as parental or guardian consent.",
+        "c": 1
+      },
+      {
+        "f": "List three types of PII stored in the Aurikrex user record that trigger regulatory sensitivity.",
+        "b": "JAMB registration number, school details, and device fingerprints.",
+        "c": 1
+      },
+      {
+        "f": "What is the statutory fine for violating the Nigeria Data Protection Act (NDPA)?",
+        "b": "Up to $2\\%$ of annual gross revenue or $\\text{\\unicode{x20A6}}10$ million, whichever is greater.",
+        "c": 1
+      },
+      {
+        "f": "The formula for the standard error of a proportion is $SE = \\dots$.",
+        "b": "$SE = \\sqrt{\\frac{p(1-p)}{n}}$",
+        "c": 4
+      },
+      {
+        "f": "If the null hypothesis is random guessing on a 4-option multiple-choice question, what is the value of $p$?",
+        "b": "$p = 0.25$",
+        "c": 2
+      },
+      {
+        "f": "In statistical significance testing for a 50% competence threshold, what does a result falling inside the 1-SD band imply?",
+        "b": "The result is not statistically distinct from the threshold.",
+        "c": 1
+      },
+      {
+        "f": "Why is 'file size' considered a poor proxy for measuring the complexity of a question bank?",
+        "b": "It is influenced by non-conceptual factors like embedded diagrams, explanation length, and formatting.",
+        "c": 3
+      },
+      {
+        "f": "What infrastructure component prevents DigitalOcean API keys from being exposed to the client in the AI integration plan?",
+        "b": "Backend Proxy (Cloudflare Worker)",
+        "c": 1
+      },
+      {
+        "f": "Which AI model tier is recommended for tasks requiring <2s felt latency, such as inline reading clarifications?",
+        "b": "Small models (~14B parameters) such as Gemma or Maverick.",
+        "c": 1
+      },
+      {
+        "f": "When is it appropriate to use large models (e.g., Llama 70B or Qwen 230B) in a student library app?",
+        "b": "Post-completion review sessions where the user has a higher latency tolerance (5\u201315s).",
+        "c": 1
+      },
+      {
+        "f": "The method of retrieving a specific passage based on (book_id, page_number) instead of topic labels is called _____ grounding.",
+        "b": "Page-position",
+        "c": 2
+      },
+      {
+        "f": "How does semantic caching verify a 'hit' for incoming questions?",
+        "b": "It compares question embeddings via cosine similarity against a scoped cache of previous pairs.",
+        "c": 5
+      },
+      {
+        "f": "What is the recommended cosine similarity threshold for a semantic cache to serve a response?",
+        "b": "$\\%0.85$ to $\\%0.90$",
+        "c": 1
+      },
+      {
+        "f": "Term: Hallucination Risk",
+        "b": "Definition: The tendency of an LLM to generate factually incorrect information that does not follow curriculum constraints.",
+        "c": 3
+      },
+      {
+        "f": "What is the primary risk of a 'Database Stack Fork' (e.g., using both MongoDB and Cloudflare D1)?",
+        "b": "Transactions cannot be shared, leading to potential data desynchronization (e.g., tier status vs. quota usage).",
+        "c": 1
+      },
+      {
+        "f": "Why is token-based internal cost estimation preferred over external billing APIs for an AI kill switch?",
+        "b": "External billing data often lags by hours, failing to prevent real-time overruns.",
+        "c": 3
+      },
+      {
+        "f": "In a productized service business model, what is the expert's role regarding the final assets?",
+        "b": "The expert manually crafts and formats the final assets to ensure quality over generic AI outputs.",
+        "c": 1
+      },
+      {
+        "f": "Which ready-made tool manages the 'back office' or Admin Dashboard in the provided e-commerce guide?",
+        "b": "Medusa",
+        "c": 1
+      },
+      {
+        "f": "What is the typical per-transaction percentage fee taken by Nigerian payment providers like Paystack?",
+        "b": "Roughly $1.5\\%$",
+        "c": 1
+      },
+      {
+        "f": "List the three primary payment methods supported for Nigerian customers in the e-commerce guide.",
+        "b": "Debit/credit cards, Bank transfer, and USSD.",
+        "c": 1
+      },
+      {
+        "f": "The design aesthetic characterized by frosted glass effects on UI elements is known as _____.",
+        "b": "Glassmorphism",
+        "c": 2
+      },
+      {
+        "f": "What is the purpose of a 'Bento Box Layout' in landing page design?",
+        "b": "To use a modern grid layout for showcasing multiple distinct outputs or features.",
+        "c": 1
+      },
+      {
+        "f": "In the Aurikrex V1 architecture, what does the 'is_bonus: true' flag indicate?",
+        "b": "A question where the AI hallucinated an invalid answer key, saved to prevent breaking the simulation.",
+        "c": 1
+      },
+      {
+        "f": "What type of tutoring does the Aurikrex AI Tutor employ by remembering conversation history?",
+        "b": "Socratic tutoring",
+        "c": 1
+      },
+      {
+        "f": "How does the 'Automated Quality Assurance' mechanism in Aurikrex handle factually wrong answer keys?",
+        "b": "The AI acts as a reviewer, explains the correct answer to the student, and logs a flagging signal for admin correction.",
+        "c": 5
+      },
+      {
+        "f": "Which specific plugins were implemented to resolve bugs in rendering mathematical notations in the Aurikrex CBT?",
+        "b": "remark-math and rehype-katex",
+        "c": 1
+      },
+      {
+        "f": "What is the primary function of an Automated Admin Vetting Dashboard?",
+        "b": "To provide a queue for human admins to review and approve AI-suggested database corrections.",
+        "c": 1
+      },
+      {
+        "f": "Concept: Item Response Theory (IRT)",
+        "b": "Definition: An algorithm that adjusts the difficulty of the next test question in real-time based on previous answer accuracy.",
+        "c": 3
+      },
+      {
+        "f": "What is the goal of 'Predictive Analytics' in the Aurikrex V2 roadmap?",
+        "b": "To predict a student's actual JAMB UTME score based on their last five mock exams.",
+        "c": 1
+      },
+      {
+        "f": "Why is 'data minimization' a legal requirement for the Aurikrex platform?",
+        "b": "Collecting unnecessary data like device fingerprints and IPs to deliver exams violates data protection principles.",
+        "c": 3
+      },
+      {
+        "f": "What client-side technology is used to sync offline questions to the backend upon reconnection?",
+        "b": "IndexedDB",
+        "c": 1
+      },
+      {
+        "f": "In the e-commerce guide, who is responsible for paying monthly hosting bills after the site is live?",
+        "b": "The business owner (the user)",
+        "c": 1
+      },
+      {
+        "f": "What is the estimated monthly running cost for the Railway Hobby plan mentioned in the e-commerce guide?",
+        "b": "Approximately $\\text{\\unicode{x20A6}}10,000$",
+        "c": 1
+      },
+      {
+        "f": "The 'Done-for-you' aspect of a productized service emphasizes manual touch over _____ outputs.",
+        "b": "Generic AI",
+        "c": 2
+      },
+      {
+        "f": "What is the 'one-time' setup cost typically associated with launching the online store?",
+        "b": "Domain name registration (approx. $\\text{\\unicode{x20A6}}15,000$ - $\\text{\\unicode{x20A6}}20,500$)",
+        "c": 1
+      },
+      {
+        "f": "Under the NDPA, what specific assessment is required for large-scale processing of minors' data?",
+        "b": "Data Protection Impact Assessment (DPIA)",
+        "c": 1
+      },
+      {
+        "f": "What does a 'Semantic Cache Lookup' do when it finds a match?",
+        "b": "It returns the cached answer instantly to the client, avoiding GPU inference costs.",
+        "c": 5
+      },
+      {
+        "f": "Which software component in the AI integration spec enforces authentication and user tier quotas?",
+        "b": "Cloudflare Worker (Backend Proxy)",
+        "c": 1
+      },
+      {
+        "f": "Why must the inline reading AI be 'grounded' in the specific curriculum context?",
+        "b": "To ensure it uses subject-specific conventions, such as WAEC's 'real-is-positive' sign convention in Physics.",
+        "c": 3
+      },
+      {
+        "f": "What logic does a 'Model Router' use to select an LLM?",
+        "b": "It picks a model based on the specific feature (inline vs. review) and task complexity.",
+        "c": 5
+      },
+      {
+        "f": "In the Aurikrex progress report, what error code was associated with indexing conflicts during exam simulation?",
+        "b": "MongoDB E11000",
+        "c": 1
+      },
+      {
+        "f": "What is the primary function of the 'BookChunk' Mongoose schema?",
+        "b": "To store extracted page-level text, LaTeX formulas, and figure placeholders from PDFs.",
+        "c": 1
+      },
+      {
+        "f": "Why is unstratified random sampling problematic for subtopic-level student reporting?",
+        "b": "It causes uneven distribution, where some subtopics receive zero questions and others receive too many.",
+        "c": 3
+      },
+      {
+        "f": "What happens if an AI-cached answer receives a high negative-feedback ratio?",
+        "b": "It is auto-flagged, pulled from the cache, and the system falls back to live inference.",
+        "c": 5
+      },
+      {
+        "f": "In the landing page structure, what is the role of the 'Hero Section'?",
+        "b": "To act as 'The Hook' with a bold headline and a clear call to action like 'Submit Your PDF'.",
+        "c": 1
+      },
+      {
+        "f": "Which component manages the submission state and connectivity checks for the AI sidebar?",
+        "b": "useAiAsk.js (hook)",
+        "c": 1
+      },
+      {
+        "f": "What must be included in a 'Model-Task Mismatch' fix?",
+        "b": "Restricting tasks to appropriate models (e.g., small models for page clarifications, large for synthesis).",
+        "c": 5
+      }
+    ],
+    "quizzes": [
+      {
+        "question": "Why is the current TF-IDF cosine similarity threshold of $\\ge 0.95$ considered a critical flaw in the deduplication system?",
+        "answerOptions": [
+          {
+            "text": "It focuses on surface wording rather than the underlying tested knowledge.",
+            "isCorrect": true,
+            "rationale": "The system identifies identical strings of text but fails to recognize when two questions probe the same fact using different vocabulary."
+          },
+          {
+            "text": "It requires excessive computational power for MongoDB schemas.",
+            "isCorrect": false,
+            "rationale": "The document identifies the flaw as a logical failure in detecting concepts, not as a performance bottleneck for the database."
+          },
+          {
+            "text": "It only allows for exact-match string comparisons.",
+            "isCorrect": false,
+            "rationale": "A cosine similarity threshold actually allows for partial matches; the problem is that it is limited to lexical rather than semantic overlap."
+          },
+          {
+            "text": "It prevents the AI from generating high-quality questions.",
+            "isCorrect": false,
+            "rationale": "The deduplication system is a filter for existing questions, not a limitation on the generative capabilities of the DigitalOcean AI."
+          }
+        ],
+        "hint": "Consider the difference between how a computer reads vocabulary and how a student understands a concept."
+      },
+      {
+        "question": "In the second-pass audit of Part 1, why was the reported performance of $37.5\\%$ ($3$ of $8$ correct) considered statistically insignificant for flagging a weakness?",
+        "answerOptions": [
+          {
+            "text": "It falls inside the $1$-SD band of the $50\\%$ mean.",
+            "isCorrect": true,
+            "rationale": "With a standard error of $\\approx 0.177$, the threshold for significance is below $32.3\\%$, making $37.5\\%$ indistinguishable from ordinary variance."
+          },
+          {
+            "text": "The sample size of $n=8$ is too large for the binomial distribution.",
+            "isCorrect": false,
+            "rationale": "Statistical noise is typically a result of samples being too small, not too large, to provide a reliable performance verdict."
+          },
+          {
+            "text": "The null hypothesis was based on a random guessing rate of $25\\%$.",
+            "isCorrect": false,
+            "rationale": "The audit specifically notes that Part 1 incorrectly used a $50\\%$ baseline instead of the $25\\%$ guessing rate standard for 4-option questions."
+          },
+          {
+            "text": "The standard error calculation failed to account for LaTeX rendering bugs.",
+            "isCorrect": false,
+            "rationale": "LaTeX rendering is a display issue and does not impact the mathematical standard error of a proportion calculation."
+          }
+        ],
+        "hint": "Review the corrected standard error math provided in the Part 2 audit."
+      },
+      {
+        "question": "Which specific provision of the Nigeria Data Protection Act (2023) is most directly threatened by storing device fingerprints and last-login IP addresses indefinitely?",
+        "answerOptions": [
+          {
+            "text": "Data minimization and retention limitation.",
+            "isCorrect": true,
+            "rationale": "Storing technical identifiers that are not necessary for the core service without a clear deletion policy violates the principles of necessity and limited storage."
+          },
+          {
+            "text": "Mandatory use of blockchain for exam records.",
+            "isCorrect": false,
+            "rationale": "The NDPA focuses on privacy rights and lawful processing rather than mandating specific storage technologies like blockchain."
+          },
+          {
+            "text": "Right to free high-speed internet for all candidates.",
+            "isCorrect": false,
+            "rationale": "The Act regulates how personal data is handled but does not provide for the provision of hardware or network services."
+          },
+          {
+            "text": "Requirement for all data to be stored on physical Nigerian servers.",
+            "isCorrect": false,
+            "rationale": "While data localization can be a factor, the primary concern cited is the lack of a lawful basis for processing minor data and excessive retention."
+          }
+        ],
+        "hint": "Think about the legal principle that requires companies to collect only the data they truly need for a specific purpose."
+      },
+      {
+        "question": "What is the primary technical reason for using smaller models like Gemma ($14$B) for inline Q&A instead of larger models like Llama ($70$B)?",
+        "answerOptions": [
+          {
+            "text": "Meeting the $<2$s felt latency requirement for active reading.",
+            "isCorrect": true,
+            "rationale": "Smaller models are necessary to ensure that students do not experience a disruptive delay while interacting with book content."
+          },
+          {
+            "text": "Smaller models are more resistant to 'hallucinations' in Physics.",
+            "isCorrect": false,
+            "rationale": "Larger models generally have better reasoning; the preference for smaller models here is driven by speed, not superior factual accuracy."
+          },
+          {
+            "text": "The Cloudflare Worker proxy cannot communicate with Llama models.",
+            "isCorrect": false,
+            "rationale": "The architecture allows the proxy to route to any model; the choice is based on matching the task's complexity to the model's speed."
+          },
+          {
+            "text": "Llama models lack support for LaTeX formatting strings.",
+            "isCorrect": false,
+            "rationale": "Model size does not dictate support for mathematical notation; formatting is handled by the prompt and the frontend plugins."
+          }
+        ],
+        "hint": "Focus on the user experience and the speed at which answers must appear during study."
+      },
+      {
+        "question": "How does the proposed semantic cache handle a question that is worded differently than a previously asked question on the same page?",
+        "answerOptions": [
+          {
+            "text": "It uses embeddings to compare cosine similarity against a threshold of $\\approx 0.85-0.90$.",
+            "isCorrect": true,
+            "rationale": "By measuring meaning rather than exact characters, the system can serve a cached answer if the conceptual intent is sufficiently similar."
+          },
+          {
+            "text": "It rejects the query and forces a fresh GPU inference to ensure accuracy.",
+            "isCorrect": false,
+            "rationale": "The goal of semantic caching is specifically to avoid unnecessary GPU inference when the meaning has already been processed."
+          },
+          {
+            "text": "It requires the student to manually tag the question with a syllabus label.",
+            "isCorrect": false,
+            "rationale": "The system is designed to be automated using RAG and page-positioning, avoiding the scalability issues of manual tagging."
+          },
+          {
+            "text": "It automatically purges the cache every $60$ seconds via AiGeneratorTask.",
+            "isCorrect": false,
+            "rationale": "The background task generates new questions; it does not manage the real-time Q&A cache for users."
+          }
+        ],
+        "hint": "Look for the mathematical approach used to recognize synonymous phrases."
+      },
+      {
+        "question": "What is the 'Highest Severity' concern regarding the database stack proposed in the AI integration plan?",
+        "answerOptions": [
+          {
+            "text": "The desynchronization between Cloudflare D1 and MongoDB Mongoose schemas.",
+            "isCorrect": true,
+            "rationale": "Mixing two different database technologies for interrelated data like user tiers and AI quotas creates significant transaction and latency risks."
+          },
+          {
+            "text": "The inability of MongoDB to store scientific LaTeX formulas.",
+            "isCorrect": false,
+            "rationale": "MongoDB is capable of storing string-based data, including LaTeX; the issue is the architectural fork, not the data format."
+          },
+          {
+            "text": "The lack of an automated PDF-to-OCR ingest service.",
+            "isCorrect": false,
+            "rationale": "While the ingest service was under-scoped, the database inconsistency is ranked higher because it affects core application state."
+          },
+          {
+            "text": "DigitalOcean's API keys being exposed in the Mongoose schema.",
+            "isCorrect": false,
+            "rationale": "The spec explicitly forbids shipping keys in the client; the database choice is a separate structural concern."
+          }
+        ],
+        "hint": "Consider the problems that arise when the 'source of truth' for user data is split across two different systems."
+      },
+      {
+        "question": "Regarding the e-commerce storefront, what does the $\\approx 1.5\\%$ transaction fee represent?",
+        "answerOptions": [
+          {
+            "text": "The commission taken by local payment providers like Paystack or Flutterwave.",
+            "isCorrect": true,
+            "rationale": "In the Nigerian market, payment gateways typically charge a percentage per sale rather than a fixed monthly subscription fee."
+          },
+          {
+            "text": "The monthly storage cost for product photos on Cloudinary.",
+            "isCorrect": false,
+            "rationale": "Storage is described as free at a small scale, whereas the percentage fee is tied specifically to the act of a customer making a payment."
+          },
+          {
+            "text": "The yearly cost to renew the domain name.",
+            "isCorrect": false,
+            "rationale": "The domain renewal is a flat one-time yearly cost between $\\unicode{x20A6}15,000$ and $\\unicode{x20A6}20,500$, not a percentage of sales."
+          },
+          {
+            "text": "The developer's ongoing maintenance fee for fixing bugs.",
+            "isCorrect": false,
+            "rationale": "The developer's fee is listed as a separate one-time charge, and the $1.5\\%$ is explicitly labeled for payment processing."
+          }
+        ],
+        "hint": "This fee is only charged when a sale actually occurs."
+      },
+      {
+        "question": "Which V2 Roadmap feature uses an algorithm to change the challenge of the next question based on the student's previous answer?",
+        "answerOptions": [
+          {
+            "text": "Item Response Theory (IRT).",
+            "isCorrect": true,
+            "rationale": "IRT allows the system to mimic standardized tests like the GRE by dynamically selecting questions that match the student's current skill level."
+          },
+          {
+            "text": "Predictive Analytics.",
+            "isCorrect": false,
+            "rationale": "Predictive analytics focuses on forecasting a final exam score based on past performance, not adjusting the immediate test difficulty."
+          },
+          {
+            "text": "Automated Admin Vetting Dashboard.",
+            "isCorrect": false,
+            "rationale": "This dashboard is designed for staff to approve AI-suggested corrections to the question bank."
+          },
+          {
+            "text": "Socratic Memory Retention.",
+            "isCorrect": false,
+            "rationale": "This refers to the chatbot's ability to remember previous conversation turns, which is distinct from exam difficulty algorithms."
+          }
+        ],
+        "hint": "This concept is common in high-stakes computerized adaptive testing."
+      },
+      {
+        "question": "The 'Document to Magic' service implementation plan emphasizes 'Productized Service' messaging. What does this change imply for the user?",
+        "answerOptions": [
+          {
+            "text": "Assets are hand-crafted by experts rather than purely automated by AI.",
+            "isCorrect": true,
+            "rationale": "The plan shifts from selling a software tool to selling a human-quality service delivered through a digital storefront."
+          },
+          {
+            "text": "The student must use their own DigitalOcean API key to get results.",
+            "isCorrect": false,
+            "rationale": "A productized service handles the technical execution internally; the user simply uploads their PDF and receives a finished product."
+          },
+          {
+            "text": "The service is only available to Max-tier subscribers in the library.",
+            "isCorrect": false,
+            "rationale": "This landing page is for a standalone storefront and is not restricted by the Aurikrex CBT tiering system."
+          },
+          {
+            "text": "The results are generated instantly through a Bento Box layout.",
+            "isCorrect": false,
+            "rationale": "The Bento Box refers to the visual design of the landing page, but the 'service' nature implies a manual, non-instant delivery flow."
+          }
+        ],
+        "hint": "Think about the 'done-for-you' aspect mentioned in the document."
+      },
+      {
+        "question": "How does the Aurikrex CBT system currently handle an AI hallucination where an invalid correct answer is generated?",
+        "answerOptions": [
+          {
+            "text": "It marks the question as `is_bonus: true` and saves it to avoid crashing.",
+            "isCorrect": true,
+            "rationale": "This graceful fallback ensures the simulation continues while flagging the flawed question for future review."
+          },
+          {
+            "text": "It triggers an immediate server restart via the MongoDB indexing service.",
+            "isCorrect": false,
+            "rationale": "Restarting the server was the error state before the stability fixes; the system now handles errors without crashing."
+          },
+          {
+            "text": "It automatically escalates the question to the Qwen $230$B model for re-verification.",
+            "isCorrect": false,
+            "rationale": "While the system supports different models, the current stability fix for invalid answers is to flag them as bonus items."
+          },
+          {
+            "text": "It purges the entire subject bank to prevent data contamination.",
+            "isCorrect": false,
+            "rationale": "Purging the bank would be a destructive action; the system instead isolates individual bad questions."
+          }
+        ],
+        "hint": "Look for the specific schema flag used to denote a question that might have an error."
+      }
+    ]
+  },
+  "downloadable_files": {
+    "podcast_audio": "http://example.com/podcast.mp3",
+    "video_overview": "http://example.com/video.mp4"
+  }
+}

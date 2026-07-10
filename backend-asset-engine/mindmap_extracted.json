@@ -1,0 +1,118 @@
+{
+"name": "Aurikrex Project Ecosystem",
+"children": [
+{
+"name": "CBT Analytics & Deduplication Review",
+"children": [
+{
+"name": "Architecture Flaws",
+"children": [
+{ "name": "Wording vs Concept Dedup" },
+{ "name": "Statistical Noise per Sitting" },
+{ "name": "Flat Taxonomy Depth" },
+{ "name": "Cross-Subject Inconsistency" },
+{ "name": "Actionability Gap" }
+]
+},
+{
+"name": "Regulatory Compliance",
+"children": [
+{ "name": "Nigeria Data Protection Act" },
+{ "name": "Minor Data Processing" },
+{ "name": "Lack of Retention Policy" }
+]
+},
+{
+"name": "Technical Corrections",
+"children": [
+{ "name": "Corrected SE Math" },
+{ "name": "Bank Size Verification" },
+{ "name": "Merged Taxonomy Workstream" }
+]
+}
+]
+},
+{
+"name": "Library AI Integration",
+"children": [
+{
+"name": "Architecture",
+"children": [
+{ "name": "Cloudflare Worker Proxy" },
+{ "name": "Semantic Cache (Cosine Similarity)" },
+{ "name": "RAG Retrieval" },
+{ "name": "DO Serverless GPU" }
+]
+},
+{
+"name": "Model Tiering",
+"children": [
+{ "name": "Inline Q&A (Gemma/Maverick)" },
+{ "name": "Max-tier Sessions (Llama/Qwen)" }
+]
+},
+{
+"name": "Structural Issues",
+"children": [
+{ "name": "Database Stack Fork (Mongo vs D1)" },
+{ "name": "Budget Kill Switch Latency" },
+{ "name": "PDF Ingest Pipeline Method" },
+{ "name": "Cache Quality Control" }
+]
+}
+]
+},
+{
+"name": "V1 Achievements & V2 Roadmap",
+"children": [
+{
+"name": "Stabilized V1 Features",
+"children": [
+{ "name": "Continuous AI Question Generator" },
+{ "name": "Context-Aware AI Tutor" },
+{ "name": "Automated Quality Vetting" },
+{ "name": "LaTeX Math Rendering" }
+]
+},
+{
+"name": "Version 2 Goals",
+"children": [
+{ "name": "Admin Vetting Dashboard" },
+{ "name": "Adaptive Testing (IRT)" },
+{ "name": "Predictive Score Analytics" },
+{ "name": "Payment Gateway Integration" }
+]
+}
+]
+},
+{
+"name": "Ecommerce & Service Operations",
+"children": [
+{
+"name": "Store Components",
+"children": [
+{ "name": "Custom Storefront" },
+{ "name": "Medusa Admin Dashboard" },
+{ "name": "Local Payment Gateways" }
+]
+},
+{
+"name": "Cost Analysis",
+"children": [
+{ "name": "Monthly Server Hosting" },
+{ "name": "Yearly Domain Renewal" },
+{ "name": "Transaction Percentages" }
+]
+},
+{
+"name": "Document Magic Service",
+"children": [
+{ "name": "Bento Box Layout" },
+{ "name": "Glassmorphism Aesthetics" },
+{ "name": "Multimodal Asset Creation" }
+]
+}
+]
+}
+]
+}

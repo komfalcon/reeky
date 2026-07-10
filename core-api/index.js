@@ -1,0 +1,181 @@
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import mysql from 'mysql2/promise';
+
+dotenv.config();
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// Set up MySQL connection pool
+const dbUrl = process.env.DATABASE_URL.replace('?sslaccept=strict', '?ssl-mode=REQUIRED');
+const pool = mysql.createPool(dbUrl);
+
+// Authentication Middleware
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (token == null) return res.sendStatus(401);
+
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        if (err) return res.sendStatus(403);
+        req.user = user;
+        next();
+    });
+};
+
+// =======================
+// AUTHENTICATION ROUTES
+// =======================
+
+app.post('/api/auth/signup', async (req, res) => {
+    try {
+        const { name, email, password } = req.body;
+        
+        // Check if user exists
+        const [existing] = await pool.execute('SELECT * FROM `User` WHERE email = ?', [email]);
+        if (existing.length > 0) {
+            return res.status(400).json({ error: "User already exists" });
+        }
+
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const id = crypto.randomUUID();
+
+        // Create user
+        await pool.execute(
+            'INSERT INTO `User` (id, name, email, password) VALUES (?, ?, ?, ?)',
+            [id, name, email, hashedPassword]
+        );
+
+        const token = jwt.sign({ userId: id, email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        res.json({ token, user: { id, name, email } });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Something went wrong" });
+    }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        const [users] = await pool.execute('SELECT * FROM `User` WHERE email = ?', [email]);
+        if (users.length === 0) return res.status(400).json({ error: "User not found" });
+        
+        const user = users[0];
+        const validPassword = await bcrypt.compare(password, user.password);
+        if (!validPassword) return res.status(400).json({ error: "Invalid password" });
+
+        const token = jwt.sign({ userId: user.id, email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Something went wrong" });
+    }
+});
+
+// =======================
+// ASSET GENERATION ROUTES
+// =======================
+
+app.post('/api/assets/generate', authenticateToken, async (req, res) => {
+    try {
+        const { title, originalFileUrl } = req.body;
+        const id = crypto.randomUUID();
+
+        await pool.execute(
+            'INSERT INTO `AssetBundle` (id, title, originalFileUrl, status, userId) VALUES (?, ?, ?, ?, ?)',
+            [id, title, originalFileUrl, 'PENDING', req.user.userId]
+        );
+
+        res.json({ message: "Asset generation queued successfully", id });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Failed to queue generation" });
+    }
+});
+
+app.get('/api/assets', authenticateToken, async (req, res) => {
+    try {
+        const [assets] = await pool.execute(
+            'SELECT * FROM `AssetBundle` WHERE userId = ? ORDER BY createdAt DESC',
+            [req.user.userId]
+        );
+        res.json(assets);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Failed to fetch assets" });
+    }
+});
+
+// =======================
+// ADMIN ROUTES
+// =======================
+
+app.get('/api/admin/queue', async (req, res) => {
+    try {
+        const [queue] = await pool.execute(
+            'SELECT * FROM `AssetBundle` WHERE status = ? ORDER BY createdAt ASC',
+            ['PENDING']
+        );
+        res.json({ queue });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Failed to fetch queue" });
+    }
+});
+
+app.post('/api/admin/submit-assets', async (req, res) => {
+    try {
+        const { assetId, artifact_urls, podcast_audio, video_overview, infographic, slide_deck, study_report, data_table } = req.body;
+        
+        // 1. Update status to PROCESSING and save the static media links
+        const staticAssets = { podcast_audio, video_overview, infographic, slide_deck, study_report, data_table };
+        await pool.execute(
+            'UPDATE `AssetBundle` SET status = ?, assets = ? WHERE id = ?',
+            ['PROCESSING', JSON.stringify(staticAssets), assetId]
+        );
+
+        // 2. Trigger the Python Scraper Engine (assuming running on port 8000 or Railway)
+        const pythonEngineUrl = process.env.PYTHON_ENGINE_URL || 'http://localhost:8000';
+        fetch(`${pythonEngineUrl}/admin/submit-assets`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                task_id: assetId,
+                artifact_urls: artifact_urls
+            })
+        }).catch(err => console.error("Failed to trigger python engine:", err));
+        
+        res.json({ success: true, message: "Sent to processing" });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Failed to submit assets" });
+    }
+});
+
+app.post('/api/assets/webhook/complete', async (req, res) => {
+    try {
+        const { assetId, assets } = req.body;
+        
+        await pool.execute(
+            'UPDATE `AssetBundle` SET status = ?, assets = ? WHERE id = ?',
+            ['COMPLETED', JSON.stringify(assets), assetId]
+        );
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Webhook failed" });
+    }
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+    console.log(`Core API listening on port ${PORT}`);
+});
