@@ -214,12 +214,13 @@ export default function App() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
-  // Interactive sandbox state
+  // Sandbox state
   const [selectedFile, setSelectedFile] = useState(null); // 'biology', 'history', 'economics'
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [activeAsset, setActiveAsset] = useState('flashcards'); // active sandbox panel
-  
+  const [autoPlay, setAutoPlay] = useState(true); // Auto-play active by default
+
   // Sandbox Sub-component states
   const [currentFlashcard, setCurrentFlashcard] = useState(0);
   const [flashcardFlipped, setFlashcardFlipped] = useState(false);
@@ -238,6 +239,7 @@ export default function App() {
   
   // Refs
   const audioIntervalRef = useRef(null);
+  const activeData = selectedFile ? MOCK_DATA[selectedFile] : null;
 
   // Set theme on mount & changes
   useEffect(() => {
@@ -278,7 +280,6 @@ export default function App() {
     } else {
       clearInterval(visualizerInterval.current);
       clearInterval(audioIntervalRef.current);
-      // Reset visualizer bars to small default heights
       setVisHeights([8, 12, 10, 14, 12, 10, 8, 10, 12, 14, 10, 8, 10, 12, 8]);
     }
 
@@ -287,6 +288,62 @@ export default function App() {
       clearInterval(audioIntervalRef.current);
     };
   }, [audioPlaying]);
+
+  // AUTO-PLAY CONTROLLER SYSTEM
+  useEffect(() => {
+    if (!autoPlay) return;
+
+    const intervalTimer = setInterval(() => {
+      if (loadingDemo) return;
+
+      if (!selectedFile) {
+        // Step 1: Auto-select Biology File
+        handleSelectFile('biology');
+      } else {
+        // Step 2: Cycle through assets and interactions
+        if (activeAsset === 'flashcards') {
+          if (!flashcardFlipped) {
+            setFlashcardFlipped(true); // Flip card
+          } else {
+            setActiveAsset('quiz'); // Go to Quiz
+            setFlashcardFlipped(false);
+          }
+        } else if (activeAsset === 'quiz') {
+          if (!quizAnswered) {
+            setSelectedQuizOption(activeData.quiz[0].correct); // Auto-solve quiz
+            setQuizAnswered(true);
+          } else {
+            setActiveAsset('mindmap'); // Go to Mindmap
+          }
+        } else if (activeAsset === 'mindmap') {
+          setActiveAsset('podcast'); // Go to Podcast
+          setAudioPlaying(true); // Start playing visualizer
+        } else if (activeAsset === 'podcast') {
+          setAudioPlaying(false);
+          setActiveAsset('video'); // Go to Video Overview
+        } else if (activeAsset === 'video') {
+          setActiveAsset('slides'); // Go to Slide Deck
+        } else if (activeAsset === 'slides') {
+          if (currentSlide < activeData.slides.length - 1) {
+            setCurrentSlide(prev => prev + 1); // Cycle through slide
+          } else {
+            setActiveAsset('report'); // Go to Study Report
+          }
+        } else if (activeAsset === 'report') {
+          // End of cycle: switch topic or loop
+          if (selectedFile === 'biology') {
+            handleSelectFile('economics');
+          } else if (selectedFile === 'economics') {
+            handleSelectFile('history');
+          } else {
+            setSelectedFile(null); // Return to dropzone
+          }
+        }
+      }
+    }, 4500); // 4.5 seconds per step
+
+    return () => clearInterval(intervalTimer);
+  }, [autoPlay, selectedFile, loadingDemo, activeAsset, flashcardFlipped, quizAnswered, currentSlide, activeData]);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
@@ -324,10 +381,8 @@ export default function App() {
         setLoadingDemo(false);
         setActiveAsset('flashcards');
       }
-    }, 900);
+    }, 800);
   };
-
-  const activeData = selectedFile ? MOCK_DATA[selectedFile] : null;
 
   return (
     <div style={{ position: 'relative' }}>
@@ -365,7 +420,7 @@ export default function App() {
             <button className="btn-icon" onClick={toggleTheme} aria-label="Toggle theme">
               {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
             </button>
-            <button className="btn btn-secondary" style={{ display: 'flex' }} onClick={() => alert("Authentication and full student dashboard features are currently in development by the engineering team. Try the interactive demo below!")}>
+            <button className="btn btn-secondary" style={{ display: 'flex' }} onClick={() => alert("Authentication and student dashboard features are currently in development by the engineering team. Try the interactive demo below!")}>
               Student Log In
             </button>
             <button className="btn-icon menu-toggle" onClick={() => setMobileMenuOpen(true)}>
@@ -506,11 +561,42 @@ export default function App() {
 
           <div className="demo-sandbox">
             <div className="sandbox-header">
-              <div className="sandbox-title">
-                <Sparkles size={20} color="var(--primary)" />
-                {selectedFile ? activeData.title : "Document Processor Sandbox"}
+              <div className="sandbox-title" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <Sparkles size={20} color="var(--primary)" />
+                  <span style={{ fontWeight: 700 }}>{selectedFile ? activeData.title : "Document Processor Sandbox"}</span>
+                </div>
+                
+                {/* Auto-Play Indicator Badge / Control */}
+                <button 
+                  className="btn"
+                  style={{
+                    padding: '0.35rem 0.85rem',
+                    fontSize: '0.75rem',
+                    borderRadius: '50px',
+                    marginLeft: 'auto',
+                    background: autoPlay ? 'var(--primary)' : 'var(--bg)',
+                    color: autoPlay ? '#fff' : 'var(--text-muted)',
+                    border: '1px solid var(--card-border)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    cursor: 'pointer',
+                    boxShadow: autoPlay ? '0 4px 10px rgba(99, 102, 241, 0.25)' : 'none'
+                  }}
+                  onClick={() => setAutoPlay(!autoPlay)}
+                >
+                  {autoPlay ? (
+                    <>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#fff', display: 'inline-block', animation: 'pulse 1.5s infinite' }}></span>
+                      Auto-playing Demo
+                    </>
+                  ) : (
+                    "▶ Resume Auto-play"
+                  )}
+                </button>
               </div>
-              <div className="sandbox-window-dots">
+              <div className="sandbox-window-dots" style={{ marginLeft: '1.5rem' }}>
                 <span></span><span></span><span></span>
               </div>
             </div>
@@ -526,13 +612,13 @@ export default function App() {
                   <p>Drop PDF, DOCX, or text files here to begin. Or, try out the demo with these sample documents:</p>
                   
                   <div className="sample-files">
-                    <button className="sample-badge btn" onClick={() => handleSelectFile('biology')}>
+                    <button className="sample-badge btn" onClick={() => { handleSelectFile('biology'); setAutoPlay(false); }}>
                       <FileText size={16} color="var(--primary)" /> Biology Cell Structure.pdf
                     </button>
-                    <button className="sample-badge btn" onClick={() => handleSelectFile('history')}>
+                    <button className="sample-badge btn" onClick={() => { handleSelectFile('history'); setAutoPlay(false); }}>
                       <FileText size={16} color="var(--primary)" /> French Revolution.pdf
                     </button>
-                    <button className="sample-badge btn" onClick={() => handleSelectFile('economics')}>
+                    <button className="sample-badge btn" onClick={() => { handleSelectFile('economics'); setAutoPlay(false); }}>
                       <FileText size={16} color="var(--primary)" /> Monetary Policy & Inflation.pdf
                     </button>
                   </div>
@@ -562,43 +648,43 @@ export default function App() {
                   <div className="sandbox-sidebar">
                     <button 
                       className={`sidebar-btn ${activeAsset === 'flashcards' ? 'active' : ''}`}
-                      onClick={() => setActiveAsset('flashcards')}
+                      onClick={() => { setActiveAsset('flashcards'); setAutoPlay(false); }}
                     >
                       <BookOpen size={18} /> Flashcards
                     </button>
                     <button 
                       className={`sidebar-btn ${activeAsset === 'quiz' ? 'active' : ''}`}
-                      onClick={() => setActiveAsset('quiz')}
+                      onClick={() => { setActiveAsset('quiz'); setAutoPlay(false); }}
                     >
                       <HelpCircle size={18} /> Interactive Quiz
                     </button>
                     <button 
                       className={`sidebar-btn ${activeAsset === 'mindmap' ? 'active' : ''}`}
-                      onClick={() => setActiveAsset('mindmap')}
+                      onClick={() => { setActiveAsset('mindmap'); setAutoPlay(false); }}
                     >
                       <Network size={18} /> Mindmap
                     </button>
                     <button 
                       className={`sidebar-btn ${activeAsset === 'podcast' ? 'active' : ''}`}
-                      onClick={() => setActiveAsset('podcast')}
+                      onClick={() => { setActiveAsset('podcast'); setAutoPlay(false); }}
                     >
                       <Music size={18} /> Audio Podcast
                     </button>
                     <button 
                       className={`sidebar-btn ${activeAsset === 'video' ? 'active' : ''}`}
-                      onClick={() => setActiveAsset('video')}
+                      onClick={() => { setActiveAsset('video'); setAutoPlay(false); }}
                     >
                       <Video size={18} /> Video Overview
                     </button>
                     <button 
                       className={`sidebar-btn ${activeAsset === 'slides' ? 'active' : ''}`}
-                      onClick={() => setActiveAsset('slides')}
+                      onClick={() => { setActiveAsset('slides'); setAutoPlay(false); }}
                     >
                       <Layers size={18} /> Slide Deck
                     </button>
                     <button 
                       className={`sidebar-btn ${activeAsset === 'report' ? 'active' : ''}`}
-                      onClick={() => setActiveAsset('report')}
+                      onClick={() => { setActiveAsset('report'); setAutoPlay(false); }}
                     >
                       <FileText size={18} /> Study Report
                     </button>
@@ -606,7 +692,7 @@ export default function App() {
                     <button 
                       className="sidebar-btn" 
                       style={{ marginTop: 'auto', borderTop: '1px solid var(--divider)', color: 'var(--primary)' }}
-                      onClick={() => { setSelectedFile(null); setAudioPlaying(false); }}
+                      onClick={() => { setSelectedFile(null); setAudioPlaying(false); setAutoPlay(false); }}
                     >
                       <ArrowLeft size={16} /> Reset Sandbox
                     </button>
@@ -620,7 +706,7 @@ export default function App() {
                       <div className="flashcard-demo">
                         <div 
                           className={`flashcard-inner ${flashcardFlipped ? 'flipped' : ''}`}
-                          onClick={() => setFlashcardFlipped(!flashcardFlipped)}
+                          onClick={() => { setFlashcardFlipped(!flashcardFlipped); setAutoPlay(false); }}
                         >
                           <div className="flashcard">
                             <div className="card-face card-front">
@@ -642,7 +728,7 @@ export default function App() {
                           <button 
                             className="btn-icon" 
                             disabled={currentFlashcard === 0}
-                            onClick={() => { setCurrentFlashcard(prev => prev - 1); setFlashcardFlipped(false); }}
+                            onClick={() => { setCurrentFlashcard(prev => prev - 1); setFlashcardFlipped(false); setAutoPlay(false); }}
                           >
                             <ArrowLeft size={20} />
                           </button>
@@ -652,7 +738,7 @@ export default function App() {
                           <button 
                             className="btn-icon" 
                             disabled={currentFlashcard === activeData.flashcards.length - 1}
-                            onClick={() => { setCurrentFlashcard(prev => prev + 1); setFlashcardFlipped(false); }}
+                            onClick={() => { setCurrentFlashcard(prev => prev + 1); setFlashcardFlipped(false); setAutoPlay(false); }}
                           >
                             <ArrowRight size={20} />
                           </button>
@@ -684,6 +770,7 @@ export default function App() {
                                 onClick={() => {
                                   setSelectedQuizOption(idx);
                                   setQuizAnswered(true);
+                                  setAutoPlay(false);
                                 }}
                               >
                                 {option}
@@ -705,6 +792,7 @@ export default function App() {
                               onClick={() => {
                                 setQuizAnswered(false);
                                 setSelectedQuizOption(null);
+                                setAutoPlay(false);
                               }}
                             >
                               Try Again
@@ -773,7 +861,7 @@ export default function App() {
                                   whiteSpace: 'nowrap',
                                   cursor: 'pointer'
                                 }}
-                                onClick={() => alert(`Node focus: "${node.label}"`)}
+                                onClick={() => { alert(`Node focus: "${node.label}"`); setAutoPlay(false); }}
                               >
                                 {node.label}
                               </div>
@@ -809,7 +897,7 @@ export default function App() {
 
                         {/* Audio Controls bar */}
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%', maxWidth: '360px' }}>
-                          <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                          <div style={{ display: 'flex', width: '100%', justify: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
                             <span>01:12</span>
                             <span>{audioTime}</span>
                           </div>
@@ -821,17 +909,17 @@ export default function App() {
                           </div>
 
                           <div className="podcast-controls" style={{ marginTop: '0.5rem' }}>
-                            <button className="btn-icon" onClick={() => setAudioMuted(!audioMuted)}>
+                            <button className="btn-icon" onClick={() => { setAudioMuted(!audioMuted); setAutoPlay(false); }}>
                               {audioMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
                             </button>
                             <button 
                               className="btn btn-primary" 
                               style={{ width: '56px', height: '56px', padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justify: 'center' }}
-                              onClick={() => setAudioPlaying(!audioPlaying)}
+                              onClick={() => { setAudioPlaying(!audioPlaying); setAutoPlay(false); }}
                             >
                               {audioPlaying ? <Pause size={24} /> : <Play size={24} style={{ marginLeft: '4px' }} />}
                             </button>
-                            <button className="btn-icon" onClick={() => alert("Rewinding 10 seconds")}>
+                            <button className="btn-icon" onClick={() => { alert("Rewinding 10 seconds"); setAutoPlay(false); }}>
                               <RotateCw size={18} />
                             </button>
                           </div>
@@ -867,7 +955,7 @@ export default function App() {
                             className="btn btn-secondary" 
                             style={{ background: 'rgba(255,255,255,0.05)', color: '#ffffff', borderColor: 'rgba(255,255,255,0.1)', padding: '0.4rem 1rem', fontSize: '0.85rem' }}
                             disabled={currentSlide === 0}
-                            onClick={() => setCurrentSlide(prev => prev - 1)}
+                            onClick={() => { setCurrentSlide(prev => prev - 1); setAutoPlay(false); }}
                           >
                             Previous
                           </button>
@@ -875,7 +963,7 @@ export default function App() {
                             className="btn btn-primary" 
                             style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }}
                             disabled={currentSlide === activeData.slides.length - 1}
-                            onClick={() => setCurrentSlide(prev => prev + 1)}
+                            onClick={() => { setCurrentSlide(prev => prev + 1); setAutoPlay(false); }}
                           >
                             Next
                           </button>
@@ -888,7 +976,7 @@ export default function App() {
                       <div style={{ width: '100%' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--divider)', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
                           <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.4rem' }}>Study Synthesis Report</h3>
-                          <button className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }} onClick={() => alert("Downloading PDF summary report...")}>
+                          <button className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }} onClick={() => { alert("Downloading PDF summary report..."); setAutoPlay(false); }}>
                             Download PDF
                           </button>
                         </div>
