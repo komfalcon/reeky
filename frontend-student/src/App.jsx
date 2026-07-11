@@ -241,10 +241,7 @@ export default function App() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
-  // RAYCAST-STYLE CMD+K STATE (PREMIUM OVERHAUL)
-  const [cmdKOpen, setCmdKOpen] = useState(false);
-  const [cmdSearch, setCmdSearch] = useState('');
-  const [activeCommandIndex, setActiveCommandIndex] = useState(0);
+
 
   // FIGMA-STYLE FLOATING CURSOR POSITIONS (PREMIUM OVERHAUL)
   const [cursor1, setCursor1] = useState({ x: 32, y: 35 });
@@ -306,29 +303,7 @@ export default function App() {
   const activeTranscriptIndex = activeData?.transcript.findIndex(
     t => simulatedTime >= t.start && simulatedTime <= t.end
   ) ?? -1;
-
-  // Commands Pool for Cmd+K search
-  const COMMANDS = [
-    { title: "Switch to Dark Mode", action: () => setTheme('dark'), shortcut: "⌘D" },
-    { title: "Switch to Light Mode", action: () => setTheme('light'), shortcut: "⌘L" },
-    { title: "Choose Biology Course", action: () => { handleSelectFile('biology'); setAutoPlay(false); }, shortcut: "⌘1" },
-    { title: "Choose History Course", action: () => { handleSelectFile('history'); setAutoPlay(false); }, shortcut: "⌘2" },
-    { title: "Choose Economics Course", action: () => { handleSelectFile('economics'); setAutoPlay(false); }, shortcut: "⌘3" },
-    { title: "View Flashcards", action: () => { setActiveAsset('flashcards'); setAutoPlay(false); }, shortcut: "⌥F" },
-    { title: "View Quiz", action: () => { setActiveAsset('quiz'); setAutoPlay(false); }, shortcut: "⌥Q" },
-    { title: "View Mindmap", action: () => { setActiveAsset('mindmap'); setAutoPlay(false); }, shortcut: "⌥M" },
-    { title: "View Audio Podcast", action: () => { setActiveAsset('podcast'); setAutoPlay(false); }, shortcut: "⌥P" },
-    { title: "Play / Pause Audio", action: () => { setAudioPlaying(p => !p); setAutoPlay(false); }, shortcut: "Space" },
-    { title: "Scroll to Features Section", action: () => document.getElementById('features').scrollIntoView({ behavior: 'smooth' }) },
-    { title: "Scroll to Before & After", action: () => document.getElementById('comparison').scrollIntoView({ behavior: 'smooth' }) },
-    { title: "Scroll to Interactive Sandbox", action: () => document.getElementById('demo').scrollIntoView({ behavior: 'smooth' }) },
-    { title: "Launch Demo Video", action: () => { setActiveAsset('video'); setAutoPlay(false); } }
-  ];
-
-  const filteredCommands = COMMANDS.filter(cmd => 
-    cmd.title.toLowerCase().includes(cmdSearch.toLowerCase())
-  );
-
+  
   // FIGMA COLLABORATIVE CURSORS DRIFT SIMULATOR
   useEffect(() => {
     const driftInterval = setInterval(() => {
@@ -346,48 +321,15 @@ export default function App() {
     return () => clearInterval(driftInterval);
   }, []);
 
-  // KEYBOARD HOTKEYS LISTENER (CMD+K AND SANDBOX)
+  // KEYBOARD HOTKEYS LISTENER (SANDBOX ONLY)
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // 1. Toggle CmdK Modal
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setCmdKOpen(prev => !prev);
-        setCmdSearch('');
-        setActiveCommandIndex(0);
-        return;
-      }
-
-      // Close CmdK with escape
-      if (e.key === 'Escape' && cmdKOpen) {
-        setCmdKOpen(false);
-        return;
-      }
-
-      // If CmdK Palette is Open: handle navigation and select
-      if (cmdKOpen) {
-        if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          setActiveCommandIndex(prev => (prev + 1) % filteredCommands.length);
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          setActiveCommandIndex(prev => (prev + filteredCommands.length - 1) % filteredCommands.length);
-        } else if (e.key === 'Enter') {
-          e.preventDefault();
-          if (filteredCommands[activeCommandIndex]) {
-            filteredCommands[activeCommandIndex].action();
-            setCmdKOpen(false);
-          }
-        }
-        return;
-      }
-
       // If typing inside an input field elsewhere (e.g. simulated inputs), ignore sandbox hotkeys
       if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
         return;
       }
 
-      // 2. Sandbox hotkeys
+      // Sandbox hotkeys
       if (selectedFile) {
         // Space bar: Audio Play/Pause
         if (e.key === ' ' && activeAsset === 'podcast') {
@@ -426,14 +368,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [cmdKOpen, filteredCommands, activeCommandIndex, selectedFile, activeAsset, activeData]);
-
-  // Focus Input inside CmdK modal automatically when opened
-  useEffect(() => {
-    if (cmdKOpen && cmdKInputRef.current) {
-      cmdKInputRef.current.focus();
-    }
-  }, [cmdKOpen]);
+  }, [selectedFile, activeAsset, activeData]);
 
   // Scroll active transcript line into view
   useEffect(() => {
@@ -782,59 +717,6 @@ export default function App() {
       {/* BACKDROP BLUR OVERLAY */}
       <div className={`backdrop-blur-overlay ${mobileMenuOpen ? 'open' : ''}`} onClick={() => setMobileMenuOpen(false)}></div>
 
-      {/* RAYCAST-STYLE COMMAND PALETTE MODAL OVERLAY (⌘K) */}
-      {cmdKOpen && (
-        <div className="cmdk-backdrop" onClick={() => setCmdKOpen(false)}>
-          <div className="cmdk-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="cmdk-input-wrapper">
-              <Search size={20} color="rgba(255,255,255,0.4)" />
-              <input 
-                ref={cmdKInputRef}
-                type="text" 
-                placeholder="Search command menu..." 
-                className="cmdk-input"
-                value={cmdSearch}
-                onChange={(e) => {
-                  setCmdSearch(e.target.value);
-                  setActiveCommandIndex(0);
-                }}
-              />
-              <span className="cmdk-shortcut">ESC</span>
-            </div>
-
-            <div className="cmdk-list">
-              <div className="cmdk-group-title">Navigation & Preferences</div>
-              {filteredCommands.map((cmd, idx) => (
-                <div 
-                  key={idx} 
-                  className={`cmdk-item ${idx === activeCommandIndex ? 'active' : ''}`}
-                  onMouseEnter={() => setActiveCommandIndex(idx)}
-                  onClick={() => {
-                    cmd.action();
-                    setCmdKOpen(false);
-                  }}
-                >
-                  <span>{cmd.title}</span>
-                  {cmd.shortcut && <span className="cmdk-shortcut">{cmd.shortcut}</span>}
-                </div>
-              ))}
-              {filteredCommands.length === 0 && (
-                <div style={{ padding: '2rem 1.5rem', textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: '0.9rem' }}>
-                  No matching command parameters found.
-                </div>
-              )}
-            </div>
-
-            <div className="cmdk-footer">
-              <span>Use arrow keys to navigate commands</span>
-              <div className="cmdk-footer-actions">
-                <span>Select <span className="cmdk-shortcut">↵</span></span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* DOWNLOAD HUB MODAL */}
       {downloading && (
         <div className="modal-overlay">
@@ -889,28 +771,7 @@ export default function App() {
             Reeky Academic Hub
           </div>
 
-          {/* Linear-style search integration */}
-          <div 
-            style={{ 
-              background: 'var(--input-bg)', 
-              border: '1px solid var(--card-border)', 
-              borderRadius: '50px', 
-              padding: '0.4rem 1rem', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.5rem', 
-              width: '240px',
-              cursor: 'pointer',
-              marginLeft: '2rem'
-            }}
-            onClick={() => setCmdKOpen(true)}
-          >
-            <Search size={14} color="var(--text-muted)" />
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Command palette</span>
-            <span className="cmdk-shortcut" style={{ marginLeft: 'auto', fontSize: '0.6rem' }}>⌘K</span>
-          </div>
-
-          <ul className="nav-menu" style={{ marginLeft: 'auto', marginRight: '2rem' }}>
+          <ul className="nav-menu">
             <li><a href="#features" className="nav-link">Features</a></li>
             <li><a href="#comparison" className="nav-link">Before & After</a></li>
             <li><a href="#demo" className="nav-link">Interactive Demo</a></li>
@@ -1744,10 +1605,82 @@ export default function App() {
 
                     {/* VIDEO OVERVIEW */}
                     {activeAsset === 'video' && (
-                      <div className="video-demo">
-                        <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1.25rem', marginBottom: '1rem' }}>Synthesized Video Overview</h3>
-                        <div className="video-wrapper" style={{ border: '1px solid var(--card-border)', borderRadius: '20px' }}>
-                          <video src="/video3.mp4" controls autoPlay loop muted playsInline />
+                      <div className="video-demo" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+                        <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1.25rem', marginBottom: '1.5rem', textAlign: 'center' }}>
+                          Synthesized Video Overview
+                        </h3>
+                        
+                        {/* SLEEK MOCK LAPTOP DEVICE FRAME (LINEAR/RAYCAST STYLE) */}
+                        <div style={{
+                          position: 'relative',
+                          width: '100%',
+                          maxWidth: '560px',
+                          background: '#1e293b',
+                          border: '12px solid #0f172a',
+                          borderRadius: '24px 24px 0 0',
+                          boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5), 0 0 40px rgba(99, 102, 241, 0.15)',
+                          overflow: 'hidden'
+                        }}>
+                          {/* Screen Web Camera dot */}
+                          <div style={{
+                            position: 'absolute',
+                            top: '4px',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            width: '6px',
+                            height: '6px',
+                            borderRadius: '50%',
+                            background: '#334155',
+                            zIndex: 10
+                          }} />
+                          
+                          {/* Inner Screen Video */}
+                          <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', background: '#000' }}>
+                            <video 
+                              src="/video3.mp4" 
+                              controls 
+                              autoPlay 
+                              loop 
+                              muted 
+                              playsInline 
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                            
+                            {/* Glass overlay reflection */}
+                            <div style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              width: '100%',
+                              height: '100%',
+                              background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 50%)',
+                              pointerEvents: 'none'
+                            }} />
+                          </div>
+                        </div>
+                        
+                        {/* Laptop base */}
+                        <div style={{
+                          width: '100%',
+                          maxWidth: '640px',
+                          height: '12px',
+                          background: '#0f172a',
+                          borderRadius: '0 0 12px 12px',
+                          boxShadow: '0 10px 20px rgba(0,0,0,0.3)',
+                          position: 'relative',
+                          borderBottom: '4px solid #334155'
+                        }}>
+                          {/* Screen opener notch */}
+                          <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            width: '60px',
+                            height: '4px',
+                            background: '#1e293b',
+                            borderRadius: '0 0 4px 4px'
+                          }} />
                         </div>
                       </div>
                     )}
