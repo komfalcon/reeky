@@ -214,6 +214,9 @@ export default function App() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
+  // Interactive Hero 3D Rotation State
+  const [heroRotation, setHeroRotation] = useState({ x: 0, y: 0 });
+
   // Sandbox state
   const [selectedFile, setSelectedFile] = useState(null); // 'biology', 'history', 'economics'
   const [loadingDemo, setLoadingDemo] = useState(false);
@@ -231,7 +234,6 @@ export default function App() {
   // Audio Player states
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [audioMuted, setAudioMuted] = useState(false);
-  const [audioVolume, setAudioVolume] = useState(80);
   const [audioProgress, setAudioProgress] = useState(25);
   const [audioTime, setAudioTime] = useState('02:40');
   const visualizerInterval = useRef(null);
@@ -260,12 +262,19 @@ export default function App() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Visualizer bar animation when playing podcast
+  // Visualizer bar animation (Apple-style fluid sine-wave visualizer)
   useEffect(() => {
     if (audioPlaying) {
+      let time = 0;
       visualizerInterval.current = setInterval(() => {
-        setVisHeights(prev => prev.map(() => Math.floor(Math.random() * 32) + 8));
-      }, 150);
+        time += 0.25;
+        setVisHeights(prev => prev.map((_, i) => {
+          // Combine two sine waves for a highly fluid undulating motion
+          const wave1 = Math.sin(time + i * 0.4) * 16;
+          const wave2 = Math.cos(time * 1.6 + i * 0.35) * 8;
+          return Math.abs(wave1 + wave2) + 6;
+        }));
+      }, 75);
       
       // Simulate audio progress
       audioIntervalRef.current = setInterval(() => {
@@ -347,6 +356,25 @@ export default function App() {
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
+
+  // Mouse move handler for Interactive 3D Hero dashboard
+  const handleHeroMouseMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left - rect.width / 2; // Offset X from center
+    const y = e.clientY - rect.top - rect.height / 2; // Offset Y from center
+    
+    // Calculate rotation angles (caps to max of 15 degrees)
+    const factor = 12;
+    setHeroRotation({
+      x: -(y / rect.height) * factor,
+      y: (x / rect.width) * factor
+    });
+  };
+
+  const handleHeroMouseLeave = () => {
+    // Reset to flat default smoothly
+    setHeroRotation({ x: 0, y: 0 });
   };
 
   // Mock file parsing pipeline
@@ -488,10 +516,69 @@ export default function App() {
             </div>
           </div>
 
-          <div className="hero-visual">
-            <div className="video-card-container">
-              <div className="video-wrapper">
-                <video src="/video1.mp4" autoPlay loop muted playsInline />
+          {/* 3D INTERACTIVE HERO DASHBOARD (Replacing Video 1) */}
+          <div 
+            className="hero-visual"
+            onMouseMove={handleHeroMouseMove}
+            onMouseLeave={handleHeroMouseLeave}
+          >
+            <div 
+              className="hero-interactive-dashboard"
+              style={{
+                transform: `rotateX(${heroRotation.x}deg) rotateY(${heroRotation.y}deg)`
+              }}
+            >
+              <div className="dashboard-base">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--divider)', paddingBottom: '0.75rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Sparkles size={16} color="var(--primary)" />
+                    <span style={{ fontWeight: 800, fontSize: '0.85rem' }}>Personalized Study Portal</span>
+                  </div>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Status: Active</span>
+                </div>
+
+                <div style={{ padding: '1rem 0' }}>
+                  <h4 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1.1rem', marginBottom: '0.5rem' }}>Biology_Cellular_Powerhouse.pdf</h4>
+                  <div style={{ height: '8px', width: '70%', background: 'var(--divider)', borderRadius: '10px' }} />
+                  <div style={{ height: '8px', width: '45%', background: 'var(--divider)', borderRadius: '10px', marginTop: '0.4rem' }} />
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--divider)', paddingTop: '0.75rem', display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                  <span>Generated: 8 modules</span>
+                  <span>100% completed</span>
+                </div>
+              </div>
+
+              {/* Floating Dashboard Elements */}
+              <div className="floating-sub-card card-doc">
+                <h4><FileText size={16} color="var(--primary)" /> Lectures.pdf</h4>
+                <p>Biology Core Syllabus</p>
+              </div>
+
+              <div className="floating-sub-card card-podcast">
+                <h4>
+                  <Music size={16} color="var(--secondary)" /> 
+                  Podcast Audio
+                  <span style={{ marginLeft: 'auto', display: 'flex' }}>
+                    <span className="mini-wave-bar"></span>
+                    <span className="mini-wave-bar"></span>
+                    <span className="mini-wave-bar"></span>
+                    <span className="mini-wave-bar"></span>
+                  </span>
+                </h4>
+                <p>Episode 1: Powerhouse dynamics</p>
+              </div>
+
+              <div className="floating-sub-card card-mindmap">
+                <h4><Network size={16} color="var(--primary)" /> Concept Node</h4>
+                <p style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  Active links <span className="mini-node-pulse"></span>
+                </p>
+              </div>
+
+              <div className="floating-sub-card card-flashcard">
+                <span style={{ fontSize: '0.6rem', textTransform: 'uppercase', color: 'var(--primary)', fontWeight: 800 }}>Flashcard</span>
+                <h4 style={{ fontSize: '0.75rem', fontWeight: 600, marginTop: '0.15rem' }}>What is ATP?</h4>
               </div>
             </div>
           </div>
@@ -802,7 +889,7 @@ export default function App() {
                       </div>
                     )}
 
-                    {/* MINDMAP VIEWER */}
+                    {/* SELF-DRAWING SVG MINDMAP (Sandbox) */}
                     {activeAsset === 'mindmap' && (
                       <div style={{ width: '100%' }}>
                         <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1.25rem', marginBottom: '1rem' }}>Interactive Mindmap Graph</h3>
@@ -820,14 +907,15 @@ export default function App() {
                                   y1={fromNode.y} 
                                   x2={toNode.x} 
                                   y2={toNode.y} 
-                                  stroke={theme === 'dark' ? 'rgba(99, 102, 241, 0.4)' : '#e2e8f0'} 
-                                  strokeWidth="2" 
+                                  stroke={theme === 'dark' ? 'rgba(99, 102, 241, 0.5)' : 'rgba(99, 102, 241, 0.2)'} 
+                                  strokeWidth="3"
+                                  className="mindmap-line"
                                 />
                               );
                             })}
                           </svg>
 
-                          {/* Nodes */}
+                          {/* Nodes with spring pop animation */}
                           {activeData.mindmap.nodes.map((node) => {
                             let nodeBg = 'var(--card-bg)';
                             let nodeBorder = 'var(--card-border)';
@@ -845,25 +933,30 @@ export default function App() {
                             return (
                               <div 
                                 key={node.id} 
+                                className="mindmap-node-container"
                                 style={{
-                                  position: 'absolute',
                                   left: node.x,
                                   top: node.y,
-                                  transform: 'translate(-50%, -50%)',
-                                  background: nodeBg,
-                                  border: `1px solid ${nodeBorder}`,
-                                  color: nodeColor,
-                                  borderRadius: '20px',
-                                  padding: '0.4rem 1rem',
-                                  fontSize: '0.8rem',
-                                  fontWeight: 700,
-                                  boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-                                  whiteSpace: 'nowrap',
-                                  cursor: 'pointer'
+                                  animationDelay: `${parseInt(node.id) * 0.15}s`
                                 }}
-                                onClick={() => { alert(`Node focus: "${node.label}"`); setAutoPlay(false); }}
                               >
-                                {node.label}
+                                <div 
+                                  style={{
+                                    background: nodeBg,
+                                    border: `1px solid ${nodeBorder}`,
+                                    color: nodeColor,
+                                    borderRadius: '20px',
+                                    padding: '0.4rem 1rem',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 700,
+                                    boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
+                                    whiteSpace: 'nowrap',
+                                    cursor: 'pointer'
+                                  }}
+                                  onClick={() => { alert(`Node focus: "${node.label}"`); setAutoPlay(false); }}
+                                >
+                                  {node.label}
+                                </div>
                               </div>
                             );
                           })}
@@ -1004,9 +1097,23 @@ export default function App() {
           </div>
 
           <div className="pipeline-grid">
-            <div className="video-card-container" style={{ transform: 'none' }}>
-              <div className="video-wrapper">
-                <video src="/video2.mp4" autoPlay loop muted playsInline />
+            {/* GLASSMORPHIC AI PIPELINE CORE (Replacing Video 2) */}
+            <div className="pipeline-portal-visual">
+              <div className="portal-container">
+                <div className="portal-doc-input">
+                  <FileText size={32} />
+                </div>
+                <div className="portal-core">
+                  <div className="portal-core-ring"></div>
+                  <div className="portal-core-inner">
+                    <Sparkles size={32} />
+                  </div>
+                </div>
+                <div className="portal-outputs">
+                  <div className="portal-out-card"><Music size={20} /></div>
+                  <div className="portal-out-card"><HelpCircle size={20} /></div>
+                  <div className="portal-out-card"><Network size={20} /></div>
+                </div>
               </div>
             </div>
 
