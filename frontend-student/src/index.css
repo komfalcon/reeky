@@ -412,29 +412,19 @@ a {
 /* FRAMER-STYLE NEON SWEEPING BORDER */
 .sweeping-border {
   position: relative;
-  background: var(--bg);
+  border: 1.5px solid transparent !important;
+  background: linear-gradient(var(--card-bg), var(--card-bg)) padding-box,
+              linear-gradient(90deg, var(--primary), var(--secondary), var(--primary)) border-box !important;
+  background-size: 100% 100%, 200% 200% !important;
   border-radius: 28px;
   z-index: 1;
-}
-
-.sweeping-border::before {
-  content: '';
-  position: absolute;
-  top: -1.5px;
-  left: -1.5px;
-  right: -1.5px;
-  bottom: -1.5px;
-  background: linear-gradient(90deg, var(--primary), var(--secondary), var(--primary));
-  background-size: 200% 200%;
-  border-radius: 29px;
-  z-index: -1;
   animation: sweepGradient 4s linear infinite;
 }
 
 @keyframes sweepGradient {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0% { background-position: 0% 0%, 0% 50%; }
+  50% { background-position: 0% 0%, 100% 50%; }
+  100% { background-position: 0% 0%, 0% 50%; }
 }
 
 .dashboard-base {
@@ -974,11 +964,11 @@ a {
 
 .sandbox-sidebar {
   border-right: 1px solid var(--divider);
-  padding: 1rem;
+  padding: 1.5rem 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  background: rgba(148, 163, 184, 0.02);
+  background: var(--bg);
 }
 
 @media (max-width: 900px) {
@@ -997,10 +987,10 @@ a {
   gap: 0.75rem;
   padding: 0.85rem 1.25rem;
   border-radius: 12px;
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
   color: var(--text-muted);
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.9rem;
   text-align: left;
   cursor: pointer;
@@ -1018,14 +1008,17 @@ a {
 .sidebar-btn:hover {
   background: var(--accent-glow);
   color: var(--primary);
+  border-color: rgba(99, 102, 241, 0.1);
 }
 
 .sidebar-btn.active {
-  background: var(--primary);
-  color: #ffffff;
+  background: var(--accent-glow);
+  color: var(--primary);
+  border-color: rgba(99, 102, 241, 0.2);
 }
 
 .sandbox-viewer {
+  background: var(--card-bg);
   padding: 2.5rem;
   display: flex;
   flex-direction: column;
