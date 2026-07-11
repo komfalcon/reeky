@@ -26,7 +26,11 @@ import {
   Video,
   FileSpreadsheet,
   Network,
-  Download
+  Download,
+  Search,
+  Command,
+  CornerDownLeft,
+  Users
 } from 'lucide-react';
 
 // Sample Mock Data
@@ -232,26 +236,36 @@ Standard monetary tools are optimized for demand-pull inflation. In cases of sup
 };
 
 export default function App() {
-  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
+  // Default to Dark Mode as approved to match Raycast/Linear visual strength
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
+  // RAYCAST-STYLE CMD+K STATE (PREMIUM OVERHAUL)
+  const [cmdKOpen, setCmdKOpen] = useState(false);
+  const [cmdSearch, setCmdSearch] = useState('');
+  const [activeCommandIndex, setActiveCommandIndex] = useState(0);
+
+  // FIGMA-STYLE FLOATING CURSOR POSITIONS (PREMIUM OVERHAUL)
+  const [cursor1, setCursor1] = useState({ x: 32, y: 35 });
+  const [cursor2, setCursor2] = useState({ x: 68, y: 55 });
+
   // Interactive Hero 3D Rotation State
   const [heroRotation, setHeroRotation] = useState({ x: 0, y: 0 });
 
-  // PREMIUM UPGRADE: Before-After Slider State
+  // Before-After Slider State
   const [sliderPos, setSliderPos] = useState(50);
 
-  // PREMIUM UPGRADE: Spaced Repetition Mastery State
+  // Spaced Repetition Mastery State
   const [mastery, setMastery] = useState(0);
   const [swipeClass, setSwipeClass] = useState('');
 
-  // PREMIUM UPGRADE: Multi-Question Quiz state
+  // Multi-Question Quiz state
   const [quizStep, setQuizStep] = useState(0);
   const [quizScore, setQuizScore] = useState(0);
   const [quizFinished, setQuizFinished] = useState(false);
 
-  // PREMIUM UPGRADE: Glassmorphic Download Modal state
+  // Glassmorphic Download Modal state
   const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloadAsset, setDownloadAsset] = useState('');
@@ -282,15 +296,144 @@ export default function App() {
   const audioIntervalRef = useRef(null);
   const canvasRef = useRef(null);
   const activeLineRef = useRef(null);
+  const cmdKInputRef = useRef(null);
   const activeData = selectedFile ? MOCK_DATA[selectedFile] : null;
 
-  // PREMIUM UPGRADE: Synchronized Podcast transcript state calculation
+  // Synchronized Podcast transcript state calculation
   const totalDuration = 160; // 2 min 40s
   const simulatedTime = (audioProgress / 100) * totalDuration;
   
   const activeTranscriptIndex = activeData?.transcript.findIndex(
     t => simulatedTime >= t.start && simulatedTime <= t.end
   ) ?? -1;
+
+  // Commands Pool for Cmd+K search
+  const COMMANDS = [
+    { title: "Switch to Dark Mode", action: () => setTheme('dark'), shortcut: "⌘D" },
+    { title: "Switch to Light Mode", action: () => setTheme('light'), shortcut: "⌘L" },
+    { title: "Choose Biology Course", action: () => { handleSelectFile('biology'); setAutoPlay(false); }, shortcut: "⌘1" },
+    { title: "Choose History Course", action: () => { handleSelectFile('history'); setAutoPlay(false); }, shortcut: "⌘2" },
+    { title: "Choose Economics Course", action: () => { handleSelectFile('economics'); setAutoPlay(false); }, shortcut: "⌘3" },
+    { title: "View Flashcards", action: () => { setActiveAsset('flashcards'); setAutoPlay(false); }, shortcut: "⌥F" },
+    { title: "View Quiz", action: () => { setActiveAsset('quiz'); setAutoPlay(false); }, shortcut: "⌥Q" },
+    { title: "View Mindmap", action: () => { setActiveAsset('mindmap'); setAutoPlay(false); }, shortcut: "⌥M" },
+    { title: "View Audio Podcast", action: () => { setActiveAsset('podcast'); setAutoPlay(false); }, shortcut: "⌥P" },
+    { title: "Play / Pause Audio", action: () => { setAudioPlaying(p => !p); setAutoPlay(false); }, shortcut: "Space" },
+    { title: "Scroll to Features Section", action: () => document.getElementById('features').scrollIntoView({ behavior: 'smooth' }) },
+    { title: "Scroll to Before & After", action: () => document.getElementById('comparison').scrollIntoView({ behavior: 'smooth' }) },
+    { title: "Scroll to Interactive Sandbox", action: () => document.getElementById('demo').scrollIntoView({ behavior: 'smooth' }) },
+    { title: "Launch Demo Video", action: () => { setActiveAsset('video'); setAutoPlay(false); } }
+  ];
+
+  const filteredCommands = COMMANDS.filter(cmd => 
+    cmd.title.toLowerCase().includes(cmdSearch.toLowerCase())
+  );
+
+  // FIGMA COLLABORATIVE CURSORS DRIFT SIMULATOR
+  useEffect(() => {
+    const driftInterval = setInterval(() => {
+      // Walk path inside bounds
+      setCursor1(prev => ({
+        x: Math.max(15, Math.min(85, prev.x + (Math.random() - 0.5) * 22)),
+        y: Math.max(20, Math.min(80, prev.y + (Math.random() - 0.5) * 22))
+      }));
+      setCursor2(prev => ({
+        x: Math.max(15, Math.min(85, prev.x + (Math.random() - 0.5) * 22)),
+        y: Math.max(20, Math.min(80, prev.y + (Math.random() - 0.5) * 22))
+      }));
+    }, 2800);
+
+    return () => clearInterval(driftInterval);
+  }, []);
+
+  // KEYBOARD HOTKEYS LISTENER (CMD+K AND SANDBOX)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // 1. Toggle CmdK Modal
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setCmdKOpen(prev => !prev);
+        setCmdSearch('');
+        setActiveCommandIndex(0);
+        return;
+      }
+
+      // Close CmdK with escape
+      if (e.key === 'Escape' && cmdKOpen) {
+        setCmdKOpen(false);
+        return;
+      }
+
+      // If CmdK Palette is Open: handle navigation and select
+      if (cmdKOpen) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setActiveCommandIndex(prev => (prev + 1) % filteredCommands.length);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setActiveCommandIndex(prev => (prev + filteredCommands.length - 1) % filteredCommands.length);
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          if (filteredCommands[activeCommandIndex]) {
+            filteredCommands[activeCommandIndex].action();
+            setCmdKOpen(false);
+          }
+        }
+        return;
+      }
+
+      // If typing inside an input field elsewhere (e.g. simulated inputs), ignore sandbox hotkeys
+      if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      // 2. Sandbox hotkeys
+      if (selectedFile) {
+        // Space bar: Audio Play/Pause
+        if (e.key === ' ' && activeAsset === 'podcast') {
+          e.preventDefault();
+          setAudioPlaying(p => !p);
+          setAutoPlay(false);
+        }
+        // F key: Flashcard Flip
+        if ((e.key === 'f' || e.key === 'F') && activeAsset === 'flashcards') {
+          e.preventDefault();
+          setFlashcardFlipped(f => !f);
+          setAutoPlay(false);
+        }
+        // Right arrow: next card / slide
+        if (e.key === 'ArrowRight') {
+          setAutoPlay(false);
+          if (activeAsset === 'flashcards') {
+            setCurrentFlashcard(prev => (prev + 1) % activeData.flashcards.length);
+            setFlashcardFlipped(false);
+          } else if (activeAsset === 'slides') {
+            setCurrentSlide(prev => Math.min(activeData.slides.length - 1, prev + 1));
+          }
+        }
+        // Left arrow: prev card / slide
+        if (e.key === 'ArrowLeft') {
+          setAutoPlay(false);
+          if (activeAsset === 'flashcards') {
+            setCurrentFlashcard(prev => (prev + activeData.flashcards.length - 1) % activeData.flashcards.length);
+            setFlashcardFlipped(false);
+          } else if (activeAsset === 'slides') {
+            setCurrentSlide(prev => Math.max(0, prev - 1));
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [cmdKOpen, filteredCommands, activeCommandIndex, selectedFile, activeAsset, activeData]);
+
+  // Focus Input inside CmdK modal automatically when opened
+  useEffect(() => {
+    if (cmdKOpen && cmdKInputRef.current) {
+      cmdKInputRef.current.focus();
+    }
+  }, [cmdKOpen]);
 
   // Scroll active transcript line into view
   useEffect(() => {
@@ -356,7 +499,7 @@ export default function App() {
     };
   }, [audioPlaying]);
 
-  // PREMIUM UPGRADE: Interactive Canvas Neural Network Particle Background
+  // Interactive Canvas Neural Network Particle Background
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -475,7 +618,6 @@ export default function App() {
           if (!flashcardFlipped) {
             setFlashcardFlipped(true); 
           } else {
-            // Trigger auto rating
             handleSpacedRepetition('easy');
           }
         } else if (activeAsset === 'quiz') {
@@ -526,7 +668,7 @@ export default function App() {
     return () => clearInterval(intervalTimer);
   }, [autoPlay, selectedFile, loadingDemo, activeAsset, flashcardFlipped, quizAnswered, currentSlide, activeData, quizStep, quizFinished]);
 
-  // PREMIUM UPGRADE: Spaced Repetition card swiping handler
+  // Spaced Repetition card swiping handler
   const handleSpacedRepetition = (confidence) => {
     setSwipeClass(confidence === 'easy' ? 'swipe-right-animation' : 'swipe-left-animation');
     
@@ -540,7 +682,7 @@ export default function App() {
     }, 350);
   };
 
-  // PREMIUM UPGRADE: Mock download synthesis bar
+  // Mock download synthesis bar
   const startMockDownload = (assetName) => {
     setDownloadAsset(assetName);
     setDownloadProgress(0);
@@ -577,6 +719,16 @@ export default function App() {
 
   const handleHeroMouseLeave = () => {
     setHeroRotation({ x: 0, y: 0 });
+  };
+
+  // Linear-style mouse spotlight coordinates calculation
+  const handleBentoMouseMove = (e) => {
+    const card = e.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    card.style.setProperty('--mouse-x', `${x}px`);
+    card.style.setProperty('--mouse-y', `${y}px`);
   };
 
   // Mock file parsing pipeline
@@ -620,13 +772,70 @@ export default function App() {
 
   return (
     <div style={{ position: 'relative', minHeight: '100vh' }}>
-      {/* CANVAS NEURAL PARTICLES BACKDROP (PREMIUM UPGRADE) */}
+      {/* CANVAS NEURAL PARTICLES BACKDROP */}
       <canvas ref={canvasRef} className="canvas-backdrop" />
+
+      {/* BACKGROUND GLOW BLOBS (LINEAR-STYLE) */}
+      <div className="glow-blob blob-1"></div>
+      <div className="glow-blob blob-2"></div>
 
       {/* BACKDROP BLUR OVERLAY */}
       <div className={`backdrop-blur-overlay ${mobileMenuOpen ? 'open' : ''}`} onClick={() => setMobileMenuOpen(false)}></div>
 
-      {/* DOWNLOAD HUB MODAL (PREMIUM UPGRADE) */}
+      {/* RAYCAST-STYLE COMMAND PALETTE MODAL OVERLAY (⌘K) */}
+      {cmdKOpen && (
+        <div className="cmdk-backdrop" onClick={() => setCmdKOpen(false)}>
+          <div className="cmdk-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cmdk-input-wrapper">
+              <Search size={20} color="rgba(255,255,255,0.4)" />
+              <input 
+                ref={cmdKInputRef}
+                type="text" 
+                placeholder="Search command menu..." 
+                className="cmdk-input"
+                value={cmdSearch}
+                onChange={(e) => {
+                  setCmdSearch(e.target.value);
+                  setActiveCommandIndex(0);
+                }}
+              />
+              <span className="cmdk-shortcut">ESC</span>
+            </div>
+
+            <div className="cmdk-list">
+              <div className="cmdk-group-title">Navigation & Preferences</div>
+              {filteredCommands.map((cmd, idx) => (
+                <div 
+                  key={idx} 
+                  className={`cmdk-item ${idx === activeCommandIndex ? 'active' : ''}`}
+                  onMouseEnter={() => setActiveCommandIndex(idx)}
+                  onClick={() => {
+                    cmd.action();
+                    setCmdKOpen(false);
+                  }}
+                >
+                  <span>{cmd.title}</span>
+                  {cmd.shortcut && <span className="cmdk-shortcut">{cmd.shortcut}</span>}
+                </div>
+              ))}
+              {filteredCommands.length === 0 && (
+                <div style={{ padding: '2rem 1.5rem', textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: '0.9rem' }}>
+                  No matching command parameters found.
+                </div>
+              )}
+            </div>
+
+            <div className="cmdk-footer">
+              <span>Use arrow keys to navigate commands</span>
+              <div className="cmdk-footer-actions">
+                <span>Select <span className="cmdk-shortcut">↵</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DOWNLOAD HUB MODAL */}
       {downloading && (
         <div className="modal-overlay">
           <div className="modal-box">
@@ -680,7 +889,28 @@ export default function App() {
             Reeky Academic Hub
           </div>
 
-          <ul className="nav-menu">
+          {/* Linear-style search integration */}
+          <div 
+            style={{ 
+              background: 'var(--input-bg)', 
+              border: '1px solid var(--card-border)', 
+              borderRadius: '50px', 
+              padding: '0.4rem 1rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.5rem', 
+              width: '240px',
+              cursor: 'pointer',
+              marginLeft: '2rem'
+            }}
+            onClick={() => setCmdKOpen(true)}
+          >
+            <Search size={14} color="var(--text-muted)" />
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Command palette</span>
+            <span className="cmdk-shortcut" style={{ marginLeft: 'auto', fontSize: '0.6rem' }}>⌘K</span>
+          </div>
+
+          <ul className="nav-menu" style={{ marginLeft: 'auto', marginRight: '2rem' }}>
             <li><a href="#features" className="nav-link">Features</a></li>
             <li><a href="#comparison" className="nav-link">Before & After</a></li>
             <li><a href="#demo" className="nav-link">Interactive Demo</a></li>
@@ -691,7 +921,7 @@ export default function App() {
             <button className="btn-icon" onClick={toggleTheme} aria-label="Toggle theme">
               {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
             </button>
-            <button className="btn btn-secondary" style={{ display: 'flex' }} onClick={() => alert("Authentication and student dashboard features are currently in development by the engineering team. Try the interactive demo below!")}>
+            <button className="btn btn-secondary" style={{ display: 'flex' }} onClick={() => alert("Authentication is in development. Test the interactive sandbox below!")}>
               Student Log In
             </button>
             <button className="btn-icon menu-toggle" onClick={() => setMobileMenuOpen(true)}>
@@ -725,7 +955,23 @@ export default function App() {
       {/* HERO SECTION */}
       <section className="hero-section">
         <div className="container hero-grid">
-          <div className="hero-content">
+          <div className="hero-content" style={{ position: 'relative' }}>
+            
+            {/* FIGMA COLLABORATIVE FLOATING CURSORS */}
+            <div className="collaborative-cursor" style={{ left: `${cursor1.x}%`, top: `${cursor1.y}%` }}>
+              <svg width="14" height="20" viewBox="0 0 14 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1 1V17.5L5.5 13L10.5 20L13 18.5L8 11.5L13.5 11.5L1 1Z" fill="#a855f7" stroke="#ffffff" strokeWidth="1.5" strokeLinejoin="round"/>
+              </svg>
+              <div className="cursor-label" style={{ background: '#a855f7' }}>Dr. Aris</div>
+            </div>
+
+            <div className="collaborative-cursor" style={{ left: `${cursor2.x}%`, top: `${cursor2.y}%` }}>
+              <svg width="14" height="20" viewBox="0 0 14 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1 1V17.5L5.5 13L10.5 20L13 18.5L8 11.5L13.5 11.5L1 1Z" fill="#06b6d4" stroke="#ffffff" strokeWidth="1.5" strokeLinejoin="round"/>
+              </svg>
+              <div className="cursor-label" style={{ background: '#06b6d4' }}>Sophia</div>
+            </div>
+
             <div className="badge">
               <span></span> Tailored AI Study Suites
             </div>
@@ -760,14 +1006,14 @@ export default function App() {
             </div>
           </div>
 
-          {/* 3D INTERACTIVE HERO DASHBOARD */}
+          {/* 3D INTERACTIVE HERO DASHBOARD WITH SWEEPING NEON BORDERS */}
           <div 
             className="hero-visual"
             onMouseMove={handleHeroMouseMove}
             onMouseLeave={handleHeroMouseLeave}
           >
             <div 
-              className="hero-interactive-dashboard"
+              className="hero-interactive-dashboard sweeping-border"
               style={{
                 transform: `rotateX(${heroRotation.x}deg) rotateY(${heroRotation.y}deg)`
               }}
@@ -829,7 +1075,7 @@ export default function App() {
         </div>
       </section>
 
-      {/* PREMIUM UPGRADE: BEFORE & AFTER COMPARISON SLIDER */}
+      {/* BEFORE & AFTER COMPARISON SLIDER */}
       <section className="split-slider-section" id="comparison">
         <div className="container">
           <div className="section-title">
@@ -838,7 +1084,6 @@ export default function App() {
           </div>
 
           <div className="split-slider-wrapper">
-            {/* Range Input Slider (Layered on top) */}
             <input 
               type="range" 
               min="0" 
@@ -848,13 +1093,11 @@ export default function App() {
               className="split-bar-input"
             />
 
-            {/* Slider Line Divider */}
             <div className="split-divider-line" style={{ left: `${sliderPos}%` }}></div>
             <div className="split-divider-handle" style={{ left: `${sliderPos}%` }}>
               <Compass size={24} />
             </div>
 
-            {/* Panel 1: BEFORE (Left layer, lower z-index) */}
             <div className="slider-panel slider-before">
               <h2 style={{ fontFamily: 'Georgia, serif', fontSize: '1.75rem', color: '#1e293b', marginBottom: '1.5rem' }}>Chapter 4: The Cellular Organelles</h2>
               <p style={{ fontFamily: 'Georgia, serif', marginBottom: '1rem' }}>
@@ -865,7 +1108,6 @@ export default function App() {
               </p>
             </div>
 
-            {/* Panel 2: AFTER (Right layer, higher z-index, width dynamic) */}
             <div className="slider-panel slider-after" style={{ width: `${sliderPos}%` }}>
               <div className="slider-after-content">
                 <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', borderBottom: '1px solid var(--divider)', paddingBottom: '1rem' }}>
@@ -901,7 +1143,7 @@ export default function App() {
         </div>
       </section>
 
-      {/* CORE FEATURES CATALOG */}
+      {/* LINEAR-STYLE BENTO GRID SECTION */}
       <section className="features-section" id="features">
         <div className="container">
           <div className="section-title">
@@ -909,45 +1151,82 @@ export default function App() {
             <p>One document upload, eight interactive and downloadable study materials tailored to your exact learning preferences.</p>
           </div>
 
-          <div className="features-grid">
-            <div className="feature-card">
-              <div className="feature-icon"><Music size={24} /></div>
-              <h3>Personal Study Podcast</h3>
-              <p>Listen to an engaging, dialogue-style audio summary breaking down complex theories into simple concepts.</p>
+          <div className="bento-grid">
+            
+            {/* Bento Card 1: Double Width (Podcast) */}
+            <div className="bento-card w-2" onMouseMove={handleBentoMouseMove}>
+              <div>
+                <div className="bento-icon"><Music size={24} /></div>
+                <h3>Personal Study Podcast</h3>
+                <p>Listen to an engaging, dialogue-style audio summary breaking down complex theories into simple concepts. Download, listen, and learn on the go.</p>
+              </div>
+              <div style={{ display: 'flex', gap: '4px', height: '24px', alignItems: 'center', marginTop: '1.5rem', width: '150px' }}>
+                <span className="mini-wave-bar" style={{ background: 'var(--primary)' }}></span>
+                <span className="mini-wave-bar" style={{ background: 'var(--secondary)' }}></span>
+                <span className="mini-wave-bar" style={{ background: 'var(--primary)' }}></span>
+                <span className="mini-wave-bar" style={{ background: 'var(--secondary)' }}></span>
+                <span className="mini-wave-bar" style={{ background: 'var(--primary)' }}></span>
+              </div>
             </div>
-            <div className="feature-card">
-              <div className="feature-icon"><Network size={24} /></div>
+
+            {/* Bento Card 2: Concept Mindmaps */}
+            <div className="bento-card" onMouseMove={handleBentoMouseMove}>
+              <div className="bento-icon"><Network size={24} /></div>
               <h3>Interactive Mindmaps</h3>
               <p>Map and visualize conceptual nodes extracted from your textbook to build associative neural connections.</p>
             </div>
-            <div className="feature-card">
-              <div className="feature-icon"><BookOpen size={24} /></div>
+
+            {/* Bento Card 3: Smart Flashcards */}
+            <div className="bento-card" onMouseMove={handleBentoMouseMove}>
+              <div className="bento-icon"><BookOpen size={24} /></div>
               <h3>Smart Flashcards</h3>
               <p>Test your active recall with custom-generated digital flashcards covering key definitions and formulas.</p>
             </div>
-            <div className="feature-card">
-              <div className="feature-icon"><HelpCircle size={24} /></div>
-              <h3>Self-Assessment Quizzes</h3>
-              <p>Evaluate your retention with adaptive multiple-choice quizzes that provide immediate corrections and explanations.</p>
+
+            {/* Bento Card 4: Double Width (Quizzes) */}
+            <div className="bento-card w-2" onMouseMove={handleBentoMouseMove}>
+              <div>
+                <div className="bento-icon"><HelpCircle size={24} /></div>
+                <h3>Self-Assessment Quizzes</h3>
+                <p>Evaluate your retention with adaptive multiple-choice quizzes that provide immediate corrections and explanations.</p>
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#27c93f' }}></div>
+                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ffbd2e' }}></div>
+                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ff5f56' }}></div>
+              </div>
             </div>
-            <div className="feature-card">
-              <div className="feature-icon"><Video size={24} /></div>
+
+            {/* Bento Card 5: Video Overviews */}
+            <div className="bento-card" onMouseMove={handleBentoMouseMove}>
+              <div className="bento-icon"><Video size={24} /></div>
               <h3>Video Overviews</h3>
               <p>Watch short video run-throughs explaining high-level concepts, ideal for visual learners.</p>
             </div>
-            <div className="feature-card">
-              <div className="feature-icon"><Layers size={24} /></div>
+
+            {/* Bento Card 6: Slide Decks */}
+            <div className="bento-card" onMouseMove={handleBentoMouseMove}>
+              <div className="bento-icon"><Layers size={24} /></div>
               <h3>Slide Decks</h3>
               <p>Download clean, structured, presentation-ready slides summarizing chapters for study group review.</p>
             </div>
-            <div className="feature-card">
-              <div className="feature-icon"><FileText size={24} /></div>
-              <h3>Deep Study Reports</h3>
-              <p>Read detailed structured reports detailing formulas, history, and structural core documentation.</p>
+
+            {/* Bento Card 7: Double Width (Study Reports) */}
+            <div className="bento-card w-2" onMouseMove={handleBentoMouseMove}>
+              <div>
+                <div className="bento-icon"><FileText size={24} /></div>
+                <h3>Deep Study Reports</h3>
+                <p>Read detailed structured reports detailing formulas, history, and structural core documentation. Get a rigorous breakdown of your core syllabus.</p>
+              </div>
+              <div style={{ background: 'var(--divider)', height: '6px', width: '100%', borderRadius: '10px', marginTop: '1.5rem' }}>
+                <div style={{ background: 'var(--primary)', height: '100%', width: '85%', borderRadius: '10px' }}></div>
+              </div>
             </div>
-            <div className="feature-card">
-              <div className="feature-icon"><FileSpreadsheet size={24} /></div>
-              <h3>Synthesized Data Tables</h3>
+
+            {/* Bento Card 8: Data Tables */}
+            <div className="bento-card" onMouseMove={handleBentoMouseMove}>
+              <div className="bento-icon"><FileSpreadsheet size={24} /></div>
+              <h3>Data Tables</h3>
               <p>Review key variables, comparisons, dates, or study parameters structured in a digestible grid layout.</p>
             </div>
           </div>
@@ -962,8 +1241,9 @@ export default function App() {
             <p>Select a sample document below to see our AI parser instantly construct a live, custom educational suite.</p>
           </div>
 
-          <div className="demo-sandbox">
-            <div className="sandbox-header">
+          {/* Sweeping border animated container wrapper */}
+          <div className="demo-sandbox sweeping-border">
+            <div className="sandbox-header" style={{ background: 'var(--card-bg)' }}>
               <div className="sandbox-title" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', width: '100%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   <Sparkles size={20} color="var(--primary)" />
@@ -1104,7 +1384,7 @@ export default function App() {
                   {/* Main Viewer Area */}
                   <div className="sandbox-viewer">
                     
-                    {/* FLASHCARDS VIEWER (PREMIUM SPACED REPETITION UPGRADE) */}
+                    {/* FLASHCARDS VIEWER (SPACED REPETITION) */}
                     {activeAsset === 'flashcards' && (
                       <div className="flashcard-demo">
                         
@@ -1125,14 +1405,23 @@ export default function App() {
                             <div className="card-face card-front">
                               <span className="card-category">Question {currentFlashcard + 1}</span>
                               <div className="card-text">{activeData.flashcards[currentFlashcard].q}</div>
-                              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2rem' }}>Click card to reveal answer</p>
+                              
+                              {/* Tactical key shortcut tag badge */}
+                              <div style={{ marginTop: '2.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
+                                <span className="cmdk-shortcut">F</span>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>to flip card</span>
+                              </div>
                             </div>
                             <div className="card-face card-back">
                               <span className="card-category">Answer Explanation</span>
                               <div className="card-text" style={{ fontSize: '0.95rem', fontWeight: 500, lineHeight: 1.5 }}>
                                 {activeData.flashcards[currentFlashcard].a}
                               </div>
-                              <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)', marginTop: '2.5rem' }}>Flip back to rate confidence</p>
+                              
+                              <div style={{ marginTop: '2rem', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
+                                <span className="cmdk-shortcut">F</span>
+                                <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)' }}>to flip back</span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1151,7 +1440,7 @@ export default function App() {
                             </button>
                           </div>
                         ) : (
-                          <div className="flashcard-controls">
+                          <div className="flashcard-controls" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                             <button 
                               className="btn-icon" 
                               disabled={currentFlashcard === 0}
@@ -1169,12 +1458,18 @@ export default function App() {
                             >
                               <ArrowRight size={20} />
                             </button>
+                            
+                            {/* Key Navigation Badge */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <span className="cmdk-shortcut">←</span>
+                              <span className="cmdk-shortcut">→</span>
+                            </div>
                           </div>
                         )}
                       </div>
                     )}
 
-                    {/* QUIZ VIEWER (PREMIUM SCORECARD UPGRADE) */}
+                    {/* QUIZ VIEWER */}
                     {activeAsset === 'quiz' && (
                       <div className="quiz-demo">
                         {!quizFinished ? (
@@ -1299,7 +1594,7 @@ export default function App() {
                       </div>
                     )}
 
-                    {/* SELF-DRAWING SVG MINDMAP */}
+                    {/* SVG MINDMAP */}
                     {activeAsset === 'mindmap' && (
                       <div style={{ width: '100%' }}>
                         <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1.25rem', marginBottom: '1rem' }}>Interactive Mindmap Graph</h3>
@@ -1372,7 +1667,7 @@ export default function App() {
                       </div>
                     )}
 
-                    {/* PODCAST VIEWER (PREMIUM SYNCHRONIZED TRANSCRIPT UPGRADE) */}
+                    {/* PODCAST VIEWER (SYNCHRONIZED TRANSCRIPT) */}
                     {activeAsset === 'podcast' && (
                       <div className="podcast-demo">
                         <div className="podcast-layout">
@@ -1405,7 +1700,7 @@ export default function App() {
                                 <div style={{ width: `${audioProgress}%`, height: '100%', background: 'var(--primary)', borderRadius: '50px' }}></div>
                                 <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--primary)', position: 'absolute', top: '-3px', left: `calc(${audioProgress}% - 6px)` }}></div>
                               </div>
-                              <div className="podcast-controls" style={{ marginTop: '0.5rem' }}>
+                              <div className="podcast-controls" style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'center' }}>
                                 <button className="btn-icon" onClick={() => { setAudioMuted(!audioMuted); setAutoPlay(false); }}>
                                   {audioMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
                                 </button>
@@ -1419,6 +1714,12 @@ export default function App() {
                                 <button className="btn-icon" onClick={() => { alert("Rewinding 10 seconds"); setAutoPlay(false); }}>
                                   <RotateCw size={16} />
                                 </button>
+                              </div>
+                              
+                              {/* Tactical Hotkey badge */}
+                              <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
+                                <span className="cmdk-shortcut">Space</span>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>to play / pause</span>
                               </div>
                             </div>
                           </div>
@@ -1466,23 +1767,33 @@ export default function App() {
                           <p className="slide-content">{activeData.slides[currentSlide].content}</p>
                         </div>
 
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-                          <button 
-                            className="btn btn-secondary" 
-                            style={{ background: 'rgba(255,255,255,0.05)', color: '#ffffff', borderColor: 'rgba(255,255,255,0.1)', padding: '0.4rem 1rem', fontSize: '0.85rem' }}
-                            disabled={currentSlide === 0}
-                            onClick={() => { setCurrentSlide(prev => prev - 1); setAutoPlay(false); }}
-                          >
-                            Previous
-                          </button>
-                          <button 
-                            className="btn btn-primary" 
-                            style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }}
-                            disabled={currentSlide === activeData.slides.length - 1}
-                            onClick={() => { setCurrentSlide(prev => prev + 1); setAutoPlay(false); }}
-                          >
-                            Next
-                          </button>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                          
+                          {/* Slide nav keyboard shortcut indicators */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <span className="cmdk-shortcut">←</span>
+                            <span className="cmdk-shortcut">→</span>
+                            <span style={{ fontSize: '0.75rem', color: '#94a3b8', marginLeft: '0.25rem' }}>to slide</span>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '1rem' }}>
+                            <button 
+                              className="btn btn-secondary" 
+                              style={{ background: 'rgba(255,255,255,0.05)', color: '#ffffff', borderColor: 'rgba(255,255,255,0.1)', padding: '0.4rem 1rem', fontSize: '0.85rem' }}
+                              disabled={currentSlide === 0}
+                              onClick={() => { setCurrentSlide(prev => prev - 1); setAutoPlay(false); }}
+                            >
+                              Previous
+                            </button>
+                            <button 
+                              className="btn btn-primary" 
+                              style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }}
+                              disabled={currentSlide === activeData.slides.length - 1}
+                              onClick={() => { setCurrentSlide(prev => prev + 1); setAutoPlay(false); }}
+                            >
+                              Next
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -1524,7 +1835,6 @@ export default function App() {
           </div>
 
           <div className="pipeline-grid">
-            {/* GLASSMORPHIC AI PIPELINE CORE (Replacing Video 2) */}
             <div className="pipeline-portal-visual">
               <div className="portal-container">
                 <div className="portal-doc-input">
