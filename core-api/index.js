@@ -15,6 +15,25 @@ app.use(express.json());
 const dbUrl = process.env.DATABASE_URL.replace('?sslaccept=strict', '?ssl-mode=REQUIRED');
 const pool = mysql.createPool(dbUrl);
 
+// Health Check Endpoint
+app.get('/api/health', async (req, res) => {
+    try {
+        const [rows] = await pool.execute('SELECT 1');
+        res.json({ 
+            status: "healthy", 
+            database: "connected", 
+            timestamp: new Date().toISOString() 
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ 
+            status: "unhealthy", 
+            database: "failed", 
+            error: error.message 
+        });
+    }
+});
+
 // Authentication Middleware
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
