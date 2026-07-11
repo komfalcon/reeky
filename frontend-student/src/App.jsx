@@ -25,7 +25,8 @@ import {
   FileCheck,
   Video,
   FileSpreadsheet,
-  Network
+  Network,
+  Download
 } from 'lucide-react';
 
 // Sample Mock Data
@@ -88,7 +89,14 @@ The endomembrane system consists of the nuclear envelope, endoplasmic reticulum 
 * **Golgi Complex**: The sorting and shipping center, adding molecular 'postage tags' to proteins.
 
 #### 2. Bioenergetics & Metabolic Transfer
-Energy synthesis occurs through cellular respiration in mitochondria and photosynthesis in chloroplasts. These pathways leverage electron transport chains (ETC) and proton gradients across inner membrane surfaces to generate ATP, driving anabolic cell functions.`
+Energy synthesis occurs through cellular respiration in mitochondria and photosynthesis in chloroplasts. These pathways leverage electron transport chains (ETC) and proton gradients across inner membrane surfaces to generate ATP, driving anabolic cell functions.`,
+    transcript: [
+      { speaker: "Dr. Aris", text: "Welcome back! Today we are diving into cellular structures, specifically focusing on the powerhouses: the mitochondria.", start: 0, end: 15 },
+      { speaker: "Sophia", text: "Yes! And it is fascinating because mitochondria have their own DNA, pointing strongly to an endosymbiotic origin.", start: 15, end: 35 },
+      { speaker: "Dr. Aris", text: "Exactly. They synthesize their own proteins. In this guide, we'll see how they capture chemical energy in the form of ATP.", start: 35, end: 60 },
+      { speaker: "Sophia", text: "Which is vital for driving active transport and metabolic synthesis across all eukaryotic organisms.", start: 60, end: 95 },
+      { speaker: "Dr. Aris", text: "Next, we will look at the endomembrane system and how the Golgi complex sorts and ships these proteins.", start: 95, end: 160 }
+    ]
   },
   history: {
     title: "History 201: The French Revolution & Modern State.pdf",
@@ -145,7 +153,14 @@ The transition of France from a feudal absolute monarchy to a modern state serve
 By 1789, France was bankrupt, largely due to its participation in the American Revolutionary War. A succession of crop failures escalated bread prices, sparking agrarian revolts. The refusal of the nobility to accept fiscal reforms led to the assembly of the Estates General.
 
 #### 2. The Shift to Radicalism
-The moderate phase of the revolution (1789–1791) drafted the Civil Constitution of the Clergy and attempted a constitutional monarchy. However, foreign invasions and domestic counter-revolutions radicalized the movement, bringing Robespierre's Jacobins to power and initiating a dramatic social reorganization.`
+The moderate phase of the revolution (1789–1791) drafted the Civil Constitution of the Clergy and attempted a constitutional monarchy. However, foreign invasions and domestic counter-revolutions radicalized the movement, bringing Robespierre's Jacobins to power and initiating a dramatic social reorganization.`,
+    transcript: [
+      { speaker: "Dr. Aris", text: "Hello everyone, today we are mapping out the socioeconomic catalysts of the French Revolution.", start: 0, end: 15 },
+      { speaker: "Sophia", text: "Indeed. The financial crisis of 1789 was compounded by consecutive crop failures, making food costs skyrocket.", start: 15, end: 35 },
+      { speaker: "Dr. Aris", text: "Right. The Third Estate, representing 98% of the citizens, bore the entire tax burden while having no political voice.", start: 35, end: 60 },
+      { speaker: "Sophia", text: "This sparked Robespierre's Jacobin movement, ushering in the radical Reign of Terror period.", start: 60, end: 95 },
+      { speaker: "Dr. Aris", text: "Ultimately, the resulting instability paved the way for Napoleon to export these ideals worldwide.", start: 95, end: 160 }
+    ]
   },
   economics: {
     title: "Economics 302: Monetary Policy & Inflation.pdf",
@@ -205,7 +220,14 @@ When a central bank alters its policy rate, the change ripples through commercia
 * **Asset Price Channel**: Lower rates boost equity and real estate markets, driving wealth-effects.
 
 #### 2. The Challenges of Supply-Side Shocks
-Standard monetary tools are optimized for demand-pull inflation. In cases of supply-side disruptions (e.g. energy shocks, supply chain blockages), raising interest rates to curb inflation can lead to stagflation—lowering economic activity without easily correcting global supply constraints.`
+Standard monetary tools are optimized for demand-pull inflation. In cases of supply-side disruptions (e.g. energy shocks, supply chain blockages), raising interest rates to curb inflation can lead to stagflation—lowering economic activity without easily correcting global supply constraints.`,
+    transcript: [
+      { speaker: "Dr. Aris", text: "Today we are analyzing monetary policy and its direct transmission paths to inflation control.", start: 0, end: 15 },
+      { speaker: "Sophia", text: "Central banks primarily adjust policy rates, which alters mortgage and lending rates across commercial markets.", start: 15, end: 35 },
+      { speaker: "Dr. Aris", text: "Exactly. Higher rates cool consumer demand, helping to slow down inflation.", start: 35, end: 60 },
+      { speaker: "Sophia", text: "However, if inflation is caused by supply shocks, high rates can trigger stagflation.", start: 60, end: 95 },
+      { speaker: "Dr. Aris", text: "That is the zero-lower-bound dilemma. Let's look at Quantitative Easing next.", start: 95, end: 160 }
+    ]
   }
 };
 
@@ -216,6 +238,23 @@ export default function App() {
   
   // Interactive Hero 3D Rotation State
   const [heroRotation, setHeroRotation] = useState({ x: 0, y: 0 });
+
+  // PREMIUM UPGRADE: Before-After Slider State
+  const [sliderPos, setSliderPos] = useState(50);
+
+  // PREMIUM UPGRADE: Spaced Repetition Mastery State
+  const [mastery, setMastery] = useState(0);
+  const [swipeClass, setSwipeClass] = useState('');
+
+  // PREMIUM UPGRADE: Multi-Question Quiz state
+  const [quizStep, setQuizStep] = useState(0);
+  const [quizScore, setQuizScore] = useState(0);
+  const [quizFinished, setQuizFinished] = useState(false);
+
+  // PREMIUM UPGRADE: Glassmorphic Download Modal state
+  const [downloading, setDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [downloadAsset, setDownloadAsset] = useState('');
 
   // Sandbox state
   const [selectedFile, setSelectedFile] = useState(null); // 'biology', 'history', 'economics'
@@ -241,7 +280,27 @@ export default function App() {
   
   // Refs
   const audioIntervalRef = useRef(null);
+  const canvasRef = useRef(null);
+  const activeLineRef = useRef(null);
   const activeData = selectedFile ? MOCK_DATA[selectedFile] : null;
+
+  // PREMIUM UPGRADE: Synchronized Podcast transcript state calculation
+  const totalDuration = 160; // 2 min 40s
+  const simulatedTime = (audioProgress / 100) * totalDuration;
+  
+  const activeTranscriptIndex = activeData?.transcript.findIndex(
+    t => simulatedTime >= t.start && simulatedTime <= t.end
+  ) ?? -1;
+
+  // Scroll active transcript line into view
+  useEffect(() => {
+    if (activeLineRef.current) {
+      activeLineRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest'
+      });
+    }
+  }, [activeTranscriptIndex]);
 
   // Set theme on mount & changes
   useEffect(() => {
@@ -269,7 +328,6 @@ export default function App() {
       visualizerInterval.current = setInterval(() => {
         time += 0.25;
         setVisHeights(prev => prev.map((_, i) => {
-          // Combine two sine waves for a highly fluid undulating motion
           const wave1 = Math.sin(time + i * 0.4) * 16;
           const wave2 = Math.cos(time * 1.6 + i * 0.35) * 8;
           return Math.abs(wave1 + wave2) + 6;
@@ -298,6 +356,111 @@ export default function App() {
     };
   }, [audioPlaying]);
 
+  // PREMIUM UPGRADE: Interactive Canvas Neural Network Particle Background
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    
+    let animationId;
+    let width = (canvas.width = canvas.offsetWidth);
+    let height = (canvas.height = canvas.offsetHeight);
+
+    const particles = [];
+    const particleCount = 50;
+    const connectionDistance = 110;
+    const mouse = { x: -1000, y: -1000 };
+
+    // Handle Resize
+    const handleResize = () => {
+      width = canvas.width = canvas.offsetWidth;
+      height = canvas.height = canvas.offsetHeight;
+    };
+    window.addEventListener('resize', handleResize);
+
+    // Track Mouse
+    const handleMouseMove = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      mouse.x = e.clientX - rect.left;
+      mouse.y = e.clientY - rect.top;
+    };
+    const handleMouseLeave = () => {
+      mouse.x = -1000;
+      mouse.y = -1000;
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseleave', handleMouseLeave);
+
+    // Initialize Particles
+    for (let i = 0; i < particleCount; i++) {
+      particles.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: (Math.random() - 0.5) * 0.5,
+        radius: Math.random() * 2 + 1
+      });
+    }
+
+    // Animation Loop
+    const animate = () => {
+      ctx.clearRect(0, 0, width, height);
+
+      // Draw connections
+      for (let i = 0; i < particleCount; i++) {
+        const p1 = particles[i];
+        for (let j = i + 1; j < particleCount; j++) {
+          const p2 = particles[j];
+          const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+          if (dist < connectionDistance) {
+            const alpha = (1 - dist / connectionDistance) * 0.15;
+            ctx.strokeStyle = theme === 'dark' ? `rgba(99, 102, 241, ${alpha})` : `rgba(99, 102, 241, ${alpha * 0.8})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Draw and update particles
+      particles.forEach((p) => {
+        // Move towards mouse attractor slightly
+        if (mouse.x > -1000) {
+          const dMouse = Math.hypot(p.x - mouse.x, p.y - mouse.y);
+          if (dMouse < 180) {
+            p.x += (mouse.x - p.x) * 0.005;
+            p.y += (mouse.y - p.y) * 0.005;
+          }
+        }
+
+        p.x += p.vx;
+        p.y += p.vy;
+
+        // Boundary checks
+        if (p.x < 0 || p.x > width) p.vx *= -1;
+        if (p.y < 0 || p.y > height) p.vy *= -1;
+
+        ctx.fillStyle = theme === 'dark' ? 'rgba(99, 102, 241, 0.45)' : 'rgba(99, 102, 241, 0.25)';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      animationId = requestAnimationFrame(animate);
+    };
+
+    animate();
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseleave', handleMouseLeave);
+      cancelAnimationFrame(animationId);
+    };
+  }, [theme]);
+
   // AUTO-PLAY CONTROLLER SYSTEM
   useEffect(() => {
     if (!autoPlay) return;
@@ -306,53 +469,94 @@ export default function App() {
       if (loadingDemo) return;
 
       if (!selectedFile) {
-        // Step 1: Auto-select Biology File
         handleSelectFile('biology');
       } else {
-        // Step 2: Cycle through assets and interactions
         if (activeAsset === 'flashcards') {
           if (!flashcardFlipped) {
-            setFlashcardFlipped(true); // Flip card
+            setFlashcardFlipped(true); 
           } else {
-            setActiveAsset('quiz'); // Go to Quiz
-            setFlashcardFlipped(false);
+            // Trigger auto rating
+            handleSpacedRepetition('easy');
           }
         } else if (activeAsset === 'quiz') {
-          if (!quizAnswered) {
-            setSelectedQuizOption(activeData.quiz[0].correct); // Auto-solve quiz
+          if (quizFinished) {
+            setActiveAsset('mindmap');
+            setQuizFinished(false);
+            setQuizStep(0);
+            setQuizScore(0);
+          } else if (!quizAnswered) {
+            setSelectedQuizOption(activeData.quiz[quizStep].correct); 
             setQuizAnswered(true);
+            setQuizScore(prev => prev + 1);
           } else {
-            setActiveAsset('mindmap'); // Go to Mindmap
+            if (quizStep < activeData.quiz.length - 1) {
+              setQuizStep(prev => prev + 1);
+              setQuizAnswered(false);
+              setSelectedQuizOption(null);
+            } else {
+              setQuizFinished(true);
+            }
           }
         } else if (activeAsset === 'mindmap') {
-          setActiveAsset('podcast'); // Go to Podcast
-          setAudioPlaying(true); // Start playing visualizer
+          setActiveAsset('podcast'); 
+          setAudioPlaying(true); 
         } else if (activeAsset === 'podcast') {
           setAudioPlaying(false);
-          setActiveAsset('video'); // Go to Video Overview
+          setActiveAsset('video'); 
         } else if (activeAsset === 'video') {
-          setActiveAsset('slides'); // Go to Slide Deck
+          setActiveAsset('slides'); 
         } else if (activeAsset === 'slides') {
           if (currentSlide < activeData.slides.length - 1) {
-            setCurrentSlide(prev => prev + 1); // Cycle through slide
+            setCurrentSlide(prev => prev + 1); 
           } else {
-            setActiveAsset('report'); // Go to Study Report
+            setActiveAsset('report'); 
           }
         } else if (activeAsset === 'report') {
-          // End of cycle: switch topic or loop
           if (selectedFile === 'biology') {
             handleSelectFile('economics');
           } else if (selectedFile === 'economics') {
             handleSelectFile('history');
           } else {
-            setSelectedFile(null); // Return to dropzone
+            setSelectedFile(null); 
           }
         }
       }
-    }, 4500); // 4.5 seconds per step
+    }, 4500);
 
     return () => clearInterval(intervalTimer);
-  }, [autoPlay, selectedFile, loadingDemo, activeAsset, flashcardFlipped, quizAnswered, currentSlide, activeData]);
+  }, [autoPlay, selectedFile, loadingDemo, activeAsset, flashcardFlipped, quizAnswered, currentSlide, activeData, quizStep, quizFinished]);
+
+  // PREMIUM UPGRADE: Spaced Repetition card swiping handler
+  const handleSpacedRepetition = (confidence) => {
+    setSwipeClass(confidence === 'easy' ? 'swipe-right-animation' : 'swipe-left-animation');
+    
+    // Increment mastery score
+    setMastery(prev => Math.min(100, prev + (confidence === 'easy' ? 25 : confidence === 'medium' ? 15 : 5)));
+    
+    setTimeout(() => {
+      setCurrentFlashcard(prev => (prev + 1) % activeData.flashcards.length);
+      setFlashcardFlipped(false);
+      setSwipeClass('');
+    }, 350);
+  };
+
+  // PREMIUM UPGRADE: Mock download synthesis bar
+  const startMockDownload = (assetName) => {
+    setDownloadAsset(assetName);
+    setDownloadProgress(0);
+    setDownloading(true);
+    setAutoPlay(false);
+
+    const interval = setInterval(() => {
+      setDownloadProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          return 100;
+        }
+        return prev + 4;
+      });
+    }, 100);
+  };
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
@@ -361,10 +565,9 @@ export default function App() {
   // Mouse move handler for Interactive 3D Hero dashboard
   const handleHeroMouseMove = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left - rect.width / 2; // Offset X from center
-    const y = e.clientY - rect.top - rect.height / 2; // Offset Y from center
+    const x = e.clientX - rect.left - rect.width / 2; 
+    const y = e.clientY - rect.top - rect.height / 2; 
     
-    // Calculate rotation angles (caps to max of 15 degrees)
     const factor = 12;
     setHeroRotation({
       x: -(y / rect.height) * factor,
@@ -373,7 +576,6 @@ export default function App() {
   };
 
   const handleHeroMouseLeave = () => {
-    // Reset to flat default smoothly
     setHeroRotation({ x: 0, y: 0 });
   };
 
@@ -387,6 +589,10 @@ export default function App() {
     setCurrentFlashcard(0);
     setFlashcardFlipped(false);
     setCurrentSlide(0);
+    setQuizStep(0);
+    setQuizScore(0);
+    setQuizFinished(false);
+    setMastery(0);
     setAudioPlaying(false);
     setAudioProgress(25);
     
@@ -413,13 +619,49 @@ export default function App() {
   };
 
   return (
-    <div style={{ position: 'relative' }}>
-      {/* BACKGROUND DECORATIONS */}
-      <div className="glow-blob blob-1"></div>
-      <div className="glow-blob blob-2"></div>
+    <div style={{ position: 'relative', minHeight: '100vh' }}>
+      {/* CANVAS NEURAL PARTICLES BACKDROP (PREMIUM UPGRADE) */}
+      <canvas ref={canvasRef} className="canvas-backdrop" />
 
       {/* BACKDROP BLUR OVERLAY */}
       <div className={`backdrop-blur-overlay ${mobileMenuOpen ? 'open' : ''}`} onClick={() => setMobileMenuOpen(false)}></div>
+
+      {/* DOWNLOAD HUB MODAL (PREMIUM UPGRADE) */}
+      {downloading && (
+        <div className="modal-overlay">
+          <div className="modal-box">
+            {downloadProgress < 100 ? (
+              <>
+                <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.25rem' }}>
+                  Synthesizing {downloadAsset}
+                </h3>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                  Structuring document nodes & encoding file containers...
+                </p>
+                <div className="modal-progress-bg">
+                  <div className="modal-progress-fill" style={{ width: `${downloadProgress}%` }}></div>
+                </div>
+                <span style={{ fontSize: '0.9rem', fontWeight: 700 }}>{downloadProgress}% completed</span>
+              </>
+            ) : (
+              <>
+                <div className="download-success-pulse">
+                  <Check size={36} />
+                </div>
+                <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.4rem' }}>
+                  File Ready for Export
+                </h3>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', margin: '0.5rem 0 1.5rem' }}>
+                  The requested study asset was compiled and optimized successfully.
+                </p>
+                <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setDownloading(false)}>
+                  Download Completed File
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* HEADER / NAVBAR */}
       <header className={`navbar ${scrolled ? 'scrolled' : ''}`}>
@@ -440,6 +682,7 @@ export default function App() {
 
           <ul className="nav-menu">
             <li><a href="#features" className="nav-link">Features</a></li>
+            <li><a href="#comparison" className="nav-link">Before & After</a></li>
             <li><a href="#demo" className="nav-link">Interactive Demo</a></li>
             <li><a href="#pipeline" className="nav-link">How It Works</a></li>
           </ul>
@@ -468,6 +711,7 @@ export default function App() {
         </div>
         <ul className="mobile-drawer-links">
           <li><a href="#features" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Features</a></li>
+          <li><a href="#comparison" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Before & After</a></li>
           <li><a href="#demo" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Interactive Demo</a></li>
           <li><a href="#pipeline" className="nav-link" onClick={() => setMobileMenuOpen(false)}>How It Works</a></li>
           <li style={{ marginTop: '2rem' }}>
@@ -496,7 +740,7 @@ export default function App() {
               <a href="#demo" className="btn btn-primary">
                 Try the Sandbox <Sparkles size={18} />
               </a>
-              <button className="btn btn-secondary" onClick={() => { document.getElementById('pipeline').scrollIntoView({ behavior: 'smooth'}); }}>
+              <button className="btn btn-secondary" onClick={() => { document.getElementById('comparison').scrollIntoView({ behavior: 'smooth'}); }}>
                 How It Works <ChevronRight size={18} />
               </button>
             </div>
@@ -516,7 +760,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* 3D INTERACTIVE HERO DASHBOARD (Replacing Video 1) */}
+          {/* 3D INTERACTIVE HERO DASHBOARD */}
           <div 
             className="hero-visual"
             onMouseMove={handleHeroMouseMove}
@@ -579,6 +823,78 @@ export default function App() {
               <div className="floating-sub-card card-flashcard">
                 <span style={{ fontSize: '0.6rem', textTransform: 'uppercase', color: 'var(--primary)', fontWeight: 800 }}>Flashcard</span>
                 <h4 style={{ fontSize: '0.75rem', fontWeight: 600, marginTop: '0.15rem' }}>What is ATP?</h4>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* PREMIUM UPGRADE: BEFORE & AFTER COMPARISON SLIDER */}
+      <section className="split-slider-section" id="comparison">
+        <div className="container">
+          <div className="section-title">
+            <h2>The <span>Evolution</span> of Study</h2>
+            <p>Slide left and right to see boring, flat textbook prose instantly synthesize into a gorgeous digital portal.</p>
+          </div>
+
+          <div className="split-slider-wrapper">
+            {/* Range Input Slider (Layered on top) */}
+            <input 
+              type="range" 
+              min="0" 
+              max="100" 
+              value={sliderPos} 
+              onChange={(e) => setSliderPos(Number(e.target.value))} 
+              className="split-bar-input"
+            />
+
+            {/* Slider Line Divider */}
+            <div className="split-divider-line" style={{ left: `${sliderPos}%` }}></div>
+            <div className="split-divider-handle" style={{ left: `${sliderPos}%` }}>
+              <Compass size={24} />
+            </div>
+
+            {/* Panel 1: BEFORE (Left layer, lower z-index) */}
+            <div className="slider-panel slider-before">
+              <h2 style={{ fontFamily: 'Georgia, serif', fontSize: '1.75rem', color: '#1e293b', marginBottom: '1.5rem' }}>Chapter 4: The Cellular Organelles</h2>
+              <p style={{ fontFamily: 'Georgia, serif', marginBottom: '1rem' }}>
+                Organelles represent cellular structures encapsulated inside individual bilayers tasked with carrying out compartmentalized metabolic activity. The mitochondrion, representing a double-membraned container, carries out cellular respiration. Through oxidative phosphorylation, metabolic reactants are processed into adenosine triphosphate (ATP), powering mechanical operations.
+              </p>
+              <p style={{ fontFamily: 'Georgia, serif', marginBottom: '1rem' }}>
+                Chloroplasts, localized exclusively in flora and autotrophs, orchestrate light energy conversion. Chlorophyll captures solar photons, initiating electron transport cascades that construct carbohydrates. This complex synthetic sequence emits molecular oxygen as an essential environmental byproduct, sustaining atmospheric equilibrium.
+              </p>
+            </div>
+
+            {/* Panel 2: AFTER (Right layer, higher z-index, width dynamic) */}
+            <div className="slider-panel slider-after" style={{ width: `${sliderPos}%` }}>
+              <div className="slider-after-content">
+                <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', borderBottom: '1px solid var(--divider)', paddingBottom: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Sparkles size={20} color="var(--primary)" />
+                    <span style={{ fontWeight: 800, fontSize: '1.1rem' }}>Cellular Biology Core Study Suite</span>
+                  </div>
+                  <span className="badge" style={{ marginBottom: 0, padding: '0.25rem 0.75rem', fontSize: '0.75rem' }}>Synthesized</span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem', width: '100%', margin: '1.5rem 0' }}>
+                  <div className="feature-card" style={{ padding: '1.25rem' }}>
+                    <h4 style={{ fontWeight: 700, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--primary)' }}><Music size={14} /> Podcast Episode</h4>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Bioenergetics Summary</p>
+                  </div>
+                  <div className="feature-card" style={{ padding: '1.25rem' }}>
+                    <h4 style={{ fontWeight: 700, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--secondary)' }}><HelpCircle size={14} /> Smart Assessment</h4>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>12 adaptive questions</p>
+                  </div>
+                  <div className="feature-card" style={{ padding: '1.25rem' }}>
+                    <h4 style={{ fontWeight: 700, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--primary)' }}><Network size={14} /> Mindmap</h4>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Interactive concept graph</p>
+                  </div>
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--divider)', paddingTop: '1rem', display: 'flex', width: '100%', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                  <span>Study time reduced by 50%</span>
+                  <span>Active recall active</span>
+                </div>
               </div>
             </div>
           </div>
@@ -654,7 +970,7 @@ export default function App() {
                   <span style={{ fontWeight: 700 }}>{selectedFile ? activeData.title : "Document Processor Sandbox"}</span>
                 </div>
                 
-                {/* Auto-Play Indicator Badge / Control */}
+                {/* Auto-Play Control */}
                 <button 
                   className="btn"
                   style={{
@@ -788,11 +1104,21 @@ export default function App() {
                   {/* Main Viewer Area */}
                   <div className="sandbox-viewer">
                     
-                    {/* FLASHCARDS VIEWER */}
+                    {/* FLASHCARDS VIEWER (PREMIUM SPACED REPETITION UPGRADE) */}
                     {activeAsset === 'flashcards' && (
                       <div className="flashcard-demo">
+                        
+                        {/* Mastery Score Progress */}
+                        <div style={{ display: 'flex', width: '100%', maxContainer: '400px', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.25rem' }}>
+                          <span>Subject Mastery:</span>
+                          <span>{mastery}% Completed</span>
+                        </div>
+                        <div className="mastery-score-bar">
+                          <div className="mastery-score-fill" style={{ width: `${mastery}%` }}></div>
+                        </div>
+
                         <div 
-                          className={`flashcard-inner ${flashcardFlipped ? 'flipped' : ''}`}
+                          className={`flashcard-inner ${flashcardFlipped ? 'flipped' : ''} ${swipeClass}`}
                           onClick={() => { setFlashcardFlipped(!flashcardFlipped); setAutoPlay(false); }}
                         >
                           <div className="flashcard">
@@ -803,99 +1129,182 @@ export default function App() {
                             </div>
                             <div className="card-face card-back">
                               <span className="card-category">Answer Explanation</span>
-                              <div className="card-text" style={{ fontSize: '1rem', fontWeight: 500, lineHeight: 1.5 }}>
+                              <div className="card-text" style={{ fontSize: '0.95rem', fontWeight: 500, lineHeight: 1.5 }}>
                                 {activeData.flashcards[currentFlashcard].a}
                               </div>
-                              <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)', marginTop: '2rem' }}>Click card to return to question</p>
+                              <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)', marginTop: '2.5rem' }}>Flip back to rate confidence</p>
                             </div>
                           </div>
                         </div>
 
-                        <div className="flashcard-controls">
-                          <button 
-                            className="btn-icon" 
-                            disabled={currentFlashcard === 0}
-                            onClick={() => { setCurrentFlashcard(prev => prev - 1); setFlashcardFlipped(false); setAutoPlay(false); }}
-                          >
-                            <ArrowLeft size={20} />
-                          </button>
-                          <span style={{ fontSize: '0.9rem', fontWeight: 700 }}>
-                            {currentFlashcard + 1} of {activeData.flashcards.length}
-                          </span>
-                          <button 
-                            className="btn-icon" 
-                            disabled={currentFlashcard === activeData.flashcards.length - 1}
-                            onClick={() => { setCurrentFlashcard(prev => prev + 1); setFlashcardFlipped(false); setAutoPlay(false); }}
-                          >
-                            <ArrowRight size={20} />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* QUIZ VIEWER */}
-                    {activeAsset === 'quiz' && (
-                      <div className="quiz-demo">
-                        <div className="quiz-question">
-                          {activeData.quiz[0].q}
-                        </div>
-                        <div className="quiz-options">
-                          {activeData.quiz[0].options.map((option, idx) => {
-                            let optionClass = '';
-                            if (quizAnswered) {
-                              if (idx === activeData.quiz[0].correct) {
-                                optionClass = 'correct';
-                              } else if (idx === selectedQuizOption) {
-                                optionClass = 'wrong';
-                              }
-                            }
-                            return (
-                              <button 
-                                key={idx} 
-                                className={`quiz-option ${optionClass}`}
-                                disabled={quizAnswered}
-                                onClick={() => {
-                                  setSelectedQuizOption(idx);
-                                  setQuizAnswered(true);
-                                  setAutoPlay(false);
-                                }}
-                              >
-                                {option}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        {quizAnswered && (
-                          <div style={{ background: 'var(--accent-glow)', border: '1px solid var(--card-border)', borderRadius: '16px', padding: '1.5rem', marginTop: '1rem' }}>
-                            <h4 style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem', color: selectedQuizOption === activeData.quiz[0].correct ? '#27c93f' : '#ff5f56', marginBottom: '0.5rem' }}>
-                              {selectedQuizOption === activeData.quiz[0].correct ? "Correct Answer!" : "Incorrect"}
-                            </h4>
-                            <p style={{ fontSize: '0.95rem', color: 'var(--text-main)', lineHeight: 1.5 }}>
-                              {activeData.quiz[0].explanation}
-                            </p>
+                        {/* Spaced Repetition Buttons */}
+                        {flashcardFlipped ? (
+                          <div className="swipe-btn-group" style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+                            <button className="btn btn-secondary" style={{ borderColor: '#ff5f56', color: '#ff5f56', background: 'rgba(255,95,86,0.05)' }} onClick={() => handleSpacedRepetition('hard')}>
+                              🔴 Hard (+5%)
+                            </button>
+                            <button className="btn btn-secondary" style={{ borderColor: '#ffbd2e', color: '#ffbd2e', background: 'rgba(255,189,46,0.05)' }} onClick={() => handleSpacedRepetition('medium')}>
+                              🟡 Medium (+15%)
+                            </button>
+                            <button className="btn btn-primary" style={{ background: '#27c93f', borderColor: '#27c93f', boxShadow: 'none' }} onClick={() => handleSpacedRepetition('easy')}>
+                              🟢 Easy (+25%)
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flashcard-controls">
                             <button 
-                              className="btn btn-secondary" 
-                              style={{ marginTop: '1rem', padding: '0.5rem 1rem', fontSize: '0.85rem' }}
-                              onClick={() => {
-                                setQuizAnswered(false);
-                                setSelectedQuizOption(null);
-                                setAutoPlay(false);
-                              }}
+                              className="btn-icon" 
+                              disabled={currentFlashcard === 0}
+                              onClick={() => { setCurrentFlashcard(prev => prev - 1); setFlashcardFlipped(false); setAutoPlay(false); }}
                             >
-                              Try Again
+                              <ArrowLeft size={20} />
+                            </button>
+                            <span style={{ fontSize: '0.9rem', fontWeight: 700 }}>
+                              {currentFlashcard + 1} of {activeData.flashcards.length}
+                            </span>
+                            <button 
+                              className="btn-icon" 
+                              disabled={currentFlashcard === activeData.flashcards.length - 1}
+                              onClick={() => { setCurrentFlashcard(prev => prev + 1); setFlashcardFlipped(false); setAutoPlay(false); }}
+                            >
+                              <ArrowRight size={20} />
                             </button>
                           </div>
                         )}
                       </div>
                     )}
 
-                    {/* SELF-DRAWING SVG MINDMAP (Sandbox) */}
+                    {/* QUIZ VIEWER (PREMIUM SCORECARD UPGRADE) */}
+                    {activeAsset === 'quiz' && (
+                      <div className="quiz-demo">
+                        {!quizFinished ? (
+                          <>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '1rem' }}>
+                              <span>Question {quizStep + 1} of {activeData.quiz.length}</span>
+                              <span>Score: {quizScore}</span>
+                            </div>
+                            <div className="quiz-question">
+                              {activeData.quiz[quizStep].q}
+                            </div>
+                            <div className="quiz-options">
+                              {activeData.quiz[quizStep].options.map((option, idx) => {
+                                let optionClass = '';
+                                if (quizAnswered) {
+                                  if (idx === activeData.quiz[quizStep].correct) {
+                                    optionClass = 'correct';
+                                  } else if (idx === selectedQuizOption) {
+                                    optionClass = 'wrong';
+                                  }
+                                }
+                                return (
+                                  <button 
+                                    key={idx} 
+                                    className={`quiz-option ${optionClass}`}
+                                    disabled={quizAnswered}
+                                    onClick={() => {
+                                      setSelectedQuizOption(idx);
+                                      setQuizAnswered(true);
+                                      setAutoPlay(false);
+                                      if (idx === activeData.quiz[quizStep].correct) {
+                                        setQuizScore(prev => prev + 1);
+                                      }
+                                    }}
+                                  >
+                                    {option}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            {quizAnswered && (
+                              <div style={{ background: 'var(--accent-glow)', border: '1px solid var(--card-border)', borderRadius: '16px', padding: '1.5rem', marginTop: '1rem' }}>
+                                <h4 style={{ fontWeight: 700, color: selectedQuizOption === activeData.quiz[quizStep].correct ? '#27c93f' : '#ff5f56', marginBottom: '0.5rem' }}>
+                                  {selectedQuizOption === activeData.quiz[quizStep].correct ? "Correct Answer!" : "Incorrect"}
+                                </h4>
+                                <p style={{ fontSize: '0.95rem', color: 'var(--text-main)', lineHeight: 1.5 }}>
+                                  {activeData.quiz[quizStep].explanation}
+                                </p>
+                                <button 
+                                  className="btn btn-primary" 
+                                  style={{ marginTop: '1rem' }}
+                                  onClick={() => {
+                                    if (quizStep < activeData.quiz.length - 1) {
+                                      setQuizStep(prev => prev + 1);
+                                      setQuizAnswered(false);
+                                      setSelectedQuizOption(null);
+                                    } else {
+                                      setQuizFinished(true);
+                                    }
+                                    setAutoPlay(false);
+                                  }}
+                                >
+                                  {quizStep < activeData.quiz.length - 1 ? "Next Question" : "Finish Quiz"}
+                                </button>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          // Circular Radial Progress Scorecard
+                          <div className="scorecard-box">
+                            <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+                              <svg width="120" height="120" viewBox="0 0 120 120">
+                                <circle cx="60" cy="60" r="50" fill="none" stroke="var(--divider)" strokeWidth="8" />
+                                <circle 
+                                  cx="60" 
+                                  cy="60" 
+                                  r="50" 
+                                  fill="none" 
+                                  stroke={quizScore === activeData.quiz.length ? '#27c93f' : '#ffbd2e'} 
+                                  strokeWidth="8" 
+                                  strokeDasharray="314"
+                                  strokeDashoffset={314 - (314 * (quizScore / activeData.quiz.length))}
+                                  strokeLinecap="round"
+                                  transform="rotate(-90 60 60)"
+                                  className="radial-progress-circle"
+                                />
+                              </svg>
+                              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.8rem' }}>
+                                {quizScore === activeData.quiz.length ? 'A+' : quizScore === 1 ? 'B' : 'F'}
+                              </div>
+                            </div>
+
+                            <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.35rem' }}>Quiz Finished!</h3>
+                            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', margin: '0.5rem 0 1.5rem' }}>
+                              You scored {quizScore} out of {activeData.quiz.length} questions correctly.
+                            </p>
+
+                            <div style={{ background: 'var(--bg)', borderRadius: '16px', padding: '1rem', border: '1px solid var(--card-border)', fontSize: '0.85rem', color: 'var(--text-main)', marginBottom: '1.5rem' }}>
+                              {quizScore === activeData.quiz.length ? (
+                                "🎉 Outstanding! You have mastered this chapter. We recommend exporting the Slide Deck to review with peers."
+                              ) : (
+                                "📚 Solid effort. We recommend focusing on the second section of the generated Study Report to patch up your gaps."
+                              )}
+                            </div>
+
+                            <button 
+                              className="btn btn-secondary" 
+                              style={{ width: '100%' }}
+                              onClick={() => {
+                                setQuizStep(0);
+                                setQuizScore(0);
+                                setQuizFinished(false);
+                                setQuizAnswered(false);
+                                setSelectedQuizOption(null);
+                                setAutoPlay(false);
+                              }}
+                            >
+                              Restart Quiz
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* SELF-DRAWING SVG MINDMAP */}
                     {activeAsset === 'mindmap' && (
                       <div style={{ width: '100%' }}>
                         <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1.25rem', marginBottom: '1rem' }}>Interactive Mindmap Graph</h3>
                         <div className="mindmap-demo">
                           <svg width="100%" height="100%" style={{ position: 'absolute', top: 0, left: 0 }}>
-                            {/* Lines */}
                             {activeData.mindmap.connections.map((c, i) => {
                               const fromNode = activeData.mindmap.nodes.find(n => n.id === c.from);
                               const toNode = activeData.mindmap.nodes.find(n => n.id === c.to);
@@ -915,7 +1324,6 @@ export default function App() {
                             })}
                           </svg>
 
-                          {/* Nodes with spring pop animation */}
                           {activeData.mindmap.nodes.map((node) => {
                             let nodeBg = 'var(--card-bg)';
                             let nodeBorder = 'var(--card-border)';
@@ -964,58 +1372,71 @@ export default function App() {
                       </div>
                     )}
 
-                    {/* PODCAST VIEWER */}
+                    {/* PODCAST VIEWER (PREMIUM SYNCHRONIZED TRANSCRIPT UPGRADE) */}
                     {activeAsset === 'podcast' && (
                       <div className="podcast-demo">
-                        <div className={`podcast-disc ${audioPlaying ? 'playing' : ''}`}></div>
-                        
-                        <div className="podcast-info">
-                          <h3>{activeData.tagline}</h3>
-                          <p>Episode 1: Core Concept Breakdown</p>
-                        </div>
-
-                        {/* Animated Sound Wave visualizer */}
-                        <div className="podcast-visualizer">
-                          {visHeights.map((h, i) => (
-                            <div 
-                              key={i} 
-                              className="vis-bar" 
-                              style={{ 
-                                height: `${h}px`,
-                                background: i % 2 === 0 ? 'var(--primary)' : 'var(--secondary)'
-                              }}
-                            />
-                          ))}
-                        </div>
-
-                        {/* Audio Controls bar */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%', maxWidth: '360px' }}>
-                          <div style={{ display: 'flex', width: '100%', justify: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                            <span>01:12</span>
-                            <span>{audioTime}</span>
-                          </div>
+                        <div className="podcast-layout">
                           
-                          {/* Simulated Slider Track */}
-                          <div style={{ width: '100%', height: '6px', background: 'var(--divider)', borderRadius: '50px', position: 'relative', cursor: 'pointer' }}>
-                            <div style={{ width: `${audioProgress}%`, height: '100%', background: 'var(--primary)', borderRadius: '50px' }}></div>
-                            <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--primary)', position: 'absolute', top: '-3px', left: `calc(${audioProgress}% - 6px)` }}></div>
+                          {/* Player disc side */}
+                          <div>
+                            <div className={`podcast-disc ${audioPlaying ? 'playing' : ''}`}></div>
+                            <div className="podcast-info">
+                              <h3>{activeData.tagline}</h3>
+                              <p>Episode 1: Core Concept Breakdown</p>
+                            </div>
+                            <div className="podcast-visualizer">
+                              {visHeights.map((h, i) => (
+                                <div 
+                                  key={i} 
+                                  className="vis-bar" 
+                                  style={{ 
+                                    height: `${h}px`,
+                                    background: i % 2 === 0 ? 'var(--primary)' : 'var(--secondary)'
+                                  }}
+                                />
+                              ))}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', width: '100%' }}>
+                              <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                                <span>01:12</span>
+                                <span>{audioTime}</span>
+                              </div>
+                              <div style={{ width: '100%', height: '6px', background: 'var(--divider)', borderRadius: '50px', position: 'relative', cursor: 'pointer' }}>
+                                <div style={{ width: `${audioProgress}%`, height: '100%', background: 'var(--primary)', borderRadius: '50px' }}></div>
+                                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--primary)', position: 'absolute', top: '-3px', left: `calc(${audioProgress}% - 6px)` }}></div>
+                              </div>
+                              <div className="podcast-controls" style={{ marginTop: '0.5rem' }}>
+                                <button className="btn-icon" onClick={() => { setAudioMuted(!audioMuted); setAutoPlay(false); }}>
+                                  {audioMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                                </button>
+                                <button 
+                                  className="btn btn-primary" 
+                                  style={{ width: '48px', height: '48px', padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justify: 'center' }}
+                                  onClick={() => { setAudioPlaying(!audioPlaying); setAutoPlay(false); }}
+                                >
+                                  {audioPlaying ? <Pause size={20} /> : <Play size={20} style={{ marginLeft: '4px' }} />}
+                                </button>
+                                <button className="btn-icon" onClick={() => { alert("Rewinding 10 seconds"); setAutoPlay(false); }}>
+                                  <RotateCw size={16} />
+                                </button>
+                              </div>
+                            </div>
                           </div>
 
-                          <div className="podcast-controls" style={{ marginTop: '0.5rem' }}>
-                            <button className="btn-icon" onClick={() => { setAudioMuted(!audioMuted); setAutoPlay(false); }}>
-                              {audioMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-                            </button>
-                            <button 
-                              className="btn btn-primary" 
-                              style={{ width: '56px', height: '56px', padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justify: 'center' }}
-                              onClick={() => { setAudioPlaying(!audioPlaying); setAutoPlay(false); }}
-                            >
-                              {audioPlaying ? <Pause size={24} /> : <Play size={24} style={{ marginLeft: '4px' }} />}
-                            </button>
-                            <button className="btn-icon" onClick={() => { alert("Rewinding 10 seconds"); setAutoPlay(false); }}>
-                              <RotateCw size={18} />
-                            </button>
+                          {/* Scrolling Transcript Panel */}
+                          <div className="podcast-transcript-panel">
+                            {activeData.transcript.map((line, idx) => (
+                              <div 
+                                key={idx} 
+                                ref={idx === activeTranscriptIndex ? activeLineRef : null}
+                                className={`transcript-line ${idx === activeTranscriptIndex ? 'active' : ''}`}
+                              >
+                                <div className="transcript-speaker">{line.speaker}</div>
+                                <div className="transcript-text">{line.text}</div>
+                              </div>
+                            ))}
                           </div>
+
                         </div>
                       </div>
                     )}
@@ -1035,7 +1456,9 @@ export default function App() {
                       <div className="slides-demo">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span className="slide-number">Slide {currentSlide + 1} of {activeData.slides.length}</span>
-                          <span style={{ fontSize: '0.8rem', opacity: 0.6, fontWeight: 700 }}>Reeky Hub Presentation</span>
+                          <span style={{ fontSize: '0.8rem', opacity: 0.6, fontWeight: 700 }}>
+                            Reeky Hub Presentation
+                          </span>
                         </div>
                         
                         <div style={{ margin: '1.5rem 0' }}>
@@ -1069,8 +1492,12 @@ export default function App() {
                       <div style={{ width: '100%' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--divider)', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
                           <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.4rem' }}>Study Synthesis Report</h3>
-                          <button className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }} onClick={() => { alert("Downloading PDF summary report..."); setAutoPlay(false); }}>
-                            Download PDF
+                          <button 
+                            className="btn btn-secondary" 
+                            style={{ padding: '0.4rem 1rem', fontSize: '0.85rem', display: 'flex', gap: '0.25rem' }} 
+                            onClick={() => startMockDownload('Study Report PDF')}
+                          >
+                            <Download size={14} /> Download PDF
                           </button>
                         </div>
                         <div style={{ whiteSpace: 'pre-line', fontSize: '0.95rem', lineHeight: 1.6, color: 'var(--text-main)' }}>
