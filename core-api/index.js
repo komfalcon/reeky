@@ -150,6 +150,19 @@ app.get('/api/admin/queue', async (req, res) => {
     }
 });
 
+app.get('/api/admin/queue/completed', async (req, res) => {
+    try {
+        const [queue] = await pool.execute(
+            'SELECT * FROM `AssetBundle` WHERE status = ? ORDER BY createdAt DESC',
+            ['COMPLETED']
+        );
+        res.json({ queue });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Failed to fetch completed queue" });
+    }
+});
+
 app.post('/api/admin/submit-assets', async (req, res) => {
     try {
         const { assetId, artifact_urls, podcast_audio, video_overview, infographic, slide_deck, study_report, data_table } = req.body;
