@@ -25,6 +25,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+@app.head("/")
+def read_root():
+    return {"status": "alive"}
+
 # 📁 2. MOUNT STATIC STORAGE PATH FOR DOWNLOADS
 STATIC_DIR = "/app/data/assets"
 os.makedirs(STATIC_DIR, exist_ok=True)
