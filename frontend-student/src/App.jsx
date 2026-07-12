@@ -1,4 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useAuth } from './AuthContext';
+import { api } from './api';
+import { jsPDF } from 'jspdf';
 import { 
   FileText, 
   Sparkles, 
@@ -274,6 +277,22 @@ export default function App() {
   const [activeAsset, setActiveAsset] = useState('flashcards'); // active sandbox panel
   const [autoPlay, setAutoPlay] = useState(true); // Auto-play active by default
 
+  // Auth modal state
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState('login');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authName, setAuthName] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+
+  // Asset upload / fetch state
+  const [pdfUrl, setPdfUrl] = useState('');
+  const [isSubmittingUrl, setIsSubmittingUrl] = useState(false);
+  const [userAssets, setUserAssets] = useState([]);
+  const [selectedAssetId, setSelectedAssetId] = useState(null);
+  const [fetchingAssets, setFetchingAssets] = useState(false);
+
   // Sandbox Sub-component states
   const [currentFlashcard, setCurrentFlashcard] = useState(0);
   const [flashcardFlipped, setFlashcardFlipped] = useState(false);
@@ -294,7 +313,31 @@ export default function App() {
   const canvasRef = useRef(null);
   const activeLineRef = useRef(null);
   const cmdKInputRef = useRef(null);
-  const activeData = selectedFile ? MOCK_DATA[selectedFile] : null;
+
+  const { user, token, login, signup, logout, isAuthenticated } = useAuth();
+
+  const buildActiveData = useCallback((asset) => {
+    if (!asset || !asset.assets) return null;
+    const a = typeof asset.assets === 'string' ? JSON.parse(asset.assets) : asset.assets;
+    return {
+      title: asset.title || 'Untitled Document',
+      tagline: a.tagline || 'AI-Generated Study Suite',
+      flashcards: Array.isArray(a.flashcards) ? a.flashcards : [],
+      quiz: Array.isArray(a.quiz) ? a.quiz : [],
+      mindmap: a.mindmap || { nodes: [], connections: [] },
+      slides: Array.isArray(a.slides) ? a.slides : [],
+      report: a.report || '',
+      transcript: Array.isArray(a.transcript) ? a.transcript : [],
+    };
+  }, []);
+
+  const realActiveData = selectedAssetId
+    ? buildActiveData(userAssets.find(a => a.id === selectedAssetId))
+    : null;
+
+  const viewingRealAsset = !!realActiveData;
+
+  const activeData = viewingRealAsset ? realActiveData : (selectedFile ? MOCK_DATA[selectedFile] : null);
 
   // Synchronized Podcast transcript state calculation
   const totalDuration = 160; // 2 min 40s
@@ -618,21 +661,24 @@ export default function App() {
   };
 
   // Mock download synthesis bar
-  const startMockDownload = (assetName) => {
-    setDownloadAsset(assetName);
-    setDownloadProgress(0);
-    setDownloading(true);
-    setAutoPlay(false);
+  const downloadActiveReport = () => {
+    if (!activeData?.report) return;
+    const doc = new jsPDF();
+    const title = activeData.title || 'Study Report';
 
-    const interval = setInterval(() => {
-      setDownloadProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          return 100;
-        }
-        return prev + 4;
-      });
-    }, 100);
+    doc.setFontSize(18);
+    doc.text(title, 105, 20, { align: 'center' });
+    doc.setFontSize(11);
+
+    const lines = doc.splitTextToSize(activeData.report, 180);
+    let y = 35;
+    for (const line of lines) {
+      if (y > 275) { doc.addPage(); y = 20; }
+      doc.text(line, 15, y);
+      y += 7;
+    }
+
+    doc.save(`${title.replace(/\.[^/.]+$/, '')}-report.pdf`);
   };
 
   const toggleTheme = () => {
@@ -705,6 +751,97 @@ export default function App() {
     }, 800);
   };
 
+  // Auth modal handlers
+  const openAuthModal = useCallback((mode) => {
+    setAuthMode(mode);
+    setAuthError('');
+    setAuthEmail('');
+    setAuthPassword('');
+    setAuthName('');
+    setShowAuthModal(true);
+  }, []);
+
+  const handleAuthSubmit = useCallback(async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthLoading(true);
+    try {
+      if (authMode === 'login') {
+        await login(authEmail, authPassword);
+      } else {
+        await signup(authName, authEmail, authPassword);
+      }
+      setShowAuthModal(false);
+      setPdfUrl('');
+    } catch (err) {
+      setAuthError(err.message);
+    } finally {
+      setAuthLoading(false);
+    }
+  }, [authMode, authEmail, authPassword, authName, login, signup]);
+
+  // Fetch user assets after login
+  const fetchUserAssets = useCallback(async () => {
+    if (!token) return;
+    setFetchingAssets(true);
+    try {
+      const assets = await api.getAssets(token);
+      setUserAssets(assets || []);
+    } catch {
+      // silently fail - assets may not be available
+    } finally {
+      setFetchingAssets(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchUserAssets();
+    } else {
+      setUserAssets([]);
+      setSelectedAssetId(null);
+    }
+  }, [isAuthenticated, fetchUserAssets]);
+
+  // Submit PDF URL for generation
+  const handlePdfUrlSubmit = useCallback(async (e) => {
+    e.preventDefault();
+    if (!pdfUrl.trim() || !token) return;
+    setIsSubmittingUrl(true);
+    try {
+      const title = pdfUrl.split('/').pop() || 'Untitled Document';
+      await api.generateAssets(title, pdfUrl.trim(), token);
+      setPdfUrl('');
+      await fetchUserAssets();
+    } catch (err) {
+      alert('Failed to queue: ' + err.message);
+    } finally {
+      setIsSubmittingUrl(false);
+    }
+  }, [pdfUrl, token, fetchUserAssets]);
+
+  // Poll asset until completed
+  useEffect(() => {
+    if (!selectedAssetId || !token) return;
+    const selected = userAssets.find(a => a.id === selectedAssetId);
+    if (!selected || selected.status === 'COMPLETED') return;
+
+    const interval = setInterval(async () => {
+      try {
+        const assets = await api.getAssets(token);
+        setUserAssets(assets || []);
+        const updated = (assets || []).find(a => a.id === selectedAssetId);
+        if (updated && updated.status === 'COMPLETED') {
+          clearInterval(interval);
+        }
+      } catch {
+        clearInterval(interval);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [selectedAssetId, token, userAssets]);
+
   return (
     <div style={{ position: 'relative', minHeight: '100vh' }}>
       {/* CANVAS NEURAL PARTICLES BACKDROP */}
@@ -716,6 +853,85 @@ export default function App() {
 
       {/* BACKDROP BLUR OVERLAY */}
       <div className={`backdrop-blur-overlay ${mobileMenuOpen ? 'open' : ''}`} onClick={() => setMobileMenuOpen(false)}></div>
+
+      {/* AUTH MODAL */}
+      {showAuthModal && (
+        <div className="modal-overlay" onClick={() => setShowAuthModal(false)}>
+          <div className="modal-box" style={{ maxWidth: '420px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.25rem' }}>
+                {authMode === 'login' ? 'Welcome Back' : 'Create Account'}
+              </h3>
+              <button className="btn-icon" onClick={() => setShowAuthModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {authMode === 'signup' && (
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>
+                    Full Name
+                  </label>
+                  <input
+                    className="auth-input"
+                    type="text"
+                    placeholder="e.g. Jane Doe"
+                    value={authName}
+                    onChange={e => setAuthName(e.target.value)}
+                    required
+                  />
+                </div>
+              )}
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>
+                  Email Address
+                </label>
+                <input
+                  className="auth-input"
+                  type="email"
+                  placeholder="student@university.edu"
+                  value={authEmail}
+                  onChange={e => setAuthEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>
+                  Password
+                </label>
+                <input
+                  className="auth-input"
+                  type="password"
+                  placeholder="••••••••"
+                  value={authPassword}
+                  onChange={e => setAuthPassword(e.target.value)}
+                  required
+                  minLength={6}
+                />
+              </div>
+
+              {authError && (
+                <div style={{ padding: '0.75rem 1rem', background: 'rgba(255,95,86,0.1)', border: '1px solid rgba(255,95,86,0.3)', borderRadius: '12px', fontSize: '0.85rem', color: '#ff5f56', fontWeight: 600 }}>
+                  {authError}
+                </div>
+              )}
+
+              <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} disabled={authLoading}>
+                {authLoading ? 'Please wait...' : (authMode === 'login' ? 'Log In' : 'Create Account')}
+              </button>
+            </form>
+
+            <div style={{ marginTop: '1.25rem', textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              {authMode === 'login' ? (
+                <>Don't have an account?{' '}<button className="btn" style={{ padding: 0, color: 'var(--primary)', fontWeight: 700, textDecoration: 'underline', display: 'inline', background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => { setAuthMode('signup'); setAuthError(''); }}>Sign up</button></>
+              ) : (
+                <>Already have an account?{' '}<button className="btn" style={{ padding: 0, color: 'var(--primary)', fontWeight: 700, textDecoration: 'underline', display: 'inline', background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => { setAuthMode('login'); setAuthError(''); }}>Log in</button></>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* DOWNLOAD HUB MODAL */}
       {downloading && (
@@ -782,9 +998,20 @@ export default function App() {
             <button className="btn-icon" onClick={toggleTheme} aria-label="Toggle theme">
               {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
             </button>
-            <button className="btn btn-secondary" style={{ display: 'flex' }} onClick={() => alert("Authentication is in development. Test the interactive sandbox below!")}>
-              Student Log In
-            </button>
+            {isAuthenticated ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary)' }}>
+                  {user?.name}
+                </span>
+                <button className="btn btn-secondary" style={{ display: 'flex' }} onClick={() => { if (window.confirm('Are you sure you want to log out?')) logout(); }}>
+                  Log Out
+                </button>
+              </div>
+            ) : (
+              <button className="btn btn-secondary" style={{ display: 'flex' }} onClick={() => openAuthModal('login')}>
+                Student Log In
+              </button>
+            )}
             <button className="btn-icon menu-toggle" onClick={() => setMobileMenuOpen(true)}>
               <Menu size={24} />
             </button>
@@ -806,8 +1033,8 @@ export default function App() {
           <li><a href="#demo" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Interactive Demo</a></li>
           <li><a href="#pipeline" className="nav-link" onClick={() => setMobileMenuOpen(false)}>How It Works</a></li>
           <li style={{ marginTop: '2rem' }}>
-            <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => { setMobileMenuOpen(false); alert("Authentication features are in development."); }}>
-              Sign Up
+            <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => { setMobileMenuOpen(false); openAuthModal('signup'); }}>
+              {isAuthenticated ? `Logged in as ${user?.name}` : 'Sign Up'}
             </button>
           </li>
         </ul>
@@ -1108,7 +1335,7 @@ export default function App() {
               <div className="sandbox-title" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', width: '100%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   <Sparkles size={20} color="var(--primary)" />
-                  <span style={{ fontWeight: 700 }}>{selectedFile ? activeData.title : "Document Processor Sandbox"}</span>
+                  <span style={{ fontWeight: 700 }}>{activeData ? activeData.title : "Document Processor Sandbox"}</span>
                 </div>
                 
                 {/* Auto-Play Control */}
@@ -1154,18 +1381,85 @@ export default function App() {
                   </div>
                   <h3>Upload Your Academic Files</h3>
                   <p>Drop PDF, DOCX, or text files here to begin. Or, try out the demo with these sample documents:</p>
-                  
-                  <div className="sample-files">
-                    <button className="sample-badge btn" onClick={() => { handleSelectFile('biology'); setAutoPlay(false); }}>
-                      <FileText size={16} color="var(--primary)" /> Biology Cell Structure.pdf
-                    </button>
-                    <button className="sample-badge btn" onClick={() => { handleSelectFile('history'); setAutoPlay(false); }}>
-                      <FileText size={16} color="var(--primary)" /> French Revolution.pdf
-                    </button>
-                    <button className="sample-badge btn" onClick={() => { handleSelectFile('economics'); setAutoPlay(false); }}>
-                      <FileText size={16} color="var(--primary)" /> Monetary Policy & Inflation.pdf
-                    </button>
-                  </div>
+
+                  {/* Authenticated: show upload form and user's assets */}
+                  {isAuthenticated ? (
+                    <>
+                      <form onSubmit={handlePdfUrlSubmit} style={{ display: 'flex', gap: '0.5rem', width: '100%', maxWidth: '500px', marginBottom: '1.5rem' }}>
+                        <input
+                          className="auth-input"
+                          type="url"
+                          placeholder="Paste PDF URL to generate assets..."
+                          value={pdfUrl}
+                          onChange={e => setPdfUrl(e.target.value)}
+                          style={{ flex: 1 }}
+                          required
+                        />
+                        <button className="btn btn-primary" type="submit" disabled={isSubmittingUrl || !pdfUrl.trim()}>
+                          {isSubmittingUrl ? 'Queuing...' : 'Generate'}
+                        </button>
+                      </form>
+
+                      {fetchingAssets && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading your assets...</p>}
+
+                      {userAssets.length > 0 && (
+                        <div className="sample-files" style={{ flexDirection: 'column', gap: '0.5rem' }}>
+                          <p style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)', alignSelf: 'flex-start' }}>Your Study Materials:</p>
+                          {userAssets.map(asset => (
+                            <button
+                              key={asset.id}
+                              className="sample-badge btn"
+                              style={{
+                                borderColor: asset.status === 'COMPLETED' ? 'var(--primary)' : 'var(--card-border)',
+                                opacity: asset.status === 'COMPLETED' ? 1 : 0.6,
+                                width: '100%',
+                                justifyContent: 'flex-start'
+                              }}
+                              onClick={() => {
+                                if (asset.status === 'COMPLETED') {
+                                  setSelectedAssetId(asset.id);
+                                  setAutoPlay(false);
+                                }
+                              }}
+                              disabled={asset.status !== 'COMPLETED'}
+                            >
+                              <FileText size={16} color={asset.status === 'COMPLETED' ? 'var(--primary)' : 'var(--text-muted)'} />
+                              <span style={{ flex: 1, textAlign: 'left' }}>{asset.title}</span>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                                {asset.status === 'COMPLETED' ? 'Ready' : asset.status === 'PROCESSING' ? 'Processing...' : 'Pending'}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {userAssets.length === 0 && !fetchingAssets && (
+                        <div className="sample-files">
+                          <button className="sample-badge btn" onClick={() => { handleSelectFile('biology'); setAutoPlay(false); }}>
+                            <FileText size={16} color="var(--primary)" /> Try Demo: Biology Cell Structure.pdf
+                          </button>
+                          <button className="sample-badge btn" onClick={() => { handleSelectFile('history'); setAutoPlay(false); }}>
+                            <FileText size={16} color="var(--primary)" /> Try Demo: French Revolution.pdf
+                          </button>
+                          <button className="sample-badge btn" onClick={() => { handleSelectFile('economics'); setAutoPlay(false); }}>
+                            <FileText size={16} color="var(--primary)" /> Try Demo: Monetary Policy & Inflation.pdf
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="sample-files">
+                      <button className="sample-badge btn" onClick={() => { handleSelectFile('biology'); setAutoPlay(false); }}>
+                        <FileText size={16} color="var(--primary)" /> Biology Cell Structure.pdf
+                      </button>
+                      <button className="sample-badge btn" onClick={() => { handleSelectFile('history'); setAutoPlay(false); }}>
+                        <FileText size={16} color="var(--primary)" /> French Revolution.pdf
+                      </button>
+                      <button className="sample-badge btn" onClick={() => { handleSelectFile('economics'); setAutoPlay(false); }}>
+                        <FileText size={16} color="var(--primary)" /> Monetary Policy & Inflation.pdf
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1236,7 +1530,7 @@ export default function App() {
                     <button 
                       className="sidebar-btn" 
                       style={{ marginTop: 'auto', borderTop: '1px solid var(--divider)', color: 'var(--primary)' }}
-                      onClick={() => { setSelectedFile(null); setAudioPlaying(false); setAutoPlay(false); }}
+                      onClick={() => { setSelectedFile(null); setSelectedAssetId(null); setAudioPlaying(false); setAutoPlay(false); }}
                     >
                       <ArrowLeft size={16} /> Reset Sandbox
                     </button>
@@ -1739,7 +2033,7 @@ export default function App() {
                           <button 
                             className="btn btn-secondary" 
                             style={{ padding: '0.4rem 1rem', fontSize: '0.85rem', display: 'flex', gap: '0.25rem' }} 
-                            onClick={() => startMockDownload('Study Report PDF')}
+                            onClick={downloadActiveReport}
                           >
                             <Download size={14} /> Download PDF
                           </button>
@@ -1820,7 +2114,7 @@ export default function App() {
           <div className="cta-box">
             <h2>Transform Your Studying Today</h2>
             <p>Ready to synthesize your lecture notes and speed up your revision? Register your student account and begin generating your customized study suite immediately.</p>
-            <button className="btn btn-primary" onClick={() => alert("Signing up is currently closed for preview. Feel free to play with the study sandbox!")}>
+            <button className="btn btn-primary" onClick={() => openAuthModal('signup')}>
               Create Student Account <Sparkles size={18} />
             </button>
           </div>
@@ -1844,14 +2138,6 @@ export default function App() {
               </ul>
             </div>
             <div className="footer-col">
-              <h4>Technology</h4>
-              <ul>
-                <li><a href="#" onClick={(e) => { e.preventDefault(); alert("Running Express.js and MySQL on the core backend."); }}>Core API</a></li>
-                <li><a href="#" onClick={(e) => { e.preventDefault(); alert("Powered by FastAPI, Celery, and custom scraping algorithms."); }}>Asset Engine</a></li>
-                <li><a href="#" onClick={(e) => { e.preventDefault(); alert("Admin dashboard built with React + Cloudinary integration."); }}>Admin portal</a></li>
-              </ul>
-            </div>
-            <div className="footer-col">
               <h4>Support</h4>
               <ul>
                 <li><a href="#" onClick={(e) => { e.preventDefault(); alert("Contact: support@reekyhub.edu"); }}>Contact Email</a></li>
@@ -1864,7 +2150,7 @@ export default function App() {
           <div className="footer-bottom">
             <p>&copy; {new Date().getFullYear()} Reeky Academic Hub. All rights reserved.</p>
             <p style={{ display: 'flex', gap: '1rem' }}>
-              <span>Made with ❤️ for students</span>
+              <span>Made for students</span>
             </p>
           </div>
         </div>
