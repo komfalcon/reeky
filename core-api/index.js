@@ -13,8 +13,13 @@ app.use(cors());
 app.use(express.json());
 
 // Set up MySQL connection pool
-const dbUrl = process.env.DATABASE_URL.replace('?sslaccept=strict', '?ssl-mode=REQUIRED');
-const pool = mysql.createPool(dbUrl);
+const dbUrl = process.env.DATABASE_URL;
+const pool = mysql.createPool({
+    uri: dbUrl,
+    ssl: {
+        rejectUnauthorized: true
+    }
+});
 
 // Health Check Endpoint
 app.get('/api/health', async (req, res) => {
