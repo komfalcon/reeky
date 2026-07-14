@@ -15,3 +15,4 @@ beat_schedule = {
 }
 
 timezone = 'UTC'
+database_short_lived_sessions = True
