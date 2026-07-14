@@ -180,7 +180,7 @@ app.post('/api/admin/submit-assets', async (req, res) => {
         );
 
         // 2. Trigger the Python Scraper Engine (assuming running on port 8000 or Railway)
-        const pythonEngineUrl = process.env.PYTHON_ENGINE_URL || 'http://localhost:8000';
+        const pythonEngineUrl = process.env.PYTHON_ENGINE_URL || 'https://reeky-backend-engine.onrender.com';
         fetch(`${pythonEngineUrl}/admin/submit-assets`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -200,7 +200,7 @@ app.post('/api/admin/submit-assets', async (req, res) => {
 app.get('/api/admin/task-status/:id', async (req, res) => {
     try {
         const taskId = req.params.id;
-        const pythonEngineUrl = process.env.PYTHON_ENGINE_URL || 'http://localhost:8000';
+        const pythonEngineUrl = process.env.PYTHON_ENGINE_URL || 'https://reeky-backend-engine.onrender.com';
         
         const response = await fetch(`${pythonEngineUrl}/status/${taskId}`);
         if (!response.ok) {
