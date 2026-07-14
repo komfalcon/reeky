@@ -172,25 +172,40 @@ app.post('/api/admin/submit-assets', async (req, res) => {
     try {
         const { assetId, artifact_urls, podcast_audio, video_overview, infographic, slide_deck, study_report, data_table } = req.body;
         
-        // 1. Update status to PROCESSING and save the static media links
         const staticAssets = { podcast_audio, video_overview, infographic, slide_deck, study_report, data_table };
+        
+        // If there are no NotebookLM URLs to scrape, complete the task immediately!
+        if (!artifact_urls || artifact_urls.length === 0) {
+            await pool.execute(
+                'UPDATE `AssetBundle` SET status = ?, assets = ? WHERE id = ?',
+                ['COMPLETED', JSON.stringify(staticAssets), assetId]
+            );
+            return res.json({ success: true, completedDirectly: true, message: "Asset bundle completed directly" });
+        }
+        
+        // Otherwise, set to PROCESSING and trigger the Python Scraper
         await pool.execute(
             'UPDATE `AssetBundle` SET status = ?, assets = ? WHERE id = ?',
             ['PROCESSING', JSON.stringify(staticAssets), assetId]
         );
 
-        // 2. Trigger the Python Scraper Engine (assuming running on port 8000 or Railway)
         const pythonEngineUrl = process.env.PYTHON_ENGINE_URL || 'https://reeky-backend-engine.onrender.com';
         fetch(`${pythonEngineUrl}/admin/submit-assets`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                task_id: assetId,
-                artifact_urls: artifact_urls
+                user_id: assetId, // Fix: Use user_id to match Python FastAPI AdminSubmissionRequest schema!
+                artifact_urls: artifact_urls,
+                podcast_audio: podcast_audio,
+                video_overview: video_overview,
+                infographic: infographic,
+                slide_deck: slide_deck,
+                study_report: study_report,
+                data_table: data_table
             })
         }).catch(err => console.error("Failed to trigger python engine:", err));
         
-        res.json({ success: true, message: "Sent to processing" });
+        res.json({ success: true, completedDirectly: false, message: "Sent to processing" });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: "Failed to submit assets" });
