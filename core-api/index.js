@@ -145,8 +145,8 @@ app.get('/api/assets', authenticateToken, async (req, res) => {
 app.get('/api/admin/queue', async (req, res) => {
     try {
         const [queue] = await pool.execute(
-            'SELECT * FROM `AssetBundle` WHERE status = ? ORDER BY createdAt ASC',
-            ['PENDING']
+            'SELECT * FROM `AssetBundle` WHERE status = ? OR status = ? ORDER BY createdAt ASC',
+            ['PENDING', 'PROCESSING']
         );
         res.json({ queue });
     } catch (error) {
