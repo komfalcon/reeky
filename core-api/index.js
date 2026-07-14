@@ -197,6 +197,24 @@ app.post('/api/admin/submit-assets', async (req, res) => {
     }
 });
 
+app.get('/api/admin/task-status/:id', async (req, res) => {
+    try {
+        const taskId = req.params.id;
+        const pythonEngineUrl = process.env.PYTHON_ENGINE_URL || 'http://localhost:8000';
+        
+        const response = await fetch(`${pythonEngineUrl}/status/${taskId}`);
+        if (!response.ok) {
+            throw new Error(`Python engine status returned ${response.status}`);
+        }
+        
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        console.error("Error proxying task status:", error);
+        res.status(500).json({ error: "Failed to fetch task status from engine" });
+    }
+});
+
 app.post('/api/assets/webhook/complete', async (req, res) => {
     try {
         const { assetId, assets } = req.body;

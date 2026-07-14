@@ -26,5 +26,5 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ assetId, assets }),
     }),
-  getTaskStatus: (taskId) => request(ENGINE, `/status/${taskId}`),
+  getTaskStatus: (taskId) => request(API, `/api/admin/task-status/${taskId}`),
 };
