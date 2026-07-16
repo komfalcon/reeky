@@ -20,7 +20,7 @@ app = FastAPI(title="NotebookLM Backend Asset Engine - Productized Service")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Open to all origins for easy web/mobile interface testing
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

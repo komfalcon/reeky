@@ -6,3 +6,6 @@ playwright
 python-pptx
 pydub
 aiohttp
+sqlalchemy
+pymysql
+cryptography

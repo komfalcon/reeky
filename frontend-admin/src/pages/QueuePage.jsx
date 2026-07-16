@@ -174,9 +174,23 @@ export default function QueuePage() {
     };
 
     try {
-      await api.submitAssets(payload);
-      startPolling(selectedUser.id);
-      fetchQueue();
+      const res = await api.submitAssets(payload);
+      if (res && res.completedDirectly) {
+        setTaskId(null);
+        setTaskStatus(null);
+        setTaskResult(null);
+        setTaskError(null);
+        setFormData({
+          flashcards_url: '', quizzes_url: '', mindmap_url: '',
+          podcast_audio: '', video_overview: '', infographic: '', slide_deck: '',
+          study_report: '', data_table: '',
+        });
+        setSelectedUser(null);
+        fetchQueue();
+      } else {
+        startPolling(selectedUser.id);
+        fetchQueue();
+      }
     } catch (err) {
       console.error("Submission failed", err);
     } finally {

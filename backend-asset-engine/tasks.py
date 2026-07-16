@@ -69,10 +69,35 @@ def process_submission_sync(config: dict):
     Synchronous wrapper for the async scraper.
     """
     results = {}
-    artifact_urls = config.get("artifact_urls", [])
+    artifact_urls = config.get("artifact_urls")
+    if not artifact_urls or not isinstance(artifact_urls, list):
+        artifact_urls = []
+    
+    # Filter only valid http/https URLs to avoid scraping empty or placeholder strings
+    clean_urls = []
+    for url in artifact_urls:
+        if url and isinstance(url, str) and url.strip() and url.strip().startswith("http"):
+            clean_urls.append(url.strip())
+            
+    if not clean_urls:
+        print("ℹ️ No valid NotebookLM URLs provided for scraping. Skipping Playwright scraper.")
+        # Handle direct media pass-throughs from Admin
+        if config.get("podcast_audio"):
+            results["podcast_audio"] = config["podcast_audio"]
+        if config.get("video_overview"):
+            results["video_overview"] = config["video_overview"]
+        if config.get("infographic"):
+            results["infographic"] = config["infographic"]
+        if config.get("slide_deck"):
+            results["slide_deck"] = config["slide_deck"]
+        if config.get("study_report"):
+            results["study_report"] = config["study_report"]
+        if config.get("data_table"):
+            results["data_table"] = config["data_table"]
+        return results
     
     async def run_scraper():
-        for url in artifact_urls:
+        for url in clean_urls:
             data = await scrape_notebooklm_url(url)
             if not data:
                 print(f"⚠️ Failed to extract data from {url}")

@@ -2,11 +2,16 @@ import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const url = process.env.DATABASE_URL.replace('?sslaccept=strict', '?ssl-mode=REQUIRED');
+const url = process.env.DATABASE_URL;
 
 async function setup() {
     try {
-        const connection = await mysql.createConnection(url);
+        const connection = await mysql.createConnection({
+            uri: url,
+            ssl: {
+                rejectUnauthorized: true
+            }
+        });
         console.log('Connected to MySQL natively.');
 
         await connection.execute(`

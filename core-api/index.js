@@ -13,8 +13,13 @@ app.use(cors());
 app.use(express.json());
 
 // Set up MySQL connection pool
-const dbUrl = process.env.DATABASE_URL.replace('?sslaccept=strict', '?ssl-mode=REQUIRED');
-const pool = mysql.createPool(dbUrl);
+const dbUrl = process.env.DATABASE_URL;
+const pool = mysql.createPool({
+    uri: dbUrl,
+    ssl: {
+        rejectUnauthorized: true
+    }
+});
 
 // Health Check Endpoint
 app.get('/api/health', async (req, res) => {
@@ -140,8 +145,8 @@ app.get('/api/assets', authenticateToken, async (req, res) => {
 app.get('/api/admin/queue', async (req, res) => {
     try {
         const [queue] = await pool.execute(
-            'SELECT * FROM `AssetBundle` WHERE status = ? ORDER BY createdAt ASC',
-            ['PENDING']
+            'SELECT * FROM `AssetBundle` WHERE status = ? OR status = ? ORDER BY createdAt ASC',
+            ['PENDING', 'PROCESSING']
         );
         res.json({ queue });
     } catch (error) {
@@ -167,28 +172,61 @@ app.post('/api/admin/submit-assets', async (req, res) => {
     try {
         const { assetId, artifact_urls, podcast_audio, video_overview, infographic, slide_deck, study_report, data_table } = req.body;
         
-        // 1. Update status to PROCESSING and save the static media links
         const staticAssets = { podcast_audio, video_overview, infographic, slide_deck, study_report, data_table };
+        
+        // If there are no NotebookLM URLs to scrape, complete the task immediately!
+        if (!artifact_urls || artifact_urls.length === 0) {
+            await pool.execute(
+                'UPDATE `AssetBundle` SET status = ?, assets = ? WHERE id = ?',
+                ['COMPLETED', JSON.stringify(staticAssets), assetId]
+            );
+            return res.json({ success: true, completedDirectly: true, message: "Asset bundle completed directly" });
+        }
+        
+        // Otherwise, set to PROCESSING and trigger the Python Scraper
         await pool.execute(
             'UPDATE `AssetBundle` SET status = ?, assets = ? WHERE id = ?',
             ['PROCESSING', JSON.stringify(staticAssets), assetId]
         );
 
-        // 2. Trigger the Python Scraper Engine (assuming running on port 8000 or Railway)
-        const pythonEngineUrl = process.env.PYTHON_ENGINE_URL || 'http://localhost:8000';
+        const pythonEngineUrl = process.env.PYTHON_ENGINE_URL || 'https://reeky-backend-engine.onrender.com';
         fetch(`${pythonEngineUrl}/admin/submit-assets`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                task_id: assetId,
-                artifact_urls: artifact_urls
+                user_id: assetId, // Fix: Use user_id to match Python FastAPI AdminSubmissionRequest schema!
+                artifact_urls: artifact_urls,
+                podcast_audio: podcast_audio,
+                video_overview: video_overview,
+                infographic: infographic,
+                slide_deck: slide_deck,
+                study_report: study_report,
+                data_table: data_table
             })
         }).catch(err => console.error("Failed to trigger python engine:", err));
         
-        res.json({ success: true, message: "Sent to processing" });
+        res.json({ success: true, completedDirectly: false, message: "Sent to processing" });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: "Failed to submit assets" });
+    }
+});
+
+app.get('/api/admin/task-status/:id', async (req, res) => {
+    try {
+        const taskId = req.params.id;
+        const pythonEngineUrl = process.env.PYTHON_ENGINE_URL || 'https://reeky-backend-engine.onrender.com';
+        
+        const response = await fetch(`${pythonEngineUrl}/status/${taskId}`);
+        if (!response.ok) {
+            throw new Error(`Python engine status returned ${response.status}`);
+        }
+        
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        console.error("Error proxying task status:", error);
+        res.status(500).json({ error: "Failed to fetch task status from engine" });
     }
 });
 
