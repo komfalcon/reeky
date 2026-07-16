@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from './AuthContext';
 import { jsPDF } from 'jspdf';
 import { 
   FileText, 
@@ -242,6 +243,7 @@ export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { isAuthenticated } = useAuth();
   
 
 
@@ -788,9 +790,15 @@ export default function App() {
             <button className="btn-icon" onClick={toggleTheme} aria-label="Toggle theme">
               {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
             </button>
-            <Link to="/login" className="btn btn-secondary" style={{ display: 'flex', textDecoration: 'none' }}>
-              Student Log In
-            </Link>
+            {isAuthenticated ? (
+              <Link to="/dashboard" className="btn btn-secondary" style={{ display: 'flex', textDecoration: 'none' }}>
+                Dashboard
+              </Link>
+            ) : (
+              <Link to="/login" className="btn btn-secondary" style={{ display: 'flex', textDecoration: 'none' }}>
+                Student Log In
+              </Link>
+            )}
             <button className="btn-icon menu-toggle" onClick={() => setMobileMenuOpen(true)}>
               <Menu size={24} />
             </button>
@@ -811,11 +819,19 @@ export default function App() {
           <li><a href="#comparison" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Before & After</a></li>
           <li><a href="#demo" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Interactive Demo</a></li>
           <li><a href="#pipeline" className="nav-link" onClick={() => setMobileMenuOpen(false)}>How It Works</a></li>
-          <li style={{ marginTop: '2rem' }}>
-            <Link to="/signup" className="btn btn-primary" style={{ width: '100%', textDecoration: 'none' }} onClick={() => setMobileMenuOpen(false)}>
-              Sign Up
-            </Link>
-          </li>
+          {isAuthenticated ? (
+            <li style={{ marginTop: '2rem' }}>
+              <Link to="/dashboard" className="btn btn-primary" style={{ width: '100%', textDecoration: 'none' }} onClick={() => setMobileMenuOpen(false)}>
+                Dashboard
+              </Link>
+            </li>
+          ) : (
+            <li style={{ marginTop: '2rem' }}>
+              <Link to="/signup" className="btn btn-primary" style={{ width: '100%', textDecoration: 'none' }} onClick={() => setMobileMenuOpen(false)}>
+                Sign Up
+              </Link>
+            </li>
+          )}
         </ul>
       </div>
 

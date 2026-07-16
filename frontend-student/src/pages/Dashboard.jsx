@@ -158,6 +158,11 @@ export default function Dashboard() {
             Reeky Academic Hub
           </Link>
 
+          <nav style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+            <Link to="/" className="nav-link" style={{ textDecoration: 'none', fontSize: '0.9rem', fontWeight: 500 }}>Home</Link>
+            <Link to="/dashboard" className="nav-link" style={{ textDecoration: 'none', fontSize: '0.9rem', fontWeight: 500, color: 'var(--primary)' }}>Dashboard</Link>
+          </nav>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary)' }}>
               {user?.name}
