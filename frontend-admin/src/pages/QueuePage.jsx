@@ -1,13 +1,66 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, FileText, ClipboardCopy, Send, Loader2, CheckCircle2, UploadCloud, Menu, X, AlertCircle, Eye } from 'lucide-react';
+import { Users, FileText, ClipboardCopy, Send, Loader2, CheckCircle2, UploadCloud, Menu, X, AlertCircle, Eye, User, BookOpen, Sparkles, Headphones, Globe, MessageCircle, Zap, Compass, Info, Terminal } from 'lucide-react';
 import { api } from '../api';
+import AdminPromptCompiler from '../components/AdminPromptCompiler';
 
 const STATUS_BADGE = {
   PENDING: { label: 'Pending', color: '#f59e0b' },
   PROCESSING: { label: 'Processing', color: '#3b82f6' },
   COMPLETED: { label: 'Completed', color: '#10b981' },
 };
+
+const STYLE_MAP = {
+  visual: { label: 'Visual Learner', color: '#a855f7', bg: 'rgba(168,85,247,0.15)' },
+  auditory: { label: 'Auditory Learner', color: '#06b6d4', bg: 'rgba(6,182,212,0.15)' },
+  textual: { label: 'Textual Learner', color: '#22c55e', bg: 'rgba(34,197,94,0.15)' },
+};
+
+const DEPTH_MAP = {
+  simple: { label: 'Simple Summary', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
+  executive: { label: 'Executive Brief', color: '#3b82f6', bg: 'rgba(59,130,246,0.15)' },
+  detailed: { label: 'In-Depth Guide', color: '#8b5cf6', bg: 'rgba(139,92,246,0.15)' },
+};
+
+const TONE_MAP = {
+  academic: { label: 'Academic Tone', color: '#14b8a6', bg: 'rgba(20,184,166,0.15)' },
+  conversational: { label: 'Conversational', color: '#ec4899', bg: 'rgba(236,72,153,0.15)' },
+  elif5: { label: 'ELIF5 Style', color: '#f97316', bg: 'rgba(249,115,22,0.15)' },
+};
+
+const PACING_MAP = {
+  fast: { label: 'Fast Pacing', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' },
+  'deep-dive': { label: 'Deep-Dive', color: '#6366f1', bg: 'rgba(99,102,241,0.15)' },
+};
+
+function PreferenceBadge({ mapKey, map }) {
+  const entry = map[mapKey];
+  if (!entry) return null;
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '0.35rem',
+      padding: '0.3rem 0.7rem',
+      borderRadius: '50px',
+      fontSize: '0.75rem',
+      fontWeight: 600,
+      background: entry.bg,
+      color: entry.color,
+      border: `1px solid ${entry.color}33`,
+    }}>
+      {entry.label}
+    </span>
+  );
+}
+
+function parsePrefs(raw) {
+  if (!raw) return null;
+  if (typeof raw === 'string') {
+    try { return JSON.parse(raw); } catch { return null; }
+  }
+  return raw;
+}
 
 const CloudinaryUploadWidget = ({ fieldName, label, currentUrl, onUploadSuccess }) => {
   const openWidget = () => {
@@ -60,6 +113,7 @@ export default function QueuePage() {
   const [copied, setCopied] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [showCompiler, setShowCompiler] = useState(false);
   const [formData, setFormData] = useState({
     flashcards_url: '',
     quizzes_url: '',
@@ -105,7 +159,20 @@ export default function QueuePage() {
 
   const handleCopyPrompt = () => {
     if (!selectedUser) return;
-    navigator.clipboard.writeText(`Title/Topic: ${selectedUser.title || 'None'}`);
+    const prefs = parsePrefs(selectedUser.studentPreferences);
+    const depthLabel = prefs?.explanationDepth ? DEPTH_MAP[prefs.explanationDepth]?.label || prefs.explanationDepth : 'Not set';
+    const styleLabel = prefs?.learningStyle ? STYLE_MAP[prefs.learningStyle]?.label || prefs.learningStyle : 'Not set';
+    const toneLabel = prefs?.tone ? TONE_MAP[prefs.tone]?.label || prefs.tone : 'Not set';
+    const pacingLabel = prefs?.examPacing ? PACING_MAP[prefs.examPacing]?.label || prefs.examPacing : 'Not set';
+
+    const prompt = `Title: ${selectedUser.title || 'N/A'}
+Learning Profile:
+- Depth: ${depthLabel}
+- Primary Medium: ${styleLabel}
+- Tone: ${toneLabel}
+- Pacing: ${pacingLabel}
+${selectedUser.customInstructions ? `\nSpecial Instructions:\n"${selectedUser.customInstructions}"` : ''}`;
+    navigator.clipboard.writeText(prompt);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -365,6 +432,73 @@ export default function QueuePage() {
               </span>
             </div>
 
+            {/* PROFILE SUMMARY CARD */}
+            {(selectedUser.studentName || selectedUser.studentEmail) && (
+              <div className="glass-panel">
+                <h2 className="title" style={{ marginBottom: '1rem' }}>
+                  <User size={24} color="var(--primary)" />
+                  Student Profile
+                </h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>
+                      Name
+                    </div>
+                    <div style={{ fontWeight: 600 }}>{selectedUser.studentName || 'N/A'}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>
+                      Email
+                    </div>
+                    <div style={{ fontWeight: 600, color: 'var(--primary)' }}>{selectedUser.studentEmail || 'N/A'}</div>
+                  </div>
+
+                  {(() => {
+                    const prefs = parsePrefs(selectedUser.studentPreferences);
+                    if (!prefs) return null;
+                    return (
+                      <div>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
+                          Learning Profile
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                          {prefs.explanationDepth && <PreferenceBadge mapKey={prefs.explanationDepth} map={DEPTH_MAP} />}
+                          {prefs.learningStyle && <PreferenceBadge mapKey={prefs.learningStyle} map={STYLE_MAP} />}
+                          {prefs.tone && <PreferenceBadge mapKey={prefs.tone} map={TONE_MAP} />}
+                          {prefs.examPacing && <PreferenceBadge mapKey={prefs.examPacing} map={PACING_MAP} />}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+
+            {/* FILE INSTRUCTIONS CALLOUT */}
+            {selectedUser.customInstructions && (
+              <div className="glass-panel" style={{
+                borderLeft: '3px solid var(--primary)',
+                background: 'linear-gradient(135deg, rgba(59,130,246,0.08), rgba(59,130,246,0.02))',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                  <Info size={20} color="var(--primary)" />
+                  <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>Document Notes</h3>
+                </div>
+                <div style={{
+                  background: 'rgba(0,0,0,0.25)',
+                  border: '1px solid var(--panel-border)',
+                  borderRadius: '10px',
+                  padding: '1rem',
+                  fontStyle: 'italic',
+                  fontSize: '0.9rem',
+                  lineHeight: 1.6,
+                  color: '#e2e8f0',
+                }}>
+                  &ldquo;{selectedUser.customInstructions}&rdquo;
+                </div>
+              </div>
+            )}
+
             {/* TAILORED PROMPT BOX */}
             <div className="glass-panel">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -374,7 +508,7 @@ export default function QueuePage() {
                 </h2>
                 <button className="btn btn-secondary" onClick={handleCopyPrompt}>
                   {copied ? <CheckCircle2 size={18} /> : <ClipboardCopy size={18} />}
-                  {copied ? 'Copied!' : 'Copy to NotebookLM'}
+                  {copied ? 'Copied!' : 'Copy Prompt for NotebookLM'}
                 </button>
               </div>
 
@@ -516,6 +650,20 @@ export default function QueuePage() {
                 </button>
               </div>
             )}
+
+            {/* PROMPT COMPILER TOGGLE */}
+            <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setShowCompiler(!showCompiler)}
+                style={{ padding: '0.6rem 1.5rem' }}
+              >
+                <Terminal size={18} />
+                {showCompiler ? 'Hide Prompt Sandbox' : 'Open Prompt Engine Sandbox'}
+              </button>
+            </div>
+
+            {showCompiler && <AdminPromptCompiler />}
           </div>
         )}
       </div>

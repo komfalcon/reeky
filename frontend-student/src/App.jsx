@@ -33,7 +33,9 @@ import {
   Search,
   Command,
   CornerDownLeft,
-  Users
+  Users,
+  Circle,
+  Award
 } from 'lucide-react';
 
 // Sample Mock Data
@@ -1313,13 +1315,13 @@ export default function App() {
                         {flashcardFlipped ? (
                           <div className="swipe-btn-group" style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
                             <button className="btn btn-secondary" style={{ borderColor: '#ff5f56', color: '#ff5f56', background: 'rgba(255,95,86,0.05)' }} onClick={() => handleSpacedRepetition('hard')}>
-                              🔴 Hard (+5%)
+                              <Circle size={12} fill="#ff5f56" color="#ff5f56" /> Hard (+5%)
                             </button>
                             <button className="btn btn-secondary" style={{ borderColor: '#ffbd2e', color: '#ffbd2e', background: 'rgba(255,189,46,0.05)' }} onClick={() => handleSpacedRepetition('medium')}>
-                              🟡 Medium (+15%)
+                              <Circle size={12} fill="#ffbd2e" color="#ffbd2e" /> Medium (+15%)
                             </button>
                             <button className="btn btn-primary" style={{ background: '#27c93f', borderColor: '#27c93f', boxShadow: 'none' }} onClick={() => handleSpacedRepetition('easy')}>
-                              🟢 Easy (+25%)
+                              <Circle size={12} fill="#27c93f" color="#27c93f" /> Easy (+25%)
                             </button>
                           </div>
                         ) : (
@@ -1452,9 +1454,9 @@ export default function App() {
 
                             <div style={{ background: 'var(--bg)', borderRadius: '16px', padding: '1rem', border: '1px solid var(--card-border)', fontSize: '0.85rem', color: 'var(--text-main)', marginBottom: '1.5rem' }}>
                               {quizScore === activeData.quiz.length ? (
-                                "🎉 Outstanding! You have mastered this chapter. We recommend exporting the Slide Deck to review with peers."
+                                <><Award size={16} style={{marginRight: 6, verticalAlign: 'middle'}} /> Outstanding! You have mastered this chapter. We recommend exporting the Slide Deck to review with peers.</>
                               ) : (
-                                "📚 Solid effort. We recommend focusing on the second section of the generated Study Report to patch up your gaps."
+                                <><BookOpen size={16} style={{marginRight: 6, verticalAlign: 'middle'}} /> Solid effort. We recommend focusing on the second section of the generated Study Report to patch up your gaps.</>
                               )}
                             </div>
 
