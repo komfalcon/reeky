@@ -3,16 +3,30 @@ import { Link, useNavigate } from 'react-router-dom';
 import { jsPDF } from 'jspdf';
 import { useAuth } from '../AuthContext';
 import { api } from '../api';
+import AssetSelection from '../components/AssetSelection';
+import FlashcardFlipper from '../components/FlashcardFlipper';
+import SteppedQuizPlayer from '../components/SteppedQuizPlayer';
+import WaveformPodcastPlayer from '../components/WaveformPodcastPlayer';
+import ZoomableMindmapViewer from '../components/ZoomableMindmapViewer';
+
+async function uploadToCloudinary(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', 'Reeky Academic Hub');
+  const res = await fetch('https://api.cloudinary.com/v1_1/x9lbk1ea/auto/upload', {
+    method: 'POST',
+    body: formData,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || 'Upload failed');
+  return data.secure_url;
+}
 
 export default function Dashboard() {
   const { user, token, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
-  const [uploadMode, setUploadMode] = useState('file');
-  const [pdfUrl, setPdfUrl] = useState('');
-  const [isSubmittingUrl, setIsSubmittingUrl] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(null);
   const [userAssets, setUserAssets] = useState([]);
   const [fetchingAssets, setFetchingAssets] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState(null);
@@ -35,7 +49,6 @@ export default function Dashboard() {
       const assets = await api.getAssets(token);
       setUserAssets(assets || []);
     } catch {
-      // silently fail
     } finally {
       setFetchingAssets(false);
     }
@@ -45,65 +58,19 @@ export default function Dashboard() {
     if (isAuthenticated) fetchUserAssets();
   }, [isAuthenticated, fetchUserAssets]);
 
-  const handlePdfUrlSubmit = useCallback(async (e) => {
-    e.preventDefault();
-    if (!pdfUrl.trim() || !token) return;
-    setIsSubmittingUrl(true);
-    try {
-      const title = pdfUrl.split('/').pop() || 'Untitled Document';
-      await api.generateAssets(title, pdfUrl.trim(), token);
-      setPdfUrl('');
-      await fetchUserAssets();
-    } catch (err) {
-      alert('Failed to queue: ' + err.message);
-    } finally {
-      setIsSubmittingUrl(false);
-    }
-  }, [pdfUrl, token, fetchUserAssets]);
-
-  const openUploadWidget = () => {
-    if (!window.cloudinary) return;
+  const handleUpload = async (file, selectedAssets, customInstructions) => {
+    if (!token) return;
     setIsUploading(true);
-    setUploadProgress('Opening upload dialog...');
-    window.cloudinary.createUploadWidget(
-      {
-        cloudName: 'x9lbk1ea',
-        uploadPreset: 'Reeky Academic Hub',
-        sources: ['local', 'url', 'camera'],
-        multiple: false,
-        maxFileSize: 50000000,
-        accept: 'application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      },
-      (error, result) => {
-        if (error) {
-          setIsUploading(false);
-          setUploadProgress(null);
-          console.error('Upload error', error);
-          return;
-        }
-        if (result.event === 'close') {
-          setIsUploading(false);
-          setUploadProgress(null);
-          return;
-        }
-        if (result.event === 'success') {
-          const fileUrl = result.info.secure_url;
-          const fileName = result.info.original_filename || 'Uploaded Document';
-          setUploadProgress('File uploaded. Queuing generation...');
-          api.generateAssets(fileName, fileUrl, token)
-            .then(() => {
-              setUploadProgress(null);
-              setIsUploading(false);
-              fetchUserAssets();
-            })
-            .catch(err => {
-              setUploadProgress(null);
-              setIsUploading(false);
-              alert('Failed to queue: ' + err.message);
-            });
-        }
-      }
-    ).open();
+    try {
+      const fileUrl = await uploadToCloudinary(file);
+      const title = file.name || 'Uploaded Document';
+      await api.generateAssets(title, fileUrl, token, customInstructions || undefined);
+      fetchUserAssets();
+    } catch (err) {
+      alert('Failed to upload: ' + err.message);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const completedAssets = userAssets.filter(a => a.status === 'COMPLETED');
@@ -115,12 +82,24 @@ export default function Dashboard() {
     return {
       title: asset.title || 'Untitled Document',
       tagline: a.tagline || 'AI-Generated Study Suite',
-      flashcards: Array.isArray(a.flashcards) ? a.flashcards : [],
-      quiz: Array.isArray(a.quiz) ? a.quiz : [],
-      mindmap: a.mindmap || { nodes: [], connections: [] },
+      flashcards: Array.isArray(a.flashcards) ? a.flashcards.map(fc => ({
+        id: fc.id || Math.random().toString(36).slice(2),
+        question: fc.q || fc.question || '',
+        answer: fc.a || fc.answer || '',
+      })) : [],
+      quiz: Array.isArray(a.quiz) ? a.quiz.map(q => ({
+        text: q.q || q.text || '',
+        options: Array.isArray(q.options) ? q.options : [],
+        correctOptionIndex: typeof q.correct === 'number' ? q.correct : (q.correctOptionIndex || 0),
+      })) : [],
+      mindmap: {
+        nodes: Array.isArray(a.mindmap?.nodes) ? a.mindmap.nodes : [],
+        edges: Array.isArray(a.mindmap?.edges) ? a.mindmap.edges : (Array.isArray(a.mindmap?.connections) ? a.mindmap.connections : []),
+      },
       slides: Array.isArray(a.slides) ? a.slides : [],
       report: a.report || '',
       transcript: Array.isArray(a.transcript) ? a.transcript : [],
+      podcast_audio: a.podcast_audio || null,
     };
   };
 
@@ -147,7 +126,6 @@ export default function Dashboard() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      {/* Mini Navbar */}
       <header className="navbar" style={{ position: 'sticky' }}>
         <div className="container nav-container">
           <Link to="/" className="logo" style={{ textDecoration: 'none' }}>
@@ -157,7 +135,10 @@ export default function Dashboard() {
             </svg>
             Reeky Academic Hub
           </Link>
-
+          <nav style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+            <Link to="/" className="nav-link" style={{ textDecoration: 'none', fontSize: '0.9rem', fontWeight: 500 }}>Home</Link>
+            <Link to="/dashboard" className="nav-link" style={{ textDecoration: 'none', fontSize: '0.9rem', fontWeight: 500, color: 'var(--primary)' }}>Dashboard</Link>
+          </nav>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary)' }}>
               {user?.name}
@@ -170,89 +151,9 @@ export default function Dashboard() {
       </header>
 
       <div className="container" style={{ paddingTop: '2rem', paddingBottom: '4rem' }}>
-        {/* Upload Section */}
-        <div className="dashboard-card" style={{ marginBottom: '2rem' }}>
-          <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1.1rem', marginBottom: '1rem' }}>
-            Generate New Study Materials
-          </h3>
+        <AssetSelection onUpload={handleUpload} isUploading={isUploading} />
 
-          {/* Mode tabs */}
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-            <button
-              className={uploadMode === 'file' ? 'btn btn-primary' : 'btn btn-secondary'}
-              style={{ fontSize: '0.85rem', padding: '0.4rem 1rem' }}
-              onClick={() => setUploadMode('file')}
-            >
-              Upload from Device
-            </button>
-            <button
-              className={uploadMode === 'url' ? 'btn btn-primary' : 'btn btn-secondary'}
-              style={{ fontSize: '0.85rem', padding: '0.4rem 1rem' }}
-              onClick={() => setUploadMode('url')}
-            >
-              Paste URL
-            </button>
-          </div>
-
-          {/* File upload mode */}
-          {uploadMode === 'file' && (
-            <div
-              onClick={!isUploading ? openUploadWidget : undefined}
-              style={{
-                border: '2px dashed var(--card-border)',
-                borderRadius: '16px',
-                padding: '2.5rem 1.5rem',
-                textAlign: 'center',
-                cursor: isUploading ? 'wait' : 'pointer',
-                transition: 'border-color 0.2s',
-                background: 'var(--card-bg)',
-              }}
-              onMouseOver={e => e.currentTarget.style.borderColor = 'var(--primary)'}
-              onMouseOut={e => e.currentTarget.style.borderColor = 'var(--card-border)'}
-            >
-              {!isUploading && !uploadProgress && (
-                <>
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" style={{ marginBottom: '0.75rem' }}>
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="17 8 12 3 7 8" />
-                    <line x1="12" y1="3" x2="12" y2="15" />
-                  </svg>
-                  <p style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Click to upload a file</p>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>PDF, DOCX, or TXT (max 50MB)</p>
-                </>
-              )}
-              {isUploading && (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
-                  <div className="spinner" style={{ width: 32, height: 32, borderWidth: 3 }} />
-                  <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                    {uploadProgress || 'Uploading...'}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* URL input mode */}
-          {uploadMode === 'url' && (
-            <form onSubmit={handlePdfUrlSubmit} style={{ display: 'flex', gap: '0.5rem' }}>
-              <input
-                className="auth-input"
-                type="url"
-                placeholder="Paste PDF URL to generate assets..."
-                value={pdfUrl}
-                onChange={e => setPdfUrl(e.target.value)}
-                style={{ flex: 1 }}
-                required
-              />
-              <button className="btn btn-primary" type="submit" disabled={isSubmittingUrl || !pdfUrl.trim()}>
-                {isSubmittingUrl ? 'Queuing...' : 'Generate'}
-              </button>
-            </form>
-          )}
-        </div>
-
-        {/* Asset List */}
-        <div className="dashboard-card" style={{ marginBottom: '2rem' }}>
+        <div className="dashboard-card" style={{ marginBottom: '2rem', marginTop: '2rem' }}>
           <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: '1.1rem', marginBottom: '1rem' }}>
             Your Study Materials
           </h3>
@@ -261,7 +162,7 @@ export default function Dashboard() {
 
           {!fetchingAssets && userAssets.length === 0 && (
             <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-              No assets yet. Paste a PDF URL above to get started.
+              No assets yet. Upload a file above to get started.
             </p>
           )}
 
@@ -274,7 +175,7 @@ export default function Dashboard() {
                   className="sample-badge btn"
                   style={{
                     borderColor: selectedAsset?.id === asset.id ? 'var(--primary)' : 'var(--card-border)',
-                    width: '100%', justifyContent: 'flex-start', textAlign: 'left'
+                    width: '100%', justifyContent: 'flex-start', textAlign: 'left',
                   }}
                   onClick={() => setSelectedAsset(asset)}
                 >
@@ -303,7 +204,6 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Asset Viewer */}
         {selectedAsset && activeData && (
           <div className="dashboard-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
@@ -312,51 +212,20 @@ export default function Dashboard() {
               </h3>
             </div>
 
-            {/* Flashcards */}
             {activeData.flashcards.length > 0 && (
               <div style={{ marginBottom: '2rem' }}>
-                <h4 style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '0.75rem' }}>Flashcards</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {activeData.flashcards.map((fc, i) => (
-                    <details key={i} style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: '16px', padding: '1rem', cursor: 'pointer' }}>
-                      <summary style={{ fontWeight: 600, fontSize: '0.9rem' }}>{fc.q}</summary>
-                      <p style={{ marginTop: '0.75rem', fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>{fc.a}</p>
-                    </details>
-                  ))}
-                </div>
+                <h4 style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '0.75rem' }}>3D Flashcards</h4>
+                <FlashcardFlipper cards={activeData.flashcards} />
               </div>
             )}
 
-            {/* Quiz */}
             {activeData.quiz.length > 0 && (
               <div style={{ marginBottom: '2rem' }}>
-                <h4 style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '0.75rem' }}>Quiz</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {activeData.quiz.map((q, i) => (
-                    <div key={i} style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: '16px', padding: '1rem' }}>
-                      <p style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.75rem' }}>{q.q}</p>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                        {q.options.map((opt, j) => (
-                          <div key={j} style={{
-                            padding: '0.5rem 0.75rem',
-                            borderRadius: '10px',
-                            fontSize: '0.85rem',
-                            background: j === q.correct ? 'rgba(39,201,63,0.1)' : 'var(--bg)',
-                            border: `1px solid ${j === q.correct ? '#27c93f' : 'var(--card-border)'}`,
-                            color: j === q.correct ? '#27c93f' : 'var(--text-main)'
-                          }}>
-                            {opt} {j === q.correct && '✓'}
-                          </div>
-                        ))}
-                      </div>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>{q.explanation}</p>
-                    </div>
-                  ))}
-                </div>
+                <h4 style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '0.75rem' }}>Stepped Quiz</h4>
+                <SteppedQuizPlayer questions={activeData.quiz} />
               </div>
             )}
 
-            {/* Slides */}
             {activeData.slides.length > 0 && (
               <div style={{ marginBottom: '2rem' }}>
                 <h4 style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '0.75rem' }}>Slides</h4>
@@ -371,7 +240,23 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Report */}
+            {activeData.mindmap.nodes.length > 0 && (
+              <div style={{ marginBottom: '2rem' }}>
+                <h4 style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '0.75rem' }}>Mindmap</h4>
+                <ZoomableMindmapViewer data={activeData.mindmap} />
+              </div>
+            )}
+
+            {activeData.podcast_audio && (
+              <div style={{ marginBottom: '2rem' }}>
+                <h4 style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '0.75rem' }}>Podcast</h4>
+                <WaveformPodcastPlayer
+                  audioUrl={activeData.podcast_audio}
+                  transcript={activeData.transcript}
+                />
+              </div>
+            )}
+
             {activeData.report && (
               <div style={{ marginBottom: '2rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>

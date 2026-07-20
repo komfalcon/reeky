@@ -409,6 +409,11 @@ a {
   will-change: transform;
 }
 
+.card-base {
+  border-radius: 28px;
+  padding: 2rem;
+}
+
 /* FRAMER-STYLE NEON SWEEPING BORDER */
 .sweeping-border {
   position: relative;
