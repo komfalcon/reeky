@@ -1260,7 +1260,7 @@ export default function App() {
                     <button 
                       className="sidebar-btn" 
                       style={{ marginTop: 'auto', borderTop: '1px solid var(--divider)', color: 'var(--primary)' }}
-                      onClick={() => { setSelectedFile(null); setSelectedAssetId(null); setAudioPlaying(false); setAutoPlay(false); }}
+                      onClick={() => { setSelectedFile(null); setAudioPlaying(false); setAutoPlay(false); }}
                     >
                       <ArrowLeft size={16} /> Reset Sandbox
                     </button>

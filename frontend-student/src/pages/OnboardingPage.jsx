@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { api } from '../api';
@@ -127,7 +127,7 @@ function CardGrid({ options, selectedId, onChange, columns = 3 }) {
 }
 
 export default function OnboardingPage() {
-  const { token } = useAuth();
+  const { token, isAuthenticated, updateUser } = useAuth();
   const navigate = useNavigate();
   const [depth, setDepth] = useState(null);
   const [style, setStyle] = useState(null);
@@ -137,27 +137,40 @@ export default function OnboardingPage() {
   const [error, setError] = useState('');
   const [step, setStep] = useState(1);
 
+  useEffect(() => {
+    if (!isAuthenticated) navigate('/login');
+  }, [isAuthenticated, navigate]);
+
   const handleSave = async () => {
     if (!depth || !style || !tone || !pacing) {
       setError('Please select all preferences before continuing.');
       return;
     }
+    if (!token) {
+      setError('Please log in again to save preferences.');
+      navigate('/login');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
-      await api.savePreferences(token, {
+      const preferences = {
         explanationDepth: depth,
         learningStyle: style,
         tone: tone,
         examPacing: pacing,
-      });
+      };
+      await api.savePreferences(token, preferences);
+      updateUser({ preferences });
       navigate('/dashboard');
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Failed to save preferences');
     } finally {
       setSaving(false);
     }
   };
+
+  if (!isAuthenticated) return null;
 
   return (
     <div style={{

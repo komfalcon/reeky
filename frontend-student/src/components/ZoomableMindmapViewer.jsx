@@ -63,13 +63,15 @@ export default function ZoomableMindmapViewer({ data }) {
         <svg className="mindmap-svg-canvas" width="100%" height="100%">
           <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
             <g className="edges-layer">
-              {edges.map((edge) => {
-                const sourceNode = nodes.find(n => n.id === edge.source);
-                const targetNode = nodes.find(n => n.id === edge.target);
+              {edges.map((edge, i) => {
+                const sourceId = edge.source ?? edge.from;
+                const targetId = edge.target ?? edge.to;
+                const sourceNode = nodes.find(n => n.id === sourceId);
+                const targetNode = nodes.find(n => n.id === targetId);
                 if (!sourceNode || !targetNode) return null;
                 return (
                   <path
-                    key={edge.id}
+                    key={edge.id ?? `edge-${i}`}
                     d={calculatePath(sourceNode.x, sourceNode.y, targetNode.x, targetNode.y)}
                     className="mindmap-edge-path"
                   />

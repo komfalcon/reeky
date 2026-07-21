@@ -1,16 +1,40 @@
 const API = import.meta.env.VITE_API_URL || 'https://reeky-core-api.vercel.app';
-const ENGINE = import.meta.env.VITE_ENGINE_URL || 'https://reeky-backend-engine.onrender.com';
+
+function getAdminKey() {
+  return localStorage.getItem('admin_api_key') || '';
+}
 
 async function request(base, path, options = {}) {
+  const adminKey = getAdminKey();
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+  if (adminKey) headers['x-admin-key'] = adminKey;
+
   const res = await fetch(`${base}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
     ...options,
+    headers,
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || `Request failed (${res.status})`);
+    const err = await res.json().catch(() => ({}));
+    if (res.status === 401) {
+      // Key may have been revoked — clear and redirect to login
+      localStorage.removeItem('admin_api_key');
+      window.location.reload();
+      throw new Error(
+        err.error || 'Unauthorized admin access — redirecting to login'
+      );
+    }
+    throw new Error(err.error || err.message || `Request failed (${res.status})`);
   }
-  return res.json();
+  const text = await res.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
 }
 
 export const api = {
@@ -26,5 +50,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ assetId, assets }),
     }),
-  getTaskStatus: (taskId) => request(API, `/api/admin/task-status/${taskId}`),
+  getTaskStatus: (taskId, assetId) => {
+    const q = assetId ? `?assetId=${encodeURIComponent(assetId)}` : '';
+    return request(API, `/api/admin/task-status/${taskId}${q}`);
+  },
 };

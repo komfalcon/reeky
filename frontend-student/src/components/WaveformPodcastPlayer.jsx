@@ -41,6 +41,7 @@ export default function WaveformPodcastPlayer({ audioUrl, transcript = [] }) {
   };
 
   const togglePlay = () => {
+    if (!audioRef.current) return;
     if (isPlaying) {
       audioRef.current.pause();
     } else {
