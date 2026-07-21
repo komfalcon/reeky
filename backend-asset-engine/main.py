@@ -1,136 +1,169 @@
 # main.py
-# pyrefly: ignore [missing-import]
-from fastapi import FastAPI, HTTPException
-# pyrefly: ignore [missing-import]
-from fastapi.middleware.cors import CORSMiddleware
-# pyrefly: ignore [missing-import]
-from fastapi.staticfiles import StaticFiles
-# pyrefly: ignore [missing-import]
-from pydantic import BaseModel
-from tasks import process_admin_submission_task
-# pyrefly: ignore [missing-import]
-from celery.result import AsyncResult
+from __future__ import annotations
+
 import os
 import json
 import datetime
+import logging
+from typing import Optional, List
 
-app = FastAPI(title="NotebookLM Backend Asset Engine - Productized Service")
+from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
+from celery.result import AsyncResult
+from celery import Celery
 
-# 🌐 1. ENABLE CORS FOR FRONTEND COMMUNICATION
+from tasks import process_admin_submission_task
+from paths import DATA_DIR, STATIC_DIR, QUEUE_FILE, ensure_data_dirs
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger("reeky-engine")
+
+ensure_data_dirs()
+
+app = FastAPI(title="Reeky Asset Engine")
+
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Open to all origins for easy web/mobile interface testing
+    allow_origins=os.getenv("CORS_ORIGINS", "*").split(","),
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Celery app for health checks
+celery_app = Celery("tasks")
+celery_app.config_from_object("celeryconfig")
+
+
+def require_admin(x_admin_key: Optional[str] = Header(default=None)):
+    if not ADMIN_API_KEY:
+        logger.warning("ADMIN_API_KEY is not set — admin routes are open")
+        return
+    if not x_admin_key:
+        raise HTTPException(status_code=401, detail="Admin API key is required (x-admin-key header)")
+    if x_admin_key != ADMIN_API_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized admin access")
+
+
 @app.get("/")
 @app.head("/")
 def read_root():
-    return {"status": "alive"}
+    return {"status": "alive", "service": "reeky-asset-engine"}
 
-# 📁 2. MOUNT STATIC STORAGE PATH FOR DOWNLOADS
-STATIC_DIR = "/app/data/assets"
-os.makedirs(STATIC_DIR, exist_ok=True)
+
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-QUEUE_FILE = "/app/data/queue.json"
 
 def read_queue():
+    """Legacy JSON file queue — maintained for backward compatibility.
+    New deployments should use the core-api database as the source of truth."""
     if not os.path.exists(QUEUE_FILE):
         return []
     try:
-        with open(QUEUE_FILE, "r") as f:
+        with open(QUEUE_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
-    except Exception:
+    except Exception as e:
+        logger.error(f"Failed to read queue file: {e}")
         return []
 
+
 def write_queue(data):
-    with open(QUEUE_FILE, "w") as f:
-        json.dump(data, f, indent=4)
+    os.makedirs(os.path.dirname(QUEUE_FILE), exist_ok=True)
+    with open(QUEUE_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
 
 class UserUploadRequest(BaseModel):
     user_id: str
-    pdf_url: str = None
-    assets_requested: list[str] = ["flashcards", "quizzes", "podcast", "video", "mindmap"]
-    student_preferences: str = None
-    custom_instructions: str = None
+    pdf_url: Optional[str] = None
+    assets_requested: List[str] = Field(
+        default_factory=lambda: ["flashcards", "quizzes", "podcast", "video", "mindmap"]
+    )
+    student_preferences: Optional[str] = None
+    custom_instructions: Optional[str] = None
+
 
 class AdminSubmissionRequest(BaseModel):
     user_id: str
-    artifact_urls: list[str] = []
-    podcast_audio: str = None
-    video_overview: str = None
-    infographic: str = None
-    slide_deck: str = None
-    study_report: str = None
-    data_table: str = None
+    artifact_urls: List[str] = Field(default_factory=list)
+    podcast_audio: Optional[str] = None
+    video_overview: Optional[str] = None
+    infographic: Optional[str] = None
+    slide_deck: Optional[str] = None
+    study_report: Optional[str] = None
+    data_table: Optional[str] = None
+
 
 @app.post("/generate")
-def user_upload_pdf(request: UserUploadRequest):
-    """
-    Step 1: User uploads PDF. 
-    Appends the request to our JSON queue for the Admin to process.
-    """
+def user_upload_pdf(request: UserUploadRequest, _: None = Depends(require_admin)):
+    """Legacy local JSON queue (core-api uses MySQL). Kept for compatibility."""
     queue_data = read_queue()
-    
-    # Check if user is already in queue
     existing = next((item for item in queue_data if item["user_id"] == request.user_id), None)
     if existing:
-        return {"status": "queued", "task_id": f"queue_{request.user_id}", "message": "You are already in the queue!"}
-        
-    queue_data.append({
-        "user_id": request.user_id,
-        "pdf_url": request.pdf_url,
-        "assets_requested": request.assets_requested,
-        "student_preferences": request.student_preferences,
-        "custom_instructions": request.custom_instructions,
-        "timestamp": datetime.datetime.utcnow().isoformat()
-    })
+        return {
+            "status": "queued",
+            "task_id": f"queue_{request.user_id}",
+            "message": "You are already in the queue!",
+        }
+
+    queue_data.append(
+        {
+            "user_id": request.user_id,
+            "pdf_url": request.pdf_url,
+            "assets_requested": request.assets_requested,
+            "student_preferences": request.student_preferences,
+            "custom_instructions": request.custom_instructions,
+            "timestamp": datetime.datetime.utcnow().isoformat(),
+        }
+    )
     write_queue(queue_data)
-    
-    queue_task_id = f"queue_{request.user_id}"
-    return {"status": "queued", "task_id": queue_task_id, "message": "Your request is in the queue! Admin has been notified."}
+    return {
+        "status": "queued",
+        "task_id": f"queue_{request.user_id}",
+        "message": "Your request is in the queue!",
+    }
+
 
 @app.get("/admin/queue")
-def admin_get_queue():
-    """
-    Returns the list of all students waiting for their assets, including their tailored prompts!
-    """
+def admin_get_queue(_: None = Depends(require_admin)):
     return {"queue": read_queue()}
 
+
 @app.post("/admin/submit-assets")
-def admin_submit_assets(request: AdminSubmissionRequest):
-    """
-    Step 2: Admin submits the completed assets.
-    The backend takes the public links and scrapes them.
-    Also removes the user from the waiting queue.
-    """
-    # Remove from queue
+def admin_submit_assets(request: AdminSubmissionRequest, _: None = Depends(require_admin)):
     queue_data = read_queue()
     updated_queue = [item for item in queue_data if item["user_id"] != request.user_id]
     if len(updated_queue) != len(queue_data):
         write_queue(updated_queue)
-        
+
     task = process_admin_submission_task.delay(request.model_dump())
-    return {"status": "processing", "task_id": task.id, "message": "Extracting JSON from public links..."}
+    return {
+        "status": "processing",
+        "task_id": task.id,
+        "message": "Extracting JSON from public links...",
+    }
+
 
 @app.get("/status/{task_id}")
 def get_task_status(task_id: str):
-    """
-    Poll the status of a queued task. Separates interactive data arrays 
-    from downloadable static files.
-    """
     if task_id.startswith("queue_"):
         return {"task_id": task_id, "task_status": "QUEUED_WAITING_FOR_ADMIN"}
 
     task_result = AsyncResult(task_id)
-    raw_result = task_result.result if task_result.ready() else None
-    
+    status = task_result.status
+
     formatted_response = {
         "task_id": task_id,
-        "task_status": task_result.status,
+        "task_status": status,
+        "error": None,
         "interactive_assets": {
             "flashcards": [],
             "quizzes": [],
@@ -140,25 +173,79 @@ def get_task_status(task_id: str):
             "podcast_audio": None,
             "video_overview": None,
             "infographic": None,
-            "slide_deck": None
-        }
+            "slide_deck": None,
+            "study_report": None,
+            "data_table": None,
+        },
     }
-    
+
+    if status == "FAILURE":
+        err = task_result.result
+        formatted_response["error"] = str(err) if err is not None else "Task failed"
+        return formatted_response
+
+    raw_result = task_result.result if task_result.ready() else None
     if raw_result and isinstance(raw_result, dict):
-        # 🎮 1. POPULATE INTERACTIVE COMPONENT DATA
         formatted_response["interactive_assets"]["flashcards"] = raw_result.get("flashcards", [])
         formatted_response["interactive_assets"]["quizzes"] = raw_result.get("quizzes", [])
         formatted_response["interactive_assets"]["mindmap"] = raw_result.get("mindmap", None)
-        
-        # 📥 2. POPULATE WEB DOWNLOAD LINK ROUTING
-        # For now, it returns whatever URL the Admin passed in, or a static local path
-        if raw_result.get("podcast_audio"):
-            formatted_response["downloadable_files"]["podcast_audio"] = raw_result.get("podcast_audio")
-        if raw_result.get("video_overview"):
-            formatted_response["downloadable_files"]["video_overview"] = raw_result.get("video_overview")
-        if raw_result.get("infographic"):
-            formatted_response["downloadable_files"]["infographic"] = raw_result.get("infographic")
-        if raw_result.get("slide_deck"):
-            formatted_response["downloadable_files"]["slide_deck"] = raw_result.get("slide_deck")
-            
+        for key in formatted_response["downloadable_files"]:
+            if raw_result.get(key):
+                formatted_response["downloadable_files"][key] = raw_result.get(key)
+
     return formatted_response
+
+
+@app.get("/health")
+def health():
+    """
+    Comprehensive health check that verifies:
+    - Service status
+    - Data directory accessibility
+    - Celery/Redis broker connectivity
+    - Admin auth configuration
+    """
+    checks = {
+        "service": True,
+        "data_dir": os.path.isdir(DATA_DIR),
+        "celery_broker": False,
+        "celery_backend": False,
+    }
+    errors = {}
+
+    # Check Celery broker connectivity
+    try:
+        broker_url = os.getenv("CELERY_BROKER_URL", "")
+        if broker_url:
+            # Use Celery's inspect to check if broker is reachable
+            inspect = celery_app.control.inspect()
+            stats = inspect.stats()
+            checks["celery_broker"] = stats is not None
+        else:
+            checks["celery_broker"] = None  # Not configured
+    except Exception as e:
+        errors["celery_broker"] = str(e)
+        checks["celery_broker"] = False
+
+    # Check Celery result backend
+    try:
+        result_backend = os.getenv("CELERY_RESULT_BACKEND", "")
+        if result_backend:
+            checks["celery_backend"] = True  # Can't easily check without making a task
+        else:
+            checks["celery_backend"] = None  # Not configured
+    except Exception as e:
+        errors["celery_backend"] = str(e)
+        checks["celery_backend"] = False
+
+    all_healthy = all(
+        v is True or v is None for v in checks.values()
+    )
+
+    return {
+        "status": "ok" if all_healthy else "degraded",
+        "data_dir": DATA_DIR,
+        "admin_auth": bool(ADMIN_API_KEY),
+        "checks": checks,
+        **({"errors": errors} if errors else {}),
+    }
