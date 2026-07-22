@@ -58,12 +58,6 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
-const googleAuthSchema = z.object({
-  idToken: z.string().min(1, 'idToken is required'),
-  email: z.string().email().optional().nullable(),
-  name: z.string().max(100).optional().nullable(),
-});
-
 const generateAssetsSchema = z.object({
   title: z.string().min(1, 'Title is required').max(500),
   originalFileUrl: z.string().url('Must be a valid URL').max(2000),
@@ -352,58 +346,6 @@ app.post('/api/auth/signup', authLimiter, validate(signupSchema), async (req, re
   }
 });
 
-app.post('/api/auth/google', authLimiter, validate(googleAuthSchema), async (req, res) => {
-  try {
-    const { idToken, email, name } = req.validatedBody;
-
-    if (!idToken) {
-      return res.status(400).json({ error: 'idToken is required' });
-    }
-
-    // Verify Google token by calling Google's tokeninfo endpoint.
-    // In production, use google-auth-library with your client ID for stricter verification.
-    const googleRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
-    if (!googleRes.ok) {
-      return res.status(401).json({ error: 'Invalid Google token' });
-    }
-    const payload = await googleRes.json();
-    const googleEmail = (payload.email || email || '').toLowerCase();
-    const googleName = payload.name || name || 'Student';
-
-    if (!googleEmail) {
-      return res.status(400).json({ error: 'Google token did not include an email' });
-    }
-
-    const [users] = await pool.execute('SELECT * FROM `User` WHERE email = ?', [googleEmail]);
-    let user = users[0];
-
-    if (!user) {
-      const id = crypto.randomUUID();
-      // Store a random password because this table requires a password hash.
-      const dummyPassword = await bcrypt.hash(crypto.randomUUID(), 10);
-      await pool.execute(
-        'INSERT INTO `User` (id, name, email, password) VALUES (?, ?, ?, ?)',
-        [id, googleName, googleEmail, dummyPassword]
-      );
-      user = { id, name: googleName, email: googleEmail };
-    }
-
-    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        preferences: parseJsonField(user.preferences),
-      },
-    });
-  } catch (error) {
-    console.error('Google auth error:', error);
-    res.status(500).json({ error: 'Failed to authenticate with Google' });
-  }
-});
-
 app.post('/api/auth/login', authLimiter, validate(loginSchema), async (req, res) => {
   try {
     const { email, password } = req.validatedBody;
@@ -432,6 +374,77 @@ app.post('/api/auth/login', authLimiter, validate(loginSchema), async (req, res)
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Failed to authenticate. Please try again.' });
+  }
+});
+
+app.post('/api/auth/google', authLimiter, async (req, res) => {
+  try {
+    const { idToken, accessToken, email, name } = req.body;
+    let googleEmail, googleName;
+
+    if (idToken) {
+      const googleRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
+      if (!googleRes.ok) {
+        return res.status(401).json({ error: 'Invalid Google token' });
+      }
+      const payload = await googleRes.json();
+      googleEmail = (payload.email || email || '').toLowerCase();
+      googleName = payload.name || name || 'Student';
+    } else if (accessToken) {
+      const googleUserRes = await axios.get(
+        `https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`
+      );
+      googleEmail = (googleUserRes.data.email || email || '').toLowerCase();
+      googleName = googleUserRes.data.name || name || 'Student';
+    } else {
+      return res.status(400).json({ error: 'Either idToken or accessToken is required' });
+    }
+
+    if (!googleEmail) {
+      return res.status(400).json({ error: 'Failed to retrieve email from Google' });
+    }
+
+    // Check if user exists
+    const [users] = await pool.execute('SELECT * FROM `User` WHERE email = ?', [googleEmail]);
+    let user;
+
+    const parseJsonField = (field) => {
+      if (!field) return null;
+      if (typeof field === 'object') return field;
+      try {
+        return JSON.parse(field);
+      } catch {
+        return null;
+      }
+    };
+
+    if (users.length === 0) {
+      // Create a new user
+      const id = crypto.randomUUID();
+      const dummyPassword = crypto.randomBytes(16).toString('hex');
+      const hashedPassword = await bcrypt.hash(dummyPassword, 12);
+
+      await pool.execute(
+        'INSERT INTO `User` (id, name, email, password) VALUES (?, ?, ?, ?)',
+        [id, googleName, googleEmail, hashedPassword]
+      );
+      user = { id, name: googleName, email: googleEmail };
+    } else {
+      const dbUser = users[0];
+      user = {
+        id: dbUser.id,
+        name: dbUser.name,
+        email: dbUser.email,
+        preferences: parseJsonField(dbUser.preferences),
+      };
+    }
+
+    // Sign JWT
+    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ token, user });
+  } catch (error) {
+    console.error('Google auth error:', error);
+    res.status(500).json({ error: 'Google authentication failed' });
   }
 });
 

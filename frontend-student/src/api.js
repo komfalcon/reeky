@@ -49,12 +49,6 @@ export const api = {
       body: { email, password },
     }),
 
-  googleLogin: (idToken) =>
-    request('/api/auth/google', {
-      method: 'POST',
-      body: { idToken },
-    }),
-
   generateAssets: (title, originalFileUrl, token, customInstructions, assetsRequested) =>
     request('/api/assets/generate', {
       method: 'POST',
@@ -76,4 +70,10 @@ export const api = {
 
   getProfile: (token) =>
     request('/api/user/profile', { token }),
+
+  googleLogin: (idToken) =>
+    request('/api/auth/google', {
+      method: 'POST',
+      body: { idToken },
+    }),
 };
