@@ -15,6 +15,8 @@ from celery.result import AsyncResult
 from celery import Celery
 
 from tasks import process_admin_submission_task
+from video_processor import process_video_submission
+from scrape_notebooklm import scrape_notebooklm_session
 from paths import DATA_DIR, STATIC_DIR, QUEUE_FILE, ensure_data_dirs
 
 # Configure logging
@@ -102,6 +104,15 @@ class AdminSubmissionRequest(BaseModel):
     data_table: Optional[str] = None
 
 
+class VideoProcessRequest(BaseModel):
+    video_url: str
+    asset_id: str
+
+
+class ScrapeNotebookRequest(BaseModel):
+    notebook_url: str
+
+
 @app.post("/generate")
 def user_upload_pdf(request: UserUploadRequest, _: None = Depends(require_admin)):
     """Legacy local JSON queue (core-api uses MySQL). Kept for compatibility."""
@@ -150,6 +161,54 @@ def admin_submit_assets(request: AdminSubmissionRequest, _: None = Depends(requi
         "task_id": task.id,
         "message": "Extracting JSON from public links...",
     }
+
+
+@app.post("/scrape-notebooklm")
+async def scrape_notebooklm(request: ScrapeNotebookRequest, _: None = Depends(require_admin)):
+    """
+    Scrape a NotebookLM session URL and extract all artifacts.
+    Returns a structured list of detected artifact URLs.
+    """
+    try:
+        logger.info(f"Scraping NotebookLM session: {request.notebook_url}")
+        result = await scrape_notebooklm_session(request.notebook_url)
+        
+        return {
+            "status": "success",
+            "notebook_url": request.notebook_url,
+            "artifacts": result,
+            "found_count": sum(1 for v in result.values() if v and v != "raw_artifacts")
+        }
+    except Exception as e:
+        logger.error(f"NotebookLM scraping failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/video/process")
+async def process_video(request: VideoProcessRequest, _: None = Depends(require_admin)):
+    """
+    Process a video URL: download → trim last 3 seconds → upload to storage.
+    Returns a task_id for polling.
+    """
+    try:
+        logger.info(f"Starting video processing for asset {request.asset_id}")
+        result = await process_video_submission(request.video_url, request.asset_id)
+        
+        if result["status"] == "success":
+            return {
+                "status": "SUCCESS",
+                "task_id": f"video_{request.asset_id}",
+                "video_url": result["video_url"],
+            }
+        else:
+            return {
+                "status": "FAILURE",
+                "task_id": f"video_{request.asset_id}",
+                "error": result.get("error", "Video processing failed"),
+            }
+    except Exception as e:
+        logger.error(f"Video processing error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/status/{task_id}")
@@ -217,7 +276,6 @@ def health():
     try:
         broker_url = os.getenv("CELERY_BROKER_URL", "")
         if broker_url:
-            # Use Celery's inspect to check if broker is reachable
             inspect = celery_app.control.inspect()
             stats = inspect.stats()
             checks["celery_broker"] = stats is not None

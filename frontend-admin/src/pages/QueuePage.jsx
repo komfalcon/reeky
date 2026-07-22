@@ -45,6 +45,7 @@ const PACING_MAP = {
 };
 
 const EMPTY_FORM = {
+  notebook_session_url: '',
   flashcards_url: '',
   quizzes_url: '',
   mindmap_url: '',
@@ -116,41 +117,19 @@ function parseAssetsRequested(raw) {
   return [];
 }
 
-const CloudinaryUploadWidget = ({ fieldName, label, currentUrl, onUploadSuccess }) => {
-  const openWidget = () => {
-    if (!window.cloudinary) {
-      alert('Cloudinary widget failed to load. Refresh the page.');
-      return;
-    }
-    window.cloudinary
-      .createUploadWidget(
-        {
-          cloudName: 'x9lbk1ea',
-          uploadPreset: 'Reeky Academic Hub',
-          sources: ['local', 'url'],
-          multiple: false,
-        },
-        (error, result) => {
-          if (!error && result && result.event === 'success') {
-            onUploadSuccess(fieldName, result.info.secure_url);
-          }
-        }
-      )
-      .open();
-  };
-
+const UrlInputField = ({ fieldName, label, currentUrl, onChange }) => {
   return (
     <div className="input-group">
       <label>{label}</label>
-      <div style={{ display: 'flex', gap: '0.5rem' }}>
-        <input type="text" value={currentUrl} readOnly placeholder="Upload a file…" />
-        <button type="button" className="btn" onClick={openWidget} style={{ padding: '0 0.9rem' }} title="Upload">
-          <UploadCloud size={18} />
-        </button>
-      </div>
+      <input
+        type="url"
+        value={currentUrl}
+        onChange={(e) => onChange(fieldName, e.target.value)}
+        placeholder="Paste direct URL (e.g. https://...)"
+      />
       {currentUrl ? (
         <a href={currentUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.72rem', color: 'var(--primary)', marginTop: 4, display: 'inline-block' }}>
-          Preview uploaded file
+          Preview
         </a>
       ) : null}
     </div>
@@ -174,6 +153,8 @@ export default function QueuePage({ onQueueChange }) {
   const [taskResult, setTaskResult] = useState(null);
   const [taskError, setTaskError] = useState(null);
   const [loadError, setLoadError] = useState('');
+  const [scrapeStatus, setScrapeStatus] = useState('idle');
+  const [scrapeMessage, setScrapeMessage] = useState(null);
   const pollingRef = useRef(null);
 
   const fetchQueue = useCallback(async () => {
@@ -198,23 +179,27 @@ export default function QueuePage({ onQueueChange }) {
     return () => clearInterval(interval);
   }, [fetchQueue]);
 
-  const resetForm = () => setFormData(EMPTY_FORM);
+  const resetForm = () => {
+    setFormData(EMPTY_FORM);
+    setScrapeStatus('idle');
+    setScrapeMessage(null);
+  };
 
   const pollTaskStatus = useCallback(
     async (celeryTaskId, assetId) => {
       try {
         const result = await api.getTaskStatus(celeryTaskId, assetId);
         setTaskStatus(result.task_status);
-      if (result.task_status === 'SUCCESS') {
-        setTaskResult(result.interactive_assets || {});
-        setTaskError(null);
-        if (pollingRef.current) clearInterval(pollingRef.current);
-        if (result.autoCompleted) fetchQueue();
-      } else if (result.task_status === 'FAILURE') {
-        setTaskError(result.error || 'Scraping failed. Please try again.');
-        setTaskResult(null);
-        if (pollingRef.current) clearInterval(pollingRef.current);
-      }
+        if (result.task_status === 'SUCCESS') {
+          setTaskResult(result.interactive_assets || {});
+          setTaskError(null);
+          if (pollingRef.current) clearInterval(pollingRef.current);
+          if (result.autoCompleted) fetchQueue();
+        } else if (result.task_status === 'FAILURE') {
+          setTaskError(result.error || 'Scraping failed. Please try again.');
+          setTaskResult(null);
+          if (pollingRef.current) clearInterval(pollingRef.current);
+        }
       } catch (err) {
         console.error('Task status poll error', err);
       }
@@ -260,6 +245,51 @@ ${selectedUser.customInstructions ? `\nSpecial Instructions:\n"${selectedUser.cu
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleScrapeNotebook = async () => {
+    const notebookUrl = formData.notebook_session_url.trim();
+    if (!notebookUrl) {
+      setScrapeStatus('error');
+      setScrapeMessage('Paste a NotebookLM session URL first');
+      return;
+    }
+    setScrapeStatus('loading');
+    setScrapeMessage('Scraping NotebookLM session...');
+    try {
+      const res = await api.scrapeNotebooklm(notebookUrl);
+      const artifacts = res?.artifacts || {};
+      const found = res?.found_count || 0;
+      const raw = artifacts?.raw_artifacts || [];
+      setFormData((prev) => ({
+        ...prev,
+        flashcards_url: artifacts.flashcards_url || prev.flashcards_url,
+        quizzes_url: artifacts.quizzes_url || prev.quizzes_url,
+        mindmap_url: artifacts.mindmap_url || prev.mindmap_url,
+        podcast_audio: artifacts.audio_url || prev.podcast_audio,
+        video_overview: artifacts.video_url || prev.video_overview,
+      }));
+      const seen = [
+        artifacts.flashcards_url && 'flashcards',
+        artifacts.quizzes_url && 'quizzes',
+        artifacts.mindmap_url && 'mindmap',
+        artifacts.audio_url && 'audio/podcast',
+        artifacts.video_url && 'video',
+      ].filter(Boolean);
+      const details = raw.length
+        ? `Found ${found} artifact types (${seen.join(', ')}). ${raw.length} raw artifact URLs detected.`
+        : `Found ${found} artifact types (${seen.join(', ')}).`;
+      if (found > 0) {
+        setScrapeStatus('success');
+      } else {
+        setScrapeStatus('error');
+      }
+      setScrapeMessage(details);
+    } catch (err) {
+      console.error('NotebookLM scrape failed', err);
+      setScrapeStatus('error');
+      setScrapeMessage(err.message || 'Failed to scrape NotebookLM session');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedUser) return;
@@ -279,6 +309,7 @@ ${selectedUser.customInstructions ? `\nSpecial Instructions:\n"${selectedUser.cu
       slide_deck: formData.slide_deck || null,
       study_report: formData.study_report || null,
       data_table: formData.data_table || null,
+      notebook_session_url: formData.notebook_session_url || null,
     };
 
     try {
@@ -347,7 +378,6 @@ ${selectedUser.customInstructions ? `\nSpecial Instructions:\n"${selectedUser.cu
     if (item.status === 'PROCESSING') {
       const celeryId = assets?._celeryTaskId || null;
       if (celeryId) startPolling(celeryId, item.id);
-      // Prefill media already saved while processing
       setFormData((prev) => ({
         ...prev,
         podcast_audio: assets.podcast_audio || '',
@@ -386,7 +416,6 @@ ${selectedUser.customInstructions ? `\nSpecial Instructions:\n"${selectedUser.cu
   const canSubmit = selectedUser && selectedUser.status === 'PENDING';
   const showTaskProgress = taskStatus && taskStatus !== 'SUCCESS' && taskStatus !== 'FAILURE';
   const showTaskSuccess = taskStatus === 'SUCCESS' && !isCompleting;
-  // Show scrape FAILURE, or any taskError (including mark-complete failures after SUCCESS)
   const showTaskFailure =
     taskStatus === 'FAILURE' || Boolean(taskError && !showTaskProgress);
   const isCompleted = selectedUser?.status === 'COMPLETED';
@@ -584,13 +613,55 @@ ${selectedUser.customInstructions ? `\nSpecial Instructions:\n"${selectedUser.cu
             <section className="glass-panel">
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
                 <h2 className="panel-title" style={{ marginBottom: 0 }}>
-                  <span className="step">2</span> NotebookLM prompt
+                  <span className="step">2</span> NotebookLM session
                 </h2>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowCompiler((v) => !v)}>
                   <Terminal size={15} />
                   {showCompiler ? 'Hide sandbox' : 'Prompt sandbox'}
                 </button>
               </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <div className="input-group">
+                  <label>NotebookLM session URL</label>
+                  <input
+                    name="notebook_session_url"
+                    value={formData.notebook_session_url}
+                    onChange={(e) => {
+                      setFormData({ ...formData, notebook_session_url: e.target.value });
+                      setScrapeStatus('idle');
+                      setScrapeMessage(null);
+                    }}
+                    placeholder="https://notebooklm.google.com/notebook/..."
+                  />
+                </div>
+                <div className="action-bar" style={{ padding: '0.6rem 0 0' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={scrapeStatus === 'loading'}
+                    onClick={handleScrapeNotebook}
+                  >
+                    {scrapeStatus === 'loading' ? <Loader2 size={16} className="spin" /> : <Search size={16} />}
+                    {scrapeStatus === 'loading' ? 'Scraping…' : 'Auto-scrape artifacts'}
+                  </button>
+                  <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    {scrapeStatus === 'success' && (
+                      <div className="status-line ok" style={{ margin: 0 }}>
+                        <CheckCircle2 size={16} /> {scrapeMessage}
+                      </div>
+                    )}
+                    {scrapeStatus === 'error' && (
+                      <div className="status-line err" style={{ margin: 0 }}>
+                        <AlertCircle size={16} /> {scrapeMessage}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="glass-panel">
+              <h2 className="panel-title"><span className="step">3</span> NotebookLM prompt</h2>
               <div className="prompt-box">
                 <div className="prompt-text">
                   {`Title: ${selectedUser.title || 'N/A'}
@@ -603,11 +674,14 @@ ${selectedUser.customInstructions ? `Notes: ${selectedUser.customInstructions}` 
 
             {!isCompleted && (
               <section className="glass-panel">
-                <h2 className="panel-title"><span className="step">3</span> Submit assets</h2>
+                <h2 className="panel-title"><span className="step">4</span> Submit assets</h2>
                 <form onSubmit={handleSubmit}>
                   <div className="responsive-grid">
                     <div>
-                      <h3 className="col-title">NotebookLM share links</h3>
+                      <h3 className="col-title">NotebookLM artifacts</h3>
+                      <p className="col-title" style={{ fontSize: '0.75rem', opacity: 0.85 }}>
+                        Auto-filled from the single session URL above. You can still edit individually.
+                      </p>
                       <div className="input-group">
                         <label>Flashcards URL</label>
                         <input
@@ -638,41 +712,41 @@ ${selectedUser.customInstructions ? `Notes: ${selectedUser.customInstructions}` 
                     </div>
                     <div>
                       <h3 className="col-title">Static media</h3>
-                      <CloudinaryUploadWidget
+                      <UrlInputField
                         label="Podcast audio"
                         fieldName="podcast_audio"
                         currentUrl={formData.podcast_audio}
-                        onUploadSuccess={(field, url) => setFormData((prev) => ({ ...prev, [field]: url }))}
+                        onChange={(field, url) => setFormData((prev) => ({ ...prev, [field]: url }))}
                       />
-                      <CloudinaryUploadWidget
+                      <UrlInputField
                         label="Video overview"
                         fieldName="video_overview"
                         currentUrl={formData.video_overview}
-                        onUploadSuccess={(field, url) => setFormData((prev) => ({ ...prev, [field]: url }))}
+                        onChange={(field, url) => setFormData((prev) => ({ ...prev, [field]: url }))}
                       />
-                      <CloudinaryUploadWidget
+                      <UrlInputField
                         label="Infographic"
                         fieldName="infographic"
                         currentUrl={formData.infographic}
-                        onUploadSuccess={(field, url) => setFormData((prev) => ({ ...prev, [field]: url }))}
+                        onChange={(field, url) => setFormData((prev) => ({ ...prev, [field]: url }))}
                       />
-                      <CloudinaryUploadWidget
+                      <UrlInputField
                         label="Slide deck"
                         fieldName="slide_deck"
                         currentUrl={formData.slide_deck}
-                        onUploadSuccess={(field, url) => setFormData((prev) => ({ ...prev, [field]: url }))}
+                        onChange={(field, url) => setFormData((prev) => ({ ...prev, [field]: url }))}
                       />
-                      <CloudinaryUploadWidget
+                      <UrlInputField
                         label="Study report"
                         fieldName="study_report"
                         currentUrl={formData.study_report}
-                        onUploadSuccess={(field, url) => setFormData((prev) => ({ ...prev, [field]: url }))}
+                        onChange={(field, url) => setFormData((prev) => ({ ...prev, [field]: url }))}
                       />
-                      <CloudinaryUploadWidget
+                      <UrlInputField
                         label="Data table"
                         fieldName="data_table"
                         currentUrl={formData.data_table}
-                        onUploadSuccess={(field, url) => setFormData((prev) => ({ ...prev, [field]: url }))}
+                        onChange={(field, url) => setFormData((prev) => ({ ...prev, [field]: url }))}
                       />
                     </div>
                   </div>
@@ -693,6 +767,12 @@ ${selectedUser.customInstructions ? `Notes: ${selectedUser.customInstructions}` 
                         <CheckCircle2 size={16} />
                         Scraped {taskResult?.flashcards?.length || 0} cards, {taskResult?.quizzes?.length || 0} quiz Qs
                         {taskResult?.mindmap ? ', mindmap' : ''}
+                      </div>
+                    )}
+                    {scrapeStatus && !['idle', 'loading'].includes(scrapeStatus) && (
+                      <div className={`status-line ${scrapeStatus === 'success' ? 'ok' : 'err'}`} style={{ marginRight: '0.75rem' }}>
+                        {scrapeStatus === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                        {scrapeMessage}
                       </div>
                     )}
                     {canSubmit && (
