@@ -377,6 +377,67 @@ app.post('/api/auth/login', authLimiter, validate(loginSchema), async (req, res)
   }
 });
 
+app.post('/api/auth/google', authLimiter, async (req, res) => {
+  try {
+    const { accessToken } = req.body;
+    if (!accessToken) {
+      return res.status(400).json({ error: 'Access token is required' });
+    }
+
+    // Verify token and fetch user info from Google API
+    const googleUserRes = await axios.get(
+      `https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`
+    );
+    const { email, name } = googleUserRes.data;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Failed to retrieve email from Google' });
+    }
+
+    // Check if user exists
+    const [users] = await pool.execute('SELECT * FROM `User` WHERE email = ?', [email]);
+    let user;
+
+    const parseJsonField = (field) => {
+      if (!field) return null;
+      if (typeof field === 'object') return field;
+      try {
+        return JSON.parse(field);
+      } catch {
+        return null;
+      }
+    };
+
+    if (users.length === 0) {
+      // Create a new user
+      const id = crypto.randomUUID();
+      const dummyPassword = crypto.randomBytes(16).toString('hex');
+      const hashedPassword = await bcrypt.hash(dummyPassword, 12);
+
+      await pool.execute(
+        'INSERT INTO `User` (id, name, email, password) VALUES (?, ?, ?, ?)',
+        [id, name || email.split('@')[0], email, hashedPassword]
+      );
+      user = { id, name: name || email.split('@')[0], email };
+    } else {
+      const dbUser = users[0];
+      user = {
+        id: dbUser.id,
+        name: dbUser.name,
+        email: dbUser.email,
+        preferences: parseJsonField(dbUser.preferences),
+      };
+    }
+
+    // Sign JWT
+    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ token, user });
+  } catch (error) {
+    console.error('Google auth error:', error);
+    res.status(500).json({ error: 'Google authentication failed' });
+  }
+});
+
 // =======================
 // USER PROFILE / PREFS
 // =======================

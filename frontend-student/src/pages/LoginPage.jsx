@@ -11,16 +11,40 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  const handleGoogleLogin = async (idToken) => {
+  const handleGoogleClick = () => {
+    if (!window.google) {
+      setError('Google Sign-In is loading, please try again.');
+      return;
+    }
     setError('');
     setGoogleLoading(true);
     try {
-      await googleLogin(idToken);
-      navigate('/dashboard');
+      const client = window.google.accounts.oauth2.initTokenClient({
+        client_id: '294632431205-sdtp5euhvbb7q3ui4kbqnc422db9u07n.apps.googleusercontent.com',
+        scope: 'email profile openid',
+        callback: async (response) => {
+          if (response && response.access_token) {
+            try {
+              await googleLogin(response.access_token);
+              navigate('/dashboard');
+            } catch (err) {
+              setError(err.message);
+              setGoogleLoading(false);
+            }
+          } else {
+            setGoogleLoading(false);
+            setError('Google authentication was cancelled or failed.');
+          }
+        },
+        error_callback: (err) => {
+          setGoogleLoading(false);
+          setError(err.message || 'Google authentication error');
+        }
+      });
+      client.requestAccessToken();
     } catch (err) {
-      setError(err.message);
-    } finally {
       setGoogleLoading(false);
+      setError(err.message);
     }
   };
 
@@ -106,7 +130,7 @@ export default function LoginPage() {
             className="btn btn-secondary"
             style={{ width: '100%', justifyContent: 'center' }}
             disabled={googleLoading}
-            onClick={() => handleGoogleLogin('294632431205-sdtp5euhvbb7q3ui4kbqnc422db9u07n.apps.googleusercontent.com')}
+            onClick={handleGoogleClick}
           >
             {googleLoading ? 'Signing in with Google...' : 'Continue with Google'}
           </button>
