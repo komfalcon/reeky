@@ -568,7 +568,7 @@ app.get('/api/assets', authenticateToken, async (req, res) => {
 
     const [[{ total }], [assets]] = await Promise.all([
       pool.execute('SELECT COUNT(*) as total FROM `AssetBundle` WHERE userId = ?', [req.user.userId]),
-      pool.execute(
+      pool.query(
         'SELECT * FROM `AssetBundle` WHERE userId = ? ORDER BY createdAt DESC LIMIT ? OFFSET ?',
         [req.user.userId, limit, offset]
       ),
@@ -655,9 +655,9 @@ app.get('/api/admin/queue/completed', authenticateAdmin, async (req, res) => {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = (page - 1) * limit;
 
-    const [[{ total }], queue] = await Promise.all([
+    const [[{ total }], [queue]] = await Promise.all([
       pool.execute("SELECT COUNT(*) as total FROM `AssetBundle` WHERE status = ?", [STATUS.COMPLETED]),
-      pool.execute(
+      pool.query(
         `SELECT
             ab.*,
             u.name AS studentName,
