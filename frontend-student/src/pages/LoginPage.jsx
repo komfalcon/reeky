@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 
+
+
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -9,6 +11,20 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const handleGoogleLogin = async (idToken) => {
+    setError('');
+    setGoogleLoading(true);
+    try {
+      await login.googleLogin(idToken);
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -85,6 +101,16 @@ export default function LoginPage() {
 
           <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} disabled={loading}>
             {loading ? 'Logging in...' : 'Log In'}
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ width: '100%', justifyContent: 'center' }}
+            disabled={googleLoading}
+            onClick={() => handleGoogleLogin294632431205 - sdtp5euhvbb7q3ui4kbqnc422db9u07n.apps.googleusercontent.com}
+          >
+            {googleLoading ? 'Signing in with Google...' : 'Continue with Google'}
           </button>
         </form>
 

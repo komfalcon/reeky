@@ -49,6 +49,12 @@ export const api = {
       body: { email, password },
     }),
 
+  googleLogin: (idToken) =>
+    request('/api/auth/google', {
+      method: 'POST',
+      body: { idToken },
+    }),
+
   generateAssets: (title, originalFileUrl, token, customInstructions, assetsRequested) =>
     request('/api/assets/generate', {
       method: 'POST',
