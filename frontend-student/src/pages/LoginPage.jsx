@@ -3,12 +3,26 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, googleLogin } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const handleGoogleLogin = async (idToken) => {
+    setError('');
+    setGoogleLoading(true);
+    try {
+      await googleLogin(idToken);
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -85,6 +99,16 @@ export default function LoginPage() {
 
           <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} disabled={loading}>
             {loading ? 'Logging in...' : 'Log In'}
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ width: '100%', justifyContent: 'center' }}
+            disabled={googleLoading}
+            onClick={() => handleGoogleLogin('PUT_GOOGLE_ID_TOKEN_HERE')}
+          >
+            {googleLoading ? 'Signing in with Google...' : 'Continue with Google'}
           </button>
         </form>
 
