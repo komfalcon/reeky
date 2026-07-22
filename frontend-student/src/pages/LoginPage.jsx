@@ -5,7 +5,7 @@ import { useAuth } from '../AuthContext';
 
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, googleLogin } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,7 +17,7 @@ export default function LoginPage() {
     setError('');
     setGoogleLoading(true);
     try {
-      await login.googleLogin(idToken);
+      await googleLogin(idToken);
       navigate('/dashboard');
     } catch (err) {
       setError(err.message);
@@ -108,7 +108,7 @@ export default function LoginPage() {
             className="btn btn-secondary"
             style={{ width: '100%', justifyContent: 'center' }}
             disabled={googleLoading}
-            onClick={() => handleGoogleLogin294632431205 - sdtp5euhvbb7q3ui4kbqnc422db9u07n.apps.googleusercontent.com}
+            onClick={() => handleGoogleLogin('PUT_GOOGLE_ID_TOKEN_HERE')}
           >
             {googleLoading ? 'Signing in with Google...' : 'Continue with Google'}
           </button>
