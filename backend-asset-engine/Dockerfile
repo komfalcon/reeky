@@ -15,8 +15,8 @@ RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
 
-# Installs chromium browser binaries and configures OS system level dependencies
-RUN playwright install --with-deps chromium
+# Installs chromium browser binaries without triggering missing apt packages
+RUN playwright install chromium
 
 COPY . .
 
