@@ -12,11 +12,26 @@ async function request(endpoint, options = {}) {
   });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || `Request failed (${res.status})`);
+    const err = await res.json().catch(() => ({}));
+    const message =
+      err.error ||
+      err.message ||
+      (res.status === 401
+        ? 'Authentication required'
+        : res.status === 403
+          ? 'Invalid or expired session'
+          : res.statusText || `Request failed (${res.status})`);
+    throw new Error(message);
   }
 
-  return res.json();
+  // Some endpoints may return an empty body
+  const text = await res.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
 }
 
 export const api = {
@@ -34,13 +49,25 @@ export const api = {
       body: { email, password },
     }),
 
-  generateAssets: (title, originalFileUrl, token) =>
+  generateAssets: (title, originalFileUrl, token, customInstructions, assetsRequested) =>
     request('/api/assets/generate', {
       method: 'POST',
-      body: { title, originalFileUrl },
+      body: { title, originalFileUrl, customInstructions, assetsRequested },
       token,
     }),
 
-  getAssets: (token) =>
-    request('/api/assets', { token }),
+  getAssets: async (token) => {
+    const data = await request('/api/assets', { token });
+    return Array.isArray(data) ? data : [];
+  },
+
+  savePreferences: (token, preferences) =>
+    request('/api/user/preferences', {
+      method: 'POST',
+      body: preferences,
+      token,
+    }),
+
+  getProfile: (token) =>
+    request('/api/user/profile', { token }),
 };

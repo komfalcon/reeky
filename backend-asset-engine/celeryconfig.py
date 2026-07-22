@@ -1,18 +1,21 @@
 # celeryconfig.py
-# pyrefly: ignore [missing-import]
-from celery.schedules import crontab
 import os
 
-# Dynamic connection loader: looks for environment variable, falls back to local container network setup
-broker_url = os.getenv('CELERY_BROKER_URL', 'redis://local-redis:6379/0')
-result_backend = os.getenv('CELERY_RESULT_BACKEND', 'redis://local-redis:6379/0')
+broker_url = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
+result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
 
-beat_schedule = {
-    'refresh-notebooklm-auth': {
-        'task': 'tasks.refresh_auth_token_task',
-        'schedule': crontab(minute='*/15'), # Every 15 minutes
-    },
-}
+# Include task modules
+imports = ("tasks",)
 
-timezone = 'UTC'
+task_serializer = "json"
+result_serializer = "json"
+accept_content = ["json"]
+timezone = "UTC"
+enable_utc = True
+
+# Soft time limits for long Playwright scrapes
+task_soft_time_limit = 600
+task_time_limit = 720
+
+beat_schedule = {}
 database_short_lived_sessions = True

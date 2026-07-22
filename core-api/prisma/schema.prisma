@@ -7,36 +7,31 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// NOTE: Runtime uses raw mysql2 (see setup_db.js / index.js).
+// Keep this schema aligned with the live SQL for documentation.
+
 model User {
-  id                  String   @id @default(uuid())
-  email               String   @unique
-  passwordHash        String
-  fullName            String?
-  basePreferences     String?  
-  createdAt           DateTime @default(now())
-  
-  assets              AssetBundle[] 
+  id              String        @id @default(uuid())
+  name            String
+  email           String        @unique
+  password        String
+  notebooklmUrl   String?       @db.Text
+  preferences     Json?
+  createdAt       DateTime      @default(now())
+  assets          AssetBundle[]
 }
 
 model AssetBundle {
-  id                  String   @id @default(uuid())
-  userId              String
-  user                User     @relation(fields: [userId], references: [id])
-  
-  pdfTargetUrl        String   
-  customInstructions  String?  
-  
-  flashcardsJson      Json?
-  quizzesJson         Json?
-  mindmapJson         Json?
-  
-  podcastAudioUrl     String?
-  videoOverviewUrl    String?
-  infographicUrl      String?
-  slideDeckUrl        String?
-  studyReportUrl      String?
-  dataTableUrl        String?
-
-  status              String   @default("QUEUED") // QUEUED, PROCESSING, COMPLETED
-  createdAt           DateTime @default(now())
+  id                 String   @id @default(uuid())
+  title              String
+  originalFileUrl    String   @db.Text
+  notebookSourceUrl  String?  @db.Text
+  contentHash        String?  @db.VarChar(64)
+  status             String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  assets             Json?
+  customInstructions String?  @db.Text
+  assetsRequested    Json?
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt          DateTime @default(now())
 }

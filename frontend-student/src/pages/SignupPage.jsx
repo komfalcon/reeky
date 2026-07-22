@@ -61,6 +61,7 @@ export default function SignupPage() {
               value={name}
               onChange={e => setName(e.target.value)}
               required
+              minLength={2}
             />
           </div>
           <div>
@@ -83,12 +84,17 @@ export default function SignupPage() {
             <input
               className="auth-input"
               type="password"
-              placeholder="••••••••"
+              placeholder="Min. 8 characters with uppercase & number"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
-              minLength={6}
+              minLength={8}
+              pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$"
+              title="Password must be at least 8 characters with at least one uppercase letter, one lowercase letter, and one number"
             />
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
+              Must be 8+ characters with at least one uppercase letter, one lowercase letter, and one number
+            </p>
           </div>
 
           {error && (
