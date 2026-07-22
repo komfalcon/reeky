@@ -7,6 +7,7 @@ import mysql from 'mysql2/promise';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
+import axios from 'axios';
 
 dotenv.config();
 
@@ -73,6 +74,7 @@ const submitAssetsSchema = z.object({
   slide_deck: z.string().max(2000).optional().nullable(),
   study_report: z.string().max(2000).optional().nullable(),
   data_table: z.string().max(2000).optional().nullable(),
+  notebook_session_url: z.string().max(2000).optional().nullable(),
 });
 
 const preferencesSchema = z.object({
@@ -188,18 +190,28 @@ async function ensureSchema() {
     `ALTER TABLE \`AssetBundle\` MODIFY COLUMN \`originalFileUrl\` TEXT NOT NULL`,
     `ALTER TABLE \`AssetBundle\` ADD COLUMN IF NOT EXISTS \`customInstructions\` TEXT NULL`,
     `ALTER TABLE \`AssetBundle\` ADD COLUMN IF NOT EXISTS \`assetsRequested\` JSON NULL`,
+    // Phase 1: One-notebook-per-student + content dedup
+    `ALTER TABLE \`User\` ADD COLUMN IF NOT EXISTS \`notebooklm_url\` TEXT NULL AFTER \`password\`,
+                                     ADD COLUMN IF NOT EXISTS \`updated_at\` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`,
+    `ALTER TABLE \`AssetBundle\` ADD COLUMN IF NOT EXISTS \`notebook_source_url\` TEXT NULL AFTER \`originalFileUrl\`,
+                                     ADD COLUMN IF NOT EXISTS \`content_hash\` VARCHAR(64) NULL AFTER \`notebook_source_url\`,
+                                     ADD INDEX IF NOT EXISTS idx_notebook_source (notebook_source_url(255)),
+                                     ADD INDEX IF NOT EXISTS idx_content_hash (content_hash),
+                                     ADD INDEX IF NOT EXISTS idx_user_id (user_id)`,
+    // Phase 3: Version trackin
+    `ALTER TABLE \`AssetBundle\` ADD COLUMN IF NOT EXISTS \`version\` INT NOT NULL DEFAULT 1,
+                                     ADD COLUMN IF NOT EXISTS \`parent_id\` CHAR(36) NULL,
+                                     ADD INDEX IF NOT EXISTS idx_parent_id (parent_id)`,
   ];
 
-  // MySQL 8+ supports `IF NOT EXISTS` for columns. For older versions we use try/catch.
   for (const sql of migrations) {
     try {
       await pool.execute(sql);
     } catch (_) {
-      // Column likely already exists — safe to ignore
+      // Column/index likely already exists — safe to ignore
     }
   }
 
-  // Verify tables exist by querying them
   try {
     const [tables] = await pool.execute("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = (SELECT DATABASE())");
     const tableNames = tables.map(t => t.TABLE_NAME);
@@ -407,6 +419,35 @@ app.post('/api/user/preferences', authenticateToken, validate(preferencesSchema)
 });
 
 // =======================
+// VIDEO PROCESSING  (NotebookLM video URL → trimmed S3 URL)
+// =======================
+
+app.post('/api/video/process', authenticateToken, async (req, res) => {
+  try {
+    const { videoUrl, assetId } = req.validatedBody || req.body;
+
+    if (!videoUrl || !assetId) {
+      return res.status(400).json({ error: 'videoUrl and assetId are required' });
+    }
+
+    // Forward to Python engine for processing
+    const engineHeaders = { 'Content-Type': 'application/json' };
+    if (ADMIN_API_KEY) engineHeaders['x-admin-key'] = ADMIN_API_KEY;
+
+    const engineRes = await axios.post(
+      `${PYTHON_ENGINE_URL}/video/process`,
+      { video_url: videoUrl, asset_id: assetId },
+      { headers: engineHeaders, timeout: 600000 } // 10 min timeout for video processing
+    );
+
+    res.json(engineRes.data);
+  } catch (error) {
+    console.error('Video processing error:', error);
+    res.status(500).json({ error: 'Video processing failed', details: error.message });
+  }
+});
+
+// =======================
 // ASSET GENERATION ROUTES
 // =======================
 
@@ -433,7 +474,6 @@ app.post('/api/assets/generate', authenticateToken, assetLimiter, validate(gener
     res.status(201).json({ message: 'Asset generation queued successfully', id });
   } catch (error) {
     console.error('Asset generation error:', error);
-    // Fallback if new columns are missing on older DBs
     try {
       const { title, originalFileUrl } = req.body;
       const id = crypto.randomUUID();
@@ -480,6 +520,35 @@ app.get('/api/assets', authenticateToken, async (req, res) => {
 // =======================
 // ADMIN ROUTES
 // =======================
+
+app.post('/api/admin/scrape-notebooklm', authenticateAdmin, async (req, res) => {
+  try {
+    const { notebook_url } = req.body;
+    if (!notebook_url || !/^https?:\/\/.+/i.test(notebook_url)) {
+      return res.status(400).json({ error: 'notebook_url is required and must be a valid URL' });
+    }
+
+    const engineHeaders = { 'Content-Type': 'application/json' };
+    if (ADMIN_API_KEY) engineHeaders['x-admin-key'] = ADMIN_API_KEY;
+
+    const engineRes = await fetch(`${PYTHON_ENGINE_URL}/scrape-notebooklm`, {
+      method: 'POST',
+      headers: engineHeaders,
+      body: JSON.stringify({ notebook_url }),
+      signal: AbortSignal.timeout(120000),
+    });
+
+    const data = await engineRes.json();
+    if (!engineRes.ok) {
+      return res.status(engineRes.status).json(data);
+    }
+
+    res.json(data);
+  } catch (error) {
+    console.error('Proxy scrape-notebooklm error:', error);
+    res.status(500).json({ error: 'Failed to reach asset engine for notebook scraping' });
+  }
+});
 
 app.get('/api/admin/queue', authenticateAdmin, async (req, res) => {
   try {
@@ -547,10 +616,6 @@ app.get('/api/admin/queue/completed', authenticateAdmin, async (req, res) => {
   }
 });
 
-// =======================
-// ADMIN SUBMIT + WEBHOOK
-// =======================
-
 app.post('/api/admin/submit-assets', authenticateAdmin, validate(submitAssetsSchema), async (req, res) => {
   try {
     const {
@@ -562,6 +627,7 @@ app.post('/api/admin/submit-assets', authenticateAdmin, validate(submitAssetsSch
       slide_deck,
       study_report,
       data_table,
+      notebook_session_url,
     } = req.validatedBody;
 
     const staticAssets = {
@@ -573,11 +639,59 @@ app.post('/api/admin/submit-assets', authenticateAdmin, validate(submitAssetsSch
       data_table: data_table || null,
     };
 
-    const cleanUrls = (artifact_urls || []).filter(
+    let cleanUrls = (artifact_urls || []).filter(
       (url) => typeof url === 'string' && url.trim().startsWith('http')
     );
 
-    if (cleanUrls.length === 0) {
+    // Auto-scrape artifacts from a single NotebookLM session URL if provided
+    if (notebook_session_url && String(notebook_session_url).trim()) {
+      try {
+        const engineHeaders = { 'Content-Type': 'application/json' };
+        if (ADMIN_API_KEY) engineHeaders['x-admin-key'] = ADMIN_API_KEY;
+
+        const scrapeRes = await fetch(`${PYTHON_ENGINE_URL}/scrape-notebooklm`, {
+          method: 'POST',
+          headers: engineHeaders,
+          body: JSON.stringify({ notebook_url: notebook_session_url.trim() }),
+          signal: AbortSignal.timeout(120000),
+        });
+
+        if (scrapeRes.ok) {
+          const scrapeData = await scrapeRes.json();
+          const artifacts = scrapeData?.artifacts || {};
+          const scrapedUrls = [
+            artifacts.flashcards_url,
+            artifacts.quizzes_url,
+            artifacts.mindmap_url,
+            artifacts.audio_url,
+            artifacts.video_url,
+          ].filter((u) => typeof u === 'string' && /^https?:\/\//i.test(u));
+
+          const existing = new Set(cleanUrls.map((u) => u.trim()));
+          for (const u of scrapedUrls) {
+            const trimmed = u.trim();
+            if (!existing.has(trimmed)) {
+              cleanUrls.push(trimmed);
+            }
+          }
+
+          if (artifacts.video_url && !staticAssets.video_overview) {
+            staticAssets.video_overview = artifacts.video_url;
+          }
+          if (artifacts.audio_url && !staticAssets.podcast_audio) {
+            staticAssets.podcast_audio = artifacts.audio_url;
+          }
+
+          console.info(`NotebookLM scrape complete: ${scrapedUrls.length} artifact URLs found`);
+        } else {
+          console.warn('NotebookLM auto-scrape failed:', await scrapeRes.text().catch(() => ''));
+        }
+      } catch (err) {
+        console.error('NotebookLM auto-scrape error:', err);
+      }
+    }
+
+    if (cleanUrls.length === 0 && !staticAssets.video_overview) {
       await pool.execute(
         'UPDATE `AssetBundle` SET status = ?, assets = ? WHERE id = ?',
         [STATUS.COMPLETED, JSON.stringify(staticAssets), assetId]
@@ -595,59 +709,82 @@ app.post('/api/admin/submit-assets', authenticateAdmin, validate(submitAssetsSch
     );
 
     let taskId = null;
-    try {
-      const engineHeaders = { 'Content-Type': 'application/json' };
-      if (ADMIN_API_KEY) engineHeaders['x-admin-key'] = ADMIN_API_KEY;
 
-      const engineRes = await fetch(`${PYTHON_ENGINE_URL}/admin/submit-assets`, {
-        method: 'POST',
-        headers: engineHeaders,
-        body: JSON.stringify({
-          user_id: assetId,
-          artifact_urls: cleanUrls,
-          ...staticAssets,
-        }),
-        signal: AbortSignal.timeout(30000),
-      });
+    // If video_overview is a NotebookLM artifact URL, trigger video processing
+    if (video_overview && (video_overview.includes('notebooklm.google.com/notebook') || video_overview.includes('artifact'))) {
+      try {
+        const engineHeaders = { 'Content-Type': 'application/json' };
+        if (ADMIN_API_KEY) engineHeaders['x-admin-key'] = ADMIN_API_KEY;
 
-      if (engineRes.ok) {
-        const engineData = await engineRes.json();
-        taskId = engineData.task_id || null;
-        if (taskId) {
-          const merged = mergeAssetPayload(staticAssets, { _celeryTaskId: taskId });
-          await pool.execute(
-            'UPDATE `AssetBundle` SET assets = ? WHERE id = ?',
-            [JSON.stringify(merged), assetId]
-          );
+        const videoRes = await fetch(`${PYTHON_ENGINE_URL}/video/process`, {
+          method: 'POST',
+          headers: engineHeaders,
+          body: JSON.stringify({ video_url: video_overview, asset_id: assetId }),
+          signal: AbortSignal.timeout(600000),
+        });
+
+        if (videoRes.ok) {
+          const videoData = await videoRes.json();
+          taskId = videoData.task_id || null;
+        } else {
+          console.error('Video processing initiation failed:', videoRes.status);
         }
-      } else {
-        const errText = await engineRes.text().catch(() => '');
-        console.error('Python engine submit failed:', engineRes.status, errText);
+      } catch (err) {
+        console.error('Failed to initiate video processing:', err);
+      }
+    }
+
+    // Submit to scraper if there are NotebookLM URLs
+    if (cleanUrls.length > 0) {
+      try {
+        const engineHeaders = { 'Content-Type': 'application/json' };
+        if (ADMIN_API_KEY) engineHeaders['x-admin-key'] = ADMIN_API_KEY;
+
+        const engineRes = await fetch(`${PYTHON_ENGINE_URL}/admin/submit-assets`, {
+          method: 'POST',
+          headers: engineHeaders,
+          body: JSON.stringify({
+            user_id: assetId,
+            artifact_urls: cleanUrls,
+            ...staticAssets,
+          }),
+          signal: AbortSignal.timeout(30000),
+        });
+
+        if (engineRes.ok) {
+          const engineData = await engineRes.json();
+          if (!taskId) taskId = engineData.task_id || null;
+        } else {
+          const errText = await engineRes.text().catch(() => '');
+          console.error('Python engine submit failed:', engineRes.status, errText);
+          await pool.execute(
+            'UPDATE `AssetBundle` SET status = ?, assets = ? WHERE id = ?',
+            [STATUS.PENDING, JSON.stringify(staticAssets), assetId]
+          );
+          return res.status(502).json({
+            error: `Asset engine rejected submit (${engineRes.status})`,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to trigger python engine:', err);
         await pool.execute(
           'UPDATE `AssetBundle` SET status = ?, assets = ? WHERE id = ?',
           [STATUS.PENDING, JSON.stringify(staticAssets), assetId]
         );
-        const errorMsg =
-          engineRes.status === 401
-            ? 'Asset engine rejected admin key (ADMIN_API_KEY mismatch)'
-            : `Asset engine rejected submit (${engineRes.status})`;
-        return res.status(502).json({ error: errorMsg });
+        return res.status(502).json({ error: 'Failed to reach asset engine' });
       }
-    } catch (err) {
-      console.error('Failed to trigger python engine:', err);
-      await pool.execute(
-        'UPDATE `AssetBundle` SET status = ?, assets = ? WHERE id = ?',
-        [STATUS.PENDING, JSON.stringify(staticAssets), assetId]
-      );
-      return res.status(502).json({ error: 'Failed to reach asset engine' });
     }
 
     if (!taskId) {
       await pool.execute(
         'UPDATE `AssetBundle` SET status = ?, assets = ? WHERE id = ?',
-        [STATUS.PENDING, JSON.stringify(staticAssets), assetId]
+        [STATUS.COMPLETED, JSON.stringify(staticAssets), assetId]
       );
-      return res.status(502).json({ error: 'Asset engine did not return a task id' });
+      return res.json({
+        success: true,
+        completedDirectly: true,
+        message: 'Asset bundle completed (no scraping needed)',
+      });
     }
 
     res.json({
@@ -680,7 +817,6 @@ app.get('/api/admin/task-status/:id', authenticateAdmin, async (req, res) => {
 
     const data = await response.json();
 
-    // Auto-complete the bundle when scrape succeeds
     if (data.task_status === 'SUCCESS' && assetId) {
       const [rows] = await pool.execute(
         'SELECT assets, status FROM `AssetBundle` WHERE id = ?',
@@ -761,7 +897,6 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-// Local/dev: listen. Vercel serverless: export the app only.
 if (!process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`Core API listening on port ${PORT}`);

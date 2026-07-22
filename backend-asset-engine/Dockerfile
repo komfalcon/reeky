@@ -1,24 +1,22 @@
-FROM mcr.microsoft.com/playwright:v1.44.0-jammy
+FROM python:3.12-slim
+
+# Install system dependencies including FFmpeg
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    chromium \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Keep system Playwright browsers in sync with requirements.txt (playwright==1.44.0)
-RUN apt-get update && apt-get install -y ffmpeg python3-pip python3-venv \
-    && rm -rf /var/lib/apt/lists/*
-
-ENV VIRTUAL_ENV=/opt/venv
-RUN python3 -m venv $VIRTUAL_ENV
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-
+# Install Python dependencies
 COPY requirements.txt .
-RUN pip install --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Browsers already present in base image matching 1.44.0
-RUN playwright install-deps chromium || true
+# Install Playwright browsers
+RUN python -m playwright install chromium --with-deps
 
 COPY . .
-RUN chmod +x start.sh
 
 EXPOSE 8000
-CMD ["./start.sh"]
+
+CMD ["sh", "start.sh"]
