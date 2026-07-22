@@ -181,7 +181,24 @@ async def process_video_submission(video_url: str, asset_id: str) -> dict:
     output_path = temp_dir / f"{asset_id}-trimmed.mp4"
     
     try:
-        # Step 1: Download video
+        # Approach 1: Extract direct video link from NotebookLM and return it directly (bypassing download/trim/upload)
+        if "notebooklm.google.com" in video_url:
+            logger.info(f"Detecting NotebookLM page. Extracting raw video stream from: {video_url}")
+            extracted_url = await extract_video_url_from_notebooklm(video_url)
+            if not extracted_url:
+                return {
+                    "status": "error",
+                    "error": "Failed to extract direct video URL from NotebookLM page",
+                    "video_url": None
+                }
+            logger.info(f"Approach 1 Success! Returning extracted raw video stream: {extracted_url}")
+            return {
+                "status": "success",
+                "video_url": extracted_url,
+                "error": None
+            }
+
+        # Step 1: Download video (Approach 2 fallback)
         logger.info(f"Downloading video from: {video_url}")
         download_success = await download_video(video_url, str(input_path))
         if not download_success:
