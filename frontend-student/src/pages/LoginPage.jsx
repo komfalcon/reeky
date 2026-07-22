@@ -106,7 +106,7 @@ export default function LoginPage() {
             className="btn btn-secondary"
             style={{ width: '100%', justifyContent: 'center' }}
             disabled={googleLoading}
-            onClick={() => handleGoogleLogin('PUT_GOOGLE_ID_TOKEN_HERE')}
+            onClick={() => handleGoogleLogin('294632431205-sdtp5euhvbb7q3ui4kbqnc422db9u07n.apps.googleusercontent.com')}
           >
             {googleLoading ? 'Signing in with Google...' : 'Continue with Google'}
           </button>
