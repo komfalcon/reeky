@@ -71,9 +71,9 @@ export const api = {
   getProfile: (token) =>
     request('/api/user/profile', { token }),
 
-  googleLogin: (accessToken) =>
+  googleLogin: (idToken) =>
     request('/api/auth/google', {
       method: 'POST',
-      body: { accessToken },
+      body: { idToken },
     }),
 };

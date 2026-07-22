@@ -379,23 +379,33 @@ app.post('/api/auth/login', authLimiter, validate(loginSchema), async (req, res)
 
 app.post('/api/auth/google', authLimiter, async (req, res) => {
   try {
-    const { accessToken } = req.body;
-    if (!accessToken) {
-      return res.status(400).json({ error: 'Access token is required' });
+    const { idToken, accessToken, email, name } = req.body;
+    let googleEmail, googleName;
+
+    if (idToken) {
+      const googleRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
+      if (!googleRes.ok) {
+        return res.status(401).json({ error: 'Invalid Google token' });
+      }
+      const payload = await googleRes.json();
+      googleEmail = (payload.email || email || '').toLowerCase();
+      googleName = payload.name || name || 'Student';
+    } else if (accessToken) {
+      const googleUserRes = await axios.get(
+        `https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`
+      );
+      googleEmail = (googleUserRes.data.email || email || '').toLowerCase();
+      googleName = googleUserRes.data.name || name || 'Student';
+    } else {
+      return res.status(400).json({ error: 'Either idToken or accessToken is required' });
     }
 
-    // Verify token and fetch user info from Google API
-    const googleUserRes = await axios.get(
-      `https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`
-    );
-    const { email, name } = googleUserRes.data;
-
-    if (!email) {
+    if (!googleEmail) {
       return res.status(400).json({ error: 'Failed to retrieve email from Google' });
     }
 
     // Check if user exists
-    const [users] = await pool.execute('SELECT * FROM `User` WHERE email = ?', [email]);
+    const [users] = await pool.execute('SELECT * FROM `User` WHERE email = ?', [googleEmail]);
     let user;
 
     const parseJsonField = (field) => {
@@ -416,9 +426,9 @@ app.post('/api/auth/google', authLimiter, async (req, res) => {
 
       await pool.execute(
         'INSERT INTO `User` (id, name, email, password) VALUES (?, ?, ?, ?)',
-        [id, name || email.split('@')[0], email, hashedPassword]
+        [id, googleName, googleEmail, hashedPassword]
       );
-      user = { id, name: name || email.split('@')[0], email };
+      user = { id, name: googleName, email: googleEmail };
     } else {
       const dbUser = users[0];
       user = {

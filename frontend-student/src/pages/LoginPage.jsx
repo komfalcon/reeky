@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 
@@ -11,42 +11,54 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  const handleGoogleClick = () => {
-    if (!window.google) {
-      setError('Google Sign-In is loading, please try again.');
-      return;
-    }
+  const handleGoogleLogin = async (idToken) => {
     setError('');
     setGoogleLoading(true);
     try {
-      const client = window.google.accounts.oauth2.initTokenClient({
-        client_id: '294632431205-sdtp5euhvbb7q3ui4kbqnc422db9u07n.apps.googleusercontent.com',
-        scope: 'email profile openid',
-        callback: async (response) => {
-          if (response && response.access_token) {
-            try {
-              await googleLogin(response.access_token);
-              navigate('/dashboard');
-            } catch (err) {
-              setError(err.message);
-              setGoogleLoading(false);
-            }
-          } else {
-            setGoogleLoading(false);
-            setError('Google authentication was cancelled or failed.');
-          }
-        },
-        error_callback: (err) => {
-          setGoogleLoading(false);
-          setError(err.message || 'Google authentication error');
-        }
-      });
-      client.requestAccessToken();
+      await googleLogin(idToken);
+      navigate('/dashboard');
     } catch (err) {
-      setGoogleLoading(false);
       setError(err.message);
+      setGoogleLoading(false);
     }
   };
+
+  useEffect(() => {
+    const initGoogle = () => {
+      if (window.google && window.google.accounts) {
+        window.google.accounts.id.initialize({
+          client_id: '294632431205-sdtp5euhvbb7q3ui4kbqnc422db9u07n.apps.googleusercontent.com',
+          callback: (response) => {
+            if (response.credential) {
+              handleGoogleLogin(response.credential);
+            }
+          },
+        });
+        const parent = document.getElementById('google-signin-btn');
+        if (parent) {
+          window.google.accounts.id.renderButton(parent, {
+            type: 'standard',
+            shape: 'rectangular',
+            theme: 'outline',
+            size: 'large',
+            text: 'signin_with',
+            width: parent.offsetWidth || 350,
+          });
+        }
+      }
+    };
+
+    initGoogle();
+    
+    const interval = setInterval(() => {
+      if (window.google) {
+        initGoogle();
+        clearInterval(interval);
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -125,15 +137,28 @@ export default function LoginPage() {
             {loading ? 'Logging in...' : 'Log In'}
           </button>
 
-          <button
-            type="button"
-            className="btn btn-secondary"
-            style={{ width: '100%', justifyContent: 'center' }}
-            disabled={googleLoading}
-            onClick={handleGoogleClick}
-          >
-            {googleLoading ? 'Signing in with Google...' : 'Continue with Google'}
-          </button>
+          <div style={{ position: 'relative', width: '100%', height: '42px' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ width: '100%', height: '100%', justifyContent: 'center', pointerEvents: 'none' }}
+            >
+              {googleLoading ? 'Signing in with Google...' : 'Continue with Google'}
+            </button>
+            <div
+              id="google-signin-btn"
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                opacity: 0,
+                overflow: 'hidden',
+                cursor: 'pointer',
+              }}
+            />
+          </div>
         </form>
 
         <p style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
