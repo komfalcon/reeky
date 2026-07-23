@@ -90,7 +90,7 @@ const preferencesSchema = z.object({
 
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200,
+  max: 1500, // Increased from 200 to 1500 to support polling
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests. Please try again later.' },
