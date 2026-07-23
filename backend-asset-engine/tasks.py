@@ -21,24 +21,10 @@ async def scrape_notebooklm_url(url: str):
     # pyrefly: ignore [missing-import]
     from playwright.async_api import async_playwright
 
-    from pathlib import Path
     async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=True,
-            args=["--disable-blink-features=AutomationControlled", "--no-sandbox"]
-        )
+        browser = await p.chromium.launch(headless=True)
         try:
-            auth_state_path = Path("auth_state.json")
-            context_kwargs = {
-                "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            }
-            if auth_state_path.exists():
-                context_kwargs["storage_state"] = str(auth_state_path)
-                print("Loading Google auth state from auth_state.json")
-            
-            context = await browser.new_context(**context_kwargs)
-            await context.add_init_script("delete navigator.__proto__.webdriver;")
-            page = await context.new_page()
+            page = await browser.new_page()
             print(f"Navigating to URL: {url}")
             await page.goto(url, wait_until="domcontentloaded", timeout=90000)
             await asyncio.sleep(5)
@@ -119,58 +105,12 @@ def process_submission_sync(config: dict):
 
 
 @app.task(bind=True, name="tasks.process_admin_submission_task")
-def process_admin_submission_task(self, config: dict = None, task_id: str = None):
-    from celery.app.task import Task
-    from task_store import save_task_status
-    
-    actual_config = config
-    current_task_id = task_id
-
-    if not isinstance(self, Task):
-        actual_config = self
-        self = None
-    
-    if self and hasattr(self, "request") and self.request.id:
-        current_task_id = self.request.id
-        
-    if not current_task_id:
-        current_task_id = f"local_{actual_config.get('user_id')}" if actual_config else "unknown"
-        
-    print(f"Orchestrator: Processing admin submission for task {current_task_id}...")
-    save_task_status(current_task_id, "PENDING")
-    
+def process_admin_submission_task(self, config: dict):
+    print("Orchestrator: Processing admin submission...")
     try:
-        results = process_submission_sync(actual_config)
+        results = process_submission_sync(config)
         print("Orchestrator: Pipeline succeeded.")
-        save_task_status(current_task_id, "SUCCESS", result=results)
-        asset_id = actual_config.get("user_id") if actual_config else None
-        if asset_id:
-            notify_webhook(asset_id, "SUCCESS", result=results)
         return results
     except Exception as e:
         print(f"Orchestrator: Pipeline failed: {e}")
-        save_task_status(current_task_id, "FAILURE", error=str(e))
-        asset_id = actual_config.get("user_id") if actual_config else None
-        if asset_id:
-            notify_webhook(asset_id, "FAILURE", error=str(e))
         raise
-
-def notify_webhook(asset_id: str, status: str, result: dict = None, error: str = None):
-    import os
-    import requests
-    
-    webhook_url = os.getenv("WEBHOOK_URL", "https://reeky-core-api.vercel.app/api/assets/webhook/complete")
-    payload = {
-        "assetId": asset_id,
-        "assets": result if (status == "SUCCESS" and result) else {}
-    }
-    headers = {"Content-Type": "application/json"}
-    admin_key = os.getenv("ADMIN_API_KEY")
-    if admin_key:
-        headers["x-admin-key"] = admin_key
-        
-    try:
-        r = requests.post(webhook_url, json=payload, headers=headers, timeout=30)
-        print(f"Webhook notified: Status {r.status_code}, Response: {r.text}")
-    except Exception as e:
-        print(f"Failed to notify webhook: {e}")

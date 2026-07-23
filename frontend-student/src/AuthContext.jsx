@@ -47,13 +47,6 @@ export function AuthProvider({ children }) {
     return data;
   }, []);
 
-  const googleLogin = useCallback(async (idToken) => {
-    const data = await api.googleLogin(idToken);
-    setToken(data.token);
-    setUser(data.user);
-    return data;
-  }, []);
-
   const logout = useCallback(() => {
     setToken(null);
     setUser(null);
@@ -73,7 +66,6 @@ export function AuthProvider({ children }) {
         token,
         login,
         signup,
-        googleLogin,
         logout,
         updateUser,
         isAuthenticated: !!token,

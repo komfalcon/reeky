@@ -11,23 +11,20 @@ datasource db {
 // Keep this schema aligned with the live SQL for documentation.
 
 model User {
-  id              String        @id @default(uuid())
-  name            String
-  email           String        @unique
-  password        String
-  notebooklmUrl   String?       @db.Text
-  preferences     Json?
-  createdAt       DateTime      @default(now())
-  assets          AssetBundle[]
+  id          String        @id @default(uuid())
+  name        String
+  email       String        @unique
+  password    String
+  preferences Json?
+  createdAt   DateTime      @default(now())
+  assets      AssetBundle[]
 }
 
 model AssetBundle {
   id                 String   @id @default(uuid())
   title              String
   originalFileUrl    String   @db.Text
-  notebookSourceUrl  String?  @db.Text
-  contentHash        String?  @db.VarChar(64)
-  status             String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  status             String   @default("PENDING") // PENDING, PROCESSING, COMPLETED
   assets             Json?
   customInstructions String?  @db.Text
   assetsRequested    Json?

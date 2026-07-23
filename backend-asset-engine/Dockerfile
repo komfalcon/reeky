@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-# Install system dependencies including FFmpeg and Chromium
+# Install system dependencies including FFmpeg
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     chromium \
@@ -12,8 +12,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright browser binaries only; OS deps already installed above
-RUN playwright install chromium
+# Install Playwright browsers
+RUN python -m playwright install chromium --with-deps
 
 COPY . .
 

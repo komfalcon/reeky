@@ -16,7 +16,6 @@ from celery import Celery
 
 from tasks import process_admin_submission_task
 from video_processor import process_video_submission
-from scrape_notebooklm import scrape_notebooklm_session
 from paths import DATA_DIR, STATIC_DIR, QUEUE_FILE, ensure_data_dirs
 
 # Configure logging
@@ -109,10 +108,6 @@ class VideoProcessRequest(BaseModel):
     asset_id: str
 
 
-class ScrapeNotebookRequest(BaseModel):
-    notebook_url: str
-
-
 @app.post("/generate")
 def user_upload_pdf(request: UserUploadRequest, _: None = Depends(require_admin)):
     """Legacy local JSON queue (core-api uses MySQL). Kept for compatibility."""
@@ -148,52 +143,19 @@ def admin_get_queue(_: None = Depends(require_admin)):
     return {"queue": read_queue()}
 
 
-from fastapi import BackgroundTasks
-from task_store import save_task_status
-
 @app.post("/admin/submit-assets")
-def admin_submit_assets(request: AdminSubmissionRequest, background_tasks: BackgroundTasks, _: None = Depends(require_admin)):
+def admin_submit_assets(request: AdminSubmissionRequest, _: None = Depends(require_admin)):
     queue_data = read_queue()
     updated_queue = [item for item in queue_data if item["user_id"] != request.user_id]
     if len(updated_queue) != len(queue_data):
         write_queue(updated_queue)
 
-    task_id = f"local_{request.user_id}"
-    try:
-        task = process_admin_submission_task.delay(request.model_dump())
-        task_id = task.id
-        logger.info(f"Enqueued submission task via Celery: {task_id}")
-    except Exception as e:
-        logger.warning(f"Celery task enqueue failed: {e}. Falling back to local BackgroundTasks.")
-        save_task_status(task_id, "PENDING")
-        background_tasks.add_task(process_admin_submission_task, request.model_dump(), task_id)
-
+    task = process_admin_submission_task.delay(request.model_dump())
     return {
         "status": "processing",
-        "task_id": task_id,
+        "task_id": task.id,
         "message": "Extracting JSON from public links...",
     }
-
-
-@app.post("/scrape-notebooklm")
-async def scrape_notebooklm(request: ScrapeNotebookRequest, _: None = Depends(require_admin)):
-    """
-    Scrape a NotebookLM session URL and extract all artifacts.
-    Returns a structured list of detected artifact URLs.
-    """
-    try:
-        logger.info(f"Scraping NotebookLM session: {request.notebook_url}")
-        result = await scrape_notebooklm_session(request.notebook_url)
-        
-        return {
-            "status": "success",
-            "notebook_url": request.notebook_url,
-            "artifacts": result,
-            "found_count": sum(1 for k, v in result.items() if k != "raw_artifacts" and v is not None)
-        }
-    except Exception as e:
-        logger.error(f"NotebookLM scraping failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/video/process")
@@ -228,33 +190,13 @@ def get_task_status(task_id: str):
     if task_id.startswith("queue_"):
         return {"task_id": task_id, "task_status": "QUEUED_WAITING_FOR_ADMIN"}
 
-    from task_store import get_task_status_local
-    local_status = get_task_status_local(task_id)
-
-    status = "PENDING"
-    raw_result = None
-    error_msg = None
-
-    if local_status:
-        status = local_status.get("status", "PENDING")
-        raw_result = local_status.get("result")
-        error_msg = local_status.get("error")
-    else:
-        try:
-            task_result = AsyncResult(task_id)
-            status = task_result.status
-            if status == "FAILURE":
-                error_msg = str(task_result.result) if task_result.result is not None else "Task failed"
-            else:
-                raw_result = task_result.result if task_result.ready() else None
-        except Exception as e:
-            logger.warning(f"Could not connect to Celery to fetch status for {task_id}: {e}")
-            status = "PENDING"
+    task_result = AsyncResult(task_id)
+    status = task_result.status
 
     formatted_response = {
         "task_id": task_id,
         "task_status": status,
-        "error": error_msg,
+        "error": None,
         "interactive_assets": {
             "flashcards": [],
             "quizzes": [],
@@ -271,8 +213,11 @@ def get_task_status(task_id: str):
     }
 
     if status == "FAILURE":
+        err = task_result.result
+        formatted_response["error"] = str(err) if err is not None else "Task failed"
         return formatted_response
 
+    raw_result = task_result.result if task_result.ready() else None
     if raw_result and isinstance(raw_result, dict):
         formatted_response["interactive_assets"]["flashcards"] = raw_result.get("flashcards", [])
         formatted_response["interactive_assets"]["quizzes"] = raw_result.get("quizzes", [])

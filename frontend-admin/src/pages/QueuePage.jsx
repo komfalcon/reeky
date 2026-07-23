@@ -45,7 +45,6 @@ const PACING_MAP = {
 };
 
 const EMPTY_FORM = {
-  notebook_session_url: '',
   flashcards_url: '',
   quizzes_url: '',
   mindmap_url: '',
@@ -153,8 +152,6 @@ export default function QueuePage({ onQueueChange }) {
   const [taskResult, setTaskResult] = useState(null);
   const [taskError, setTaskError] = useState(null);
   const [loadError, setLoadError] = useState('');
-  const [scrapeStatus, setScrapeStatus] = useState('idle');
-  const [scrapeMessage, setScrapeMessage] = useState(null);
   const pollingRef = useRef(null);
 
   const fetchQueue = useCallback(async () => {
@@ -179,27 +176,23 @@ export default function QueuePage({ onQueueChange }) {
     return () => clearInterval(interval);
   }, [fetchQueue]);
 
-  const resetForm = () => {
-    setFormData(EMPTY_FORM);
-    setScrapeStatus('idle');
-    setScrapeMessage(null);
-  };
+  const resetForm = () => setFormData(EMPTY_FORM);
 
   const pollTaskStatus = useCallback(
     async (celeryTaskId, assetId) => {
       try {
         const result = await api.getTaskStatus(celeryTaskId, assetId);
         setTaskStatus(result.task_status);
-        if (result.task_status === 'SUCCESS') {
-          setTaskResult(result.interactive_assets || {});
-          setTaskError(null);
-          if (pollingRef.current) clearInterval(pollingRef.current);
-          if (result.autoCompleted) fetchQueue();
-        } else if (result.task_status === 'FAILURE') {
-          setTaskError(result.error || 'Scraping failed. Please try again.');
-          setTaskResult(null);
-          if (pollingRef.current) clearInterval(pollingRef.current);
-        }
+      if (result.task_status === 'SUCCESS') {
+        setTaskResult(result.interactive_assets || {});
+        setTaskError(null);
+        if (pollingRef.current) clearInterval(pollingRef.current);
+        if (result.autoCompleted) fetchQueue();
+      } else if (result.task_status === 'FAILURE') {
+        setTaskError(result.error || 'Scraping failed. Please try again.');
+        setTaskResult(null);
+        if (pollingRef.current) clearInterval(pollingRef.current);
+      }
       } catch (err) {
         console.error('Task status poll error', err);
       }
@@ -245,51 +238,6 @@ ${selectedUser.customInstructions ? `\nSpecial Instructions:\n"${selectedUser.cu
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleScrapeNotebook = async () => {
-    const notebookUrl = formData.notebook_session_url.trim();
-    if (!notebookUrl) {
-      setScrapeStatus('error');
-      setScrapeMessage('Paste a NotebookLM session URL first');
-      return;
-    }
-    setScrapeStatus('loading');
-    setScrapeMessage('Scraping NotebookLM session...');
-    try {
-      const res = await api.scrapeNotebooklm(notebookUrl);
-      const artifacts = res?.artifacts || {};
-      const found = res?.found_count || 0;
-      const raw = artifacts?.raw_artifacts || [];
-      setFormData((prev) => ({
-        ...prev,
-        flashcards_url: artifacts.flashcards_url || prev.flashcards_url,
-        quizzes_url: artifacts.quizzes_url || prev.quizzes_url,
-        mindmap_url: artifacts.mindmap_url || prev.mindmap_url,
-        podcast_audio: artifacts.audio_url || prev.podcast_audio,
-        video_overview: artifacts.video_url || prev.video_overview,
-      }));
-      const seen = [
-        artifacts.flashcards_url && 'flashcards',
-        artifacts.quizzes_url && 'quizzes',
-        artifacts.mindmap_url && 'mindmap',
-        artifacts.audio_url && 'audio/podcast',
-        artifacts.video_url && 'video',
-      ].filter(Boolean);
-      const details = raw.length
-        ? `Found ${found} artifact types (${seen.join(', ')}). ${raw.length} raw artifact URLs detected.`
-        : `Found ${found} artifact types (${seen.join(', ')}).`;
-      if (found > 0) {
-        setScrapeStatus('success');
-      } else {
-        setScrapeStatus('error');
-      }
-      setScrapeMessage(details);
-    } catch (err) {
-      console.error('NotebookLM scrape failed', err);
-      setScrapeStatus('error');
-      setScrapeMessage(err.message || 'Failed to scrape NotebookLM session');
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedUser) return;
@@ -303,16 +251,12 @@ ${selectedUser.customInstructions ? `\nSpecial Instructions:\n"${selectedUser.cu
     const payload = {
       assetId: selectedUser.id,
       artifact_urls: [formData.flashcards_url, formData.quizzes_url, formData.mindmap_url].filter(Boolean),
-      flashcards_url: formData.flashcards_url || null,
-      quizzes_url: formData.quizzes_url || null,
-      mindmap_url: formData.mindmap_url || null,
       podcast_audio: formData.podcast_audio || null,
       video_overview: formData.video_overview || null,
       infographic: formData.infographic || null,
       slide_deck: formData.slide_deck || null,
       study_report: formData.study_report || null,
       data_table: formData.data_table || null,
-      notebook_session_url: formData.notebook_session_url || null,
     };
 
     try {
@@ -381,6 +325,7 @@ ${selectedUser.customInstructions ? `\nSpecial Instructions:\n"${selectedUser.cu
     if (item.status === 'PROCESSING') {
       const celeryId = assets?._celeryTaskId || null;
       if (celeryId) startPolling(celeryId, item.id);
+      // Prefill media already saved while processing
       setFormData((prev) => ({
         ...prev,
         podcast_audio: assets.podcast_audio || '',
@@ -419,6 +364,7 @@ ${selectedUser.customInstructions ? `\nSpecial Instructions:\n"${selectedUser.cu
   const canSubmit = selectedUser && selectedUser.status === 'PENDING';
   const showTaskProgress = taskStatus && taskStatus !== 'SUCCESS' && taskStatus !== 'FAILURE';
   const showTaskSuccess = taskStatus === 'SUCCESS' && !isCompleting;
+  // Show scrape FAILURE, or any taskError (including mark-complete failures after SUCCESS)
   const showTaskFailure =
     taskStatus === 'FAILURE' || Boolean(taskError && !showTaskProgress);
   const isCompleted = selectedUser?.status === 'COMPLETED';
@@ -613,13 +559,33 @@ ${selectedUser.customInstructions ? `\nSpecial Instructions:\n"${selectedUser.cu
               )}
             </section>
 
+            <section className="glass-panel">
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <h2 className="panel-title" style={{ marginBottom: 0 }}>
+                  <span className="step">2</span> NotebookLM prompt
+                </h2>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowCompiler((v) => !v)}>
+                  <Terminal size={15} />
+                  {showCompiler ? 'Hide sandbox' : 'Prompt sandbox'}
+                </button>
+              </div>
+              <div className="prompt-box">
+                <div className="prompt-text">
+                  {`Title: ${selectedUser.title || 'N/A'}
+PDF: ${selectedUser.originalFileUrl || 'N/A'}
+${selectedUser.customInstructions ? `Notes: ${selectedUser.customInstructions}` : 'Notes: none'}`}
+                </div>
+              </div>
+              {showCompiler && <div style={{ marginTop: '1rem' }}><AdminPromptCompiler /></div>}
+            </section>
+
             {!isCompleted && (
               <section className="glass-panel">
-                <h2 className="panel-title"><span className="step">2</span> Submit assets</h2>
+                <h2 className="panel-title"><span className="step">3</span> Submit assets</h2>
                 <form onSubmit={handleSubmit}>
                   <div className="responsive-grid">
                     <div>
-                      <h3 className="col-title">NotebookLM artifacts</h3>
+                      <h3 className="col-title">NotebookLM share links</h3>
                       <div className="input-group">
                         <label>Flashcards URL</label>
                         <input
@@ -705,12 +671,6 @@ ${selectedUser.customInstructions ? `\nSpecial Instructions:\n"${selectedUser.cu
                         <CheckCircle2 size={16} />
                         Scraped {taskResult?.flashcards?.length || 0} cards, {taskResult?.quizzes?.length || 0} quiz Qs
                         {taskResult?.mindmap ? ', mindmap' : ''}
-                      </div>
-                    )}
-                    {scrapeStatus && !['idle', 'loading'].includes(scrapeStatus) && (
-                      <div className={`status-line ${scrapeStatus === 'success' ? 'ok' : 'err'}`} style={{ marginRight: '0.75rem' }}>
-                        {scrapeStatus === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
-                        {scrapeMessage}
                       </div>
                     )}
                     {canSubmit && (

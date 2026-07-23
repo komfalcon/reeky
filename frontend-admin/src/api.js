@@ -54,9 +54,4 @@ export const api = {
     const q = assetId ? `?assetId=${encodeURIComponent(assetId)}` : '';
     return request(API, `/api/admin/task-status/${taskId}${q}`);
   },
-  scrapeNotebooklm: (notebookUrl) =>
-    request(API, '/api/admin/scrape-notebooklm', {
-      method: 'POST',
-      body: JSON.stringify({ notebook_url: notebookUrl }),
-    }),
 };

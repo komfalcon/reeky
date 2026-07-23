@@ -426,48 +426,15 @@ export default function Dashboard() {
                   )}
 
                   {selected.status === 'COMPLETED' && selected.hasContent && activeTab === 'flashcards' && (
-                    selected.flashcards.length > 0 ? (
-                      <FlashcardFlipper cards={selected.flashcards} />
-                    ) : selected.flashcards_url ? (
-                      <div className="iframe-wrapper" style={{ width: '100%', height: '650px', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', background: 'var(--bg-card)' }}>
-                        <iframe
-                          src={selected.flashcards_url}
-                          title="Flashcards Artifact"
-                          style={{ width: '100%', height: '100%', border: 'none' }}
-                          allow="autoplay; clipboard-write; encrypted-media"
-                        />
-                      </div>
-                    ) : null
+                    <FlashcardFlipper cards={selected.flashcards} />
                   )}
 
                   {selected.status === 'COMPLETED' && selected.hasContent && activeTab === 'quiz' && (
-                    selected.quiz.length > 0 ? (
-                      <SteppedQuizPlayer questions={selected.quiz} />
-                    ) : selected.quizzes_url ? (
-                      <div className="iframe-wrapper" style={{ width: '100%', height: '650px', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', background: 'var(--bg-card)' }}>
-                        <iframe
-                          src={selected.quizzes_url}
-                          title="Quiz Artifact"
-                          style={{ width: '100%', height: '100%', border: 'none' }}
-                          allow="autoplay; clipboard-write; encrypted-media"
-                        />
-                      </div>
-                    ) : null
+                    <SteppedQuizPlayer questions={selected.quiz} />
                   )}
 
                   {selected.status === 'COMPLETED' && selected.hasContent && activeTab === 'mindmap' && (
-                    selected.mindmap.nodes.length > 0 ? (
-                      <ZoomableMindmapViewer data={selected.mindmap} />
-                    ) : selected.mindmap_url ? (
-                      <div className="iframe-wrapper" style={{ width: '100%', height: '650px', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', background: 'var(--bg-card)' }}>
-                        <iframe
-                          src={selected.mindmap_url}
-                          title="Mindmap Artifact"
-                          style={{ width: '100%', height: '100%', border: 'none' }}
-                          allow="autoplay; clipboard-write; encrypted-media"
-                        />
-                      </div>
-                    ) : null
+                    <ZoomableMindmapViewer data={selected.mindmap} />
                   )}
 
                   {selected.status === 'COMPLETED' && selected.hasContent && activeTab === 'podcast' && (
@@ -479,23 +446,6 @@ export default function Dashboard() {
 
                   {selected.status === 'COMPLETED' && selected.hasContent && activeTab === 'media' && (
                     <div>
-                      {selected.video_overview && (
-                        <div style={{ marginBottom: '1.5rem' }}>
-                          <div className="section-label" style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                            <Film size={16} /> Video overview
-                          </div>
-                          <div className="iframe-wrapper" style={{ width: '100%', height: '520px', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', background: 'var(--bg-card)' }}>
-                            <iframe
-                              src={selected.video_overview}
-                              title="Video Overview"
-                              style={{ width: '100%', height: '100%', border: 'none' }}
-                              allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
-                              allowFullScreen
-                            />
-                          </div>
-                        </div>
-                      )}
-
                       {selected.slides.length > 0 && (
                         <>
                           <div className="section-label">Slides</div>
@@ -514,7 +464,7 @@ export default function Dashboard() {
                         {selected.video_overview && (
                           <a className="media-tile" href={selected.video_overview} target="_blank" rel="noreferrer">
                             <strong>Video overview</strong>
-                            <span>Open in new tab</span>
+                            <span>Open video</span>
                           </a>
                         )}
                         {selected.infographic && (
@@ -557,18 +507,18 @@ export default function Dashboard() {
 
                   {selected.status === 'COMPLETED' && selected.hasContent && activeTab === 'report' && (
                     <div>
-                      {selected.study_report_url ? (
-                        <div className="iframe-wrapper" style={{ width: '100%', height: '650px', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', background: 'var(--bg-card)' }}>
-                          <iframe
-                            src={selected.study_report_url}
-                            title="Study Report"
-                            style={{ width: '100%', height: '100%', border: 'none' }}
-                          />
-                        </div>
-                      ) : selected.report ? (
-                        <div className="report-content" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6', padding: '1rem', background: 'var(--bg-card)', borderRadius: '12px' }}>
-                          {selected.report}
-                        </div>
+                      {selected.report ? (
+                        <div className="report-box">{selected.report}</div>
+                      ) : selected.study_report_url ? (
+                        <a
+                          className="btn btn-primary"
+                          href={selected.study_report_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ display: 'inline-flex', textDecoration: 'none' }}
+                        >
+                          Open study report
+                        </a>
                       ) : null}
                     </div>
                   )}

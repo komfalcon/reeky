@@ -58,9 +58,7 @@ export const api = {
 
   getAssets: async (token) => {
     const data = await request('/api/assets', { token });
-    if (Array.isArray(data)) return data;
-    if (data && Array.isArray(data.assets)) return data.assets;
-    return [];
+    return Array.isArray(data) ? data : [];
   },
 
   savePreferences: (token, preferences) =>
@@ -72,10 +70,4 @@ export const api = {
 
   getProfile: (token) =>
     request('/api/user/profile', { token }),
-
-  googleLogin: (idToken) =>
-    request('/api/auth/google', {
-      method: 'POST',
-      body: { idToken },
-    }),
 };
