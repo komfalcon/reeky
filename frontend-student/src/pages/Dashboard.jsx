@@ -426,15 +426,48 @@ export default function Dashboard() {
                   )}
 
                   {selected.status === 'COMPLETED' && selected.hasContent && activeTab === 'flashcards' && (
-                    <FlashcardFlipper cards={selected.flashcards} />
+                    selected.flashcards.length > 0 ? (
+                      <FlashcardFlipper cards={selected.flashcards} />
+                    ) : selected.flashcards_url ? (
+                      <div className="iframe-wrapper" style={{ width: '100%', height: '650px', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', background: 'var(--bg-card)' }}>
+                        <iframe
+                          src={selected.flashcards_url}
+                          title="Flashcards Artifact"
+                          style={{ width: '100%', height: '100%', border: 'none' }}
+                          allow="autoplay; clipboard-write; encrypted-media"
+                        />
+                      </div>
+                    ) : null
                   )}
 
                   {selected.status === 'COMPLETED' && selected.hasContent && activeTab === 'quiz' && (
-                    <SteppedQuizPlayer questions={selected.quiz} />
+                    selected.quiz.length > 0 ? (
+                      <SteppedQuizPlayer questions={selected.quiz} />
+                    ) : selected.quizzes_url ? (
+                      <div className="iframe-wrapper" style={{ width: '100%', height: '650px', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', background: 'var(--bg-card)' }}>
+                        <iframe
+                          src={selected.quizzes_url}
+                          title="Quiz Artifact"
+                          style={{ width: '100%', height: '100%', border: 'none' }}
+                          allow="autoplay; clipboard-write; encrypted-media"
+                        />
+                      </div>
+                    ) : null
                   )}
 
                   {selected.status === 'COMPLETED' && selected.hasContent && activeTab === 'mindmap' && (
-                    <ZoomableMindmapViewer data={selected.mindmap} />
+                    selected.mindmap.nodes.length > 0 ? (
+                      <ZoomableMindmapViewer data={selected.mindmap} />
+                    ) : selected.mindmap_url ? (
+                      <div className="iframe-wrapper" style={{ width: '100%', height: '650px', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', background: 'var(--bg-card)' }}>
+                        <iframe
+                          src={selected.mindmap_url}
+                          title="Mindmap Artifact"
+                          style={{ width: '100%', height: '100%', border: 'none' }}
+                          allow="autoplay; clipboard-write; encrypted-media"
+                        />
+                      </div>
+                    ) : null
                   )}
 
                   {selected.status === 'COMPLETED' && selected.hasContent && activeTab === 'podcast' && (

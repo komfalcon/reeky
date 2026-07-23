@@ -206,10 +206,14 @@ export function normalizeBundle(assetRow) {
   const slides = Array.isArray(raw.slides) ? raw.slides : [];
   const transcript = Array.isArray(raw.transcript) ? raw.transcript : [];
 
+  const flashcards_url = mediaUrl(raw.flashcards_url);
+  const quizzes_url = mediaUrl(raw.quizzes_url);
+  const mindmap_url = mediaUrl(raw.mindmap_url);
+
   const counts = {
-    flashcards: flashcards.length,
-    quiz: quiz.length,
-    mindmapNodes: mindmap.nodes.length,
+    flashcards: flashcards.length || Boolean(flashcards_url),
+    quiz: quiz.length || Boolean(quizzes_url),
+    mindmapNodes: mindmap.nodes.length || Boolean(mindmap_url),
     hasPodcast: Boolean(podcast_audio),
     hasVideo: Boolean(video_overview),
     hasInfographic: Boolean(infographic),
@@ -247,6 +251,9 @@ export function normalizeBundle(assetRow) {
     slide_deck,
     study_report_url,
     data_table,
+    flashcards_url,
+    quizzes_url,
+    mindmap_url,
     counts,
     availableTabs,
     hasContent: availableTabs.length > 0,
