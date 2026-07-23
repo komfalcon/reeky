@@ -303,6 +303,9 @@ ${selectedUser.customInstructions ? `\nSpecial Instructions:\n"${selectedUser.cu
     const payload = {
       assetId: selectedUser.id,
       artifact_urls: [formData.flashcards_url, formData.quizzes_url, formData.mindmap_url].filter(Boolean),
+      flashcards_url: formData.flashcards_url || null,
+      quizzes_url: formData.quizzes_url || null,
+      mindmap_url: formData.mindmap_url || null,
       podcast_audio: formData.podcast_audio || null,
       video_overview: formData.video_overview || null,
       infographic: formData.infographic || null,

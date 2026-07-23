@@ -68,6 +68,9 @@ const generateAssetsSchema = z.object({
 const submitAssetsSchema = z.object({
   assetId: z.string().min(1, 'assetId is required'),
   artifact_urls: z.array(z.string()).optional().default([]),
+  flashcards_url: z.string().max(2000).optional().nullable(),
+  quizzes_url: z.string().max(2000).optional().nullable(),
+  mindmap_url: z.string().max(2000).optional().nullable(),
   podcast_audio: z.string().max(2000).optional().nullable(),
   video_overview: z.string().max(2000).optional().nullable(),
   infographic: z.string().max(2000).optional().nullable(),
@@ -692,6 +695,9 @@ app.post('/api/admin/submit-assets', authenticateAdmin, validate(submitAssetsSch
     const {
       assetId,
       artifact_urls,
+      flashcards_url,
+      quizzes_url,
+      mindmap_url,
       podcast_audio,
       video_overview,
       infographic,
