@@ -610,78 +610,13 @@ ${selectedUser.customInstructions ? `\nSpecial Instructions:\n"${selectedUser.cu
               )}
             </section>
 
-            <section className="glass-panel">
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                <h2 className="panel-title" style={{ marginBottom: 0 }}>
-                  <span className="step">2</span> NotebookLM session
-                </h2>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowCompiler((v) => !v)}>
-                  <Terminal size={15} />
-                  {showCompiler ? 'Hide sandbox' : 'Prompt sandbox'}
-                </button>
-              </div>
-              <div style={{ marginBottom: '1rem' }}>
-                <div className="input-group">
-                  <label>NotebookLM session URL</label>
-                  <input
-                    name="notebook_session_url"
-                    value={formData.notebook_session_url}
-                    onChange={(e) => {
-                      setFormData({ ...formData, notebook_session_url: e.target.value });
-                      setScrapeStatus('idle');
-                      setScrapeMessage(null);
-                    }}
-                    placeholder="https://notebooklm.google.com/notebook/..."
-                  />
-                </div>
-                <div className="action-bar" style={{ padding: '0.6rem 0 0' }}>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    disabled={scrapeStatus === 'loading'}
-                    onClick={handleScrapeNotebook}
-                  >
-                    {scrapeStatus === 'loading' ? <Loader2 size={16} className="spin" /> : <Search size={16} />}
-                    {scrapeStatus === 'loading' ? 'Scraping…' : 'Auto-scrape artifacts'}
-                  </button>
-                  <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                    {scrapeStatus === 'success' && (
-                      <div className="status-line ok" style={{ margin: 0 }}>
-                        <CheckCircle2 size={16} /> {scrapeMessage}
-                      </div>
-                    )}
-                    {scrapeStatus === 'error' && (
-                      <div className="status-line err" style={{ margin: 0 }}>
-                        <AlertCircle size={16} /> {scrapeMessage}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section className="glass-panel">
-              <h2 className="panel-title"><span className="step">3</span> NotebookLM prompt</h2>
-              <div className="prompt-box">
-                <div className="prompt-text">
-                  {`Title: ${selectedUser.title || 'N/A'}
-PDF: ${selectedUser.originalFileUrl || 'N/A'}
-${selectedUser.customInstructions ? `Notes: ${selectedUser.customInstructions}` : 'Notes: none'}`}
-                </div>
-              </div>
-              {showCompiler && <div style={{ marginTop: '1rem' }}><AdminPromptCompiler /></div>}
-            </section>
-
             {!isCompleted && (
               <section className="glass-panel">
-                <h2 className="panel-title"><span className="step">4</span> Submit assets</h2>
+                <h2 className="panel-title"><span className="step">2</span> Submit assets</h2>
                 <form onSubmit={handleSubmit}>
                   <div className="responsive-grid">
                     <div>
                       <h3 className="col-title">NotebookLM artifacts</h3>
-                      <p className="col-title" style={{ fontSize: '0.75rem', opacity: 0.85 }}>
-                        Auto-filled from the single session URL above. You can still edit individually.
-                      </p>
                       <div className="input-group">
                         <label>Flashcards URL</label>
                         <input
