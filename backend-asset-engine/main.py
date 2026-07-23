@@ -177,7 +177,7 @@ async def scrape_notebooklm(request: ScrapeNotebookRequest, _: None = Depends(re
             "status": "success",
             "notebook_url": request.notebook_url,
             "artifacts": result,
-            "found_count": sum(1 for v in result.values() if v and v != "raw_artifacts")
+            "found_count": sum(1 for k, v in result.items() if k != "raw_artifacts" and v is not None)
         }
     except Exception as e:
         logger.error(f"NotebookLM scraping failed: {e}")

@@ -34,7 +34,15 @@ async def extract_video_url_from_notebooklm(artifact_url: str) -> str | None:
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         try:
-            page = await browser.new_page()
+            # Load auth state if it exists
+            auth_state_path = Path("auth_state.json")
+            context_kwargs = {}
+            if auth_state_path.exists():
+                context_kwargs["storage_state"] = str(auth_state_path)
+                logger.info("Loading Google auth state from auth_state.json")
+            
+            context = await browser.new_context(**context_kwargs)
+            page = await context.new_page()
             logger.info(f"Navigating to NotebookLM artifact: {artifact_url}")
             await page.goto(artifact_url, wait_until="domcontentloaded", timeout=90000)
             await asyncio.sleep(3)
