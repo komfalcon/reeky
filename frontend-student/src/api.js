@@ -58,7 +58,9 @@ export const api = {
 
   getAssets: async (token) => {
     const data = await request('/api/assets', { token });
-    return Array.isArray(data) ? data : [];
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.assets)) return data.assets;
+    return [];
   },
 
   savePreferences: (token, preferences) =>
