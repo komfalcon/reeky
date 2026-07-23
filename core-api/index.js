@@ -873,56 +873,48 @@ app.post('/api/admin/submit-assets', authenticateAdmin, validate(submitAssetsSch
 app.get('/api/admin/task-status/:id', authenticateAdmin, async (req, res) => {
   try {
     const taskId = req.params.id;
-    const assetId = req.query.assetId || null;
+    // Derive assetId from taskId if query param is not supplied (e.g. video_uuid or local_uuid)
+    const assetId = req.query.assetId || taskId.replace('video_', '').replace('local_', '');
 
-    const statusHeaders = {};
-    if (ADMIN_API_KEY) statusHeaders['x-admin-key'] = ADMIN_API_KEY;
-
-    const response = await fetch(`${PYTHON_ENGINE_URL}/status/${taskId}`, {
-      headers: statusHeaders,
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!response.ok) {
-      throw new Error(`Python engine status returned ${response.status}`);
+    if (!assetId) {
+      return res.json({ task_id: taskId, task_status: 'PENDING' });
     }
 
-    const data = await response.json();
+    const [rows] = await pool.query(
+      'SELECT assets, status FROM `AssetBundle` WHERE id = ?',
+      [assetId]
+    );
 
-    if (data.task_status === 'SUCCESS' && assetId) {
-      const [rows] = await pool.execute(
-        'SELECT assets, status FROM `AssetBundle` WHERE id = ?',
-        [assetId]
-      );
-      if (rows.length > 0 && rows[0].status !== STATUS.COMPLETED) {
-        const existing = parseJsonField(rows[0].assets) || {};
-        const interactive = data.interactive_assets || {};
-        const downloadable = data.downloadable_files || {};
-        const merged = {
-          ...existing,
-          flashcards: interactive.flashcards || existing.flashcards || [],
-          quizzes: interactive.quizzes || existing.quizzes || [],
-          mindmap: interactive.mindmap ?? existing.mindmap ?? null,
-          podcast_audio: downloadable.podcast_audio || existing.podcast_audio || null,
-          video_overview: downloadable.video_overview || existing.video_overview || null,
-          infographic: downloadable.infographic || existing.infographic || null,
-          slide_deck: downloadable.slide_deck || existing.slide_deck || null,
-          study_report: downloadable.study_report || existing.study_report || null,
-          data_table: downloadable.data_table || existing.data_table || null,
-        };
-        delete merged._celeryTaskId;
-
-        await pool.execute(
-          'UPDATE `AssetBundle` SET status = ?, assets = ? WHERE id = ?',
-          [STATUS.COMPLETED, JSON.stringify(merged), assetId]
-        );
-        data.autoCompleted = true;
-      }
+    if (rows.length === 0) {
+      return res.json({ task_id: taskId, task_status: 'PENDING' });
     }
 
-    res.json(data);
+    const bundle = rows[0];
+    if (bundle.status === STATUS.COMPLETED) {
+      const assets = parseJsonField(bundle.assets) || {};
+      return res.json({
+        task_id: taskId,
+        task_status: 'SUCCESS',
+        interactive_assets: {
+          flashcards: assets.flashcards || [],
+          quizzes: assets.quizzes || [],
+          mindmap: assets.mindmap || null,
+        },
+        downloadable_files: {
+          podcast_audio: assets.podcast_audio || null,
+          video_overview: assets.video_overview || null,
+          infographic: assets.infographic || null,
+          slide_deck: assets.slide_deck || null,
+          study_report: assets.study_report || null,
+          data_table: assets.data_table || null,
+        }
+      });
+    }
+
+    return res.json({ task_id: taskId, task_status: 'PENDING' });
   } catch (error) {
-    console.error('Error proxying task status:', error);
-    res.status(500).json({ error: 'Failed to fetch task status from engine' });
+    console.error('Error fetching task status:', error);
+    res.status(500).json({ error: 'Failed to fetch task status' });
   }
 });
 
