@@ -71,75 +71,77 @@ async def scrape_notebooklm_session(notebook_url: str) -> dict:
             page = await context.new_page()
             logger.info(f"Navigating to NotebookLM session: {notebook_url}")
             await page.goto(notebook_url, wait_until="domcontentloaded", timeout=90000)
-            await asyncio.sleep(3)
-
-            # Get all links on the page
-            content = await page.content()
             
-            # Extract all href links
-            all_links = await page.query_selector_all("a[href]")
+            # Sleep 10s to let workspace render Studio panels
+            logger.info("Waiting 10 seconds for NotebookLM workspace to render...")
+            await asyncio.sleep(10)
+
+            # Parse Notebook ID from URL
+            notebook_id_match = re.search(r"/notebook/([a-zA-Z0-9\-]+)", notebook_url)
+            if not notebook_id_match:
+                logger.error("Failed to parse notebook ID from URL")
+                return result
+            notebook_id = notebook_id_match.group(1)
+
+            # Query all artifact library items in the DOM
+            items = await page.query_selector_all("artifact-library-item")
+            logger.info(f"Found {len(items)} artifact items in DOM.")
+
             artifact_links = []
-            
-            for link in all_links:
-                href = await link.get_attribute("href")
-                if href:
-                    # Normalize relative URLs
-                    full_url = urljoin(notebook_url, href)
-                    artifact_links.append(full_url)
-            
-            logger.info(f"Found {len(artifact_links)} total links on page")
-            
-            # Also search in page HTML for artifact patterns
-            html_artifact_patterns = re.findall(
-                r'https?://notebooklm\.google\.com/notebook/[^"\'\s<>]+/artifact/[^"\'\s<>]+',
-                content
-            )
-            
-            # Combine and deduplicate
-            all_artifact_urls = list(set(artifact_links + html_artifact_patterns))
-            result["raw_artifacts"] = all_artifact_urls
-            
-            logger.info(f"Found {len(all_artifact_urls)} artifact URLs")
-            
-            # Classify artifacts by URL pattern and link text
-            for url in all_artifact_urls:
-                lower_url = url.lower()
-                
-                # Get link text if available
-                link_text = ""
-                try:
-                    link_elem = await page.query_selector(f"a[href='{url}']")
-                    if link_elem:
-                        link_text = (await link_elem.inner_text()).lower()
-                except Exception:
-                    pass
-                
-                # Classify by URL pattern and text
-                if any(kw in lower_url or kw in link_text for kw in ["flashcard", "flash"]):
-                    if not result["flashcards_url"]:
-                        result["flashcards_url"] = url
-                        logger.info(f"Found flashcards: {url}")
-                
-                elif any(kw in lower_url or kw in link_text for kw in ["quiz", "test", "assessment"]):
-                    if not result["quizzes_url"]:
-                        result["quizzes_url"] = url
-                        logger.info(f"Found quiz: {url}")
-                
-                elif any(kw in lower_url or kw in link_text for kw in ["mindmap", "mind-map", "mind_map", "map"]):
-                    if not result["mindmap_url"]:
-                        result["mindmap_url"] = url
-                        logger.info(f"Found mindmap: {url}")
-                
-                elif any(kw in lower_url or kw in link_text for kw in ["audio", "podcast", "listen"]):
-                    if not result["audio_url"]:
-                        result["audio_url"] = url
-                        logger.info(f"Found audio/podcast: {url}")
-                
-                elif any(kw in lower_url or kw in link_text for kw in ["video", "watch"]):
-                    if not result["video_url"]:
-                        result["video_url"] = url
-                        logger.info(f"Found video: {url}")
 
+            for item in items:
+                # Extract artifact ID from HTML attributes
+                html = await item.inner_html()
+                id_match = re.search(r"artifact-labels-([a-fA-F0-9\-]{36})", html)
+                if not id_match:
+                    continue
+                
+                artifact_id = id_match.group(1)
+                full_url = f"https://notebooklm.google.com/notebook/{notebook_id}/artifact/{artifact_id}"
+                artifact_links.append(full_url)
+
+                # Extract title
+                title_elem = await item.query_selector(".artifact-title")
+                title = (await title_elem.inner_text() if title_elem else "Unknown").strip().lower()
+
+                # Extract icon name
+                icon_elem = await item.query_selector("mat-icon")
+                icon_name = (await icon_elem.inner_text() if icon_elem else "").strip().lower()
+
+                # Extract button description
+                btn_elem = await item.query_selector("button")
+                desc = (await btn_elem.get_attribute("aria-description") if btn_elem else "").strip().lower()
+
+                logger.info(f"Detected Artifact: Title='{title}', Icon='{icon_name}', Desc='{desc}', URL={full_url}")
+
+                # Classify artifact
+                if any(kw in title or kw in icon_name or kw in desc for kw in ["flashcard", "cards_star"]):
+                    if not result["flashcards_url"]:
+                        result["flashcards_url"] = full_url
+                        logger.info(f"Classified Flashcards URL: {full_url}")
+                
+                elif any(kw in title or kw in icon_name or kw in desc for kw in ["quiz", "test", "assessment"]):
+                    if not result["quizzes_url"]:
+                        result["quizzes_url"] = full_url
+                        logger.info(f"Classified Quiz URL: {full_url}")
+                
+                elif any(kw in title or kw in icon_name or kw in desc for kw in ["mindmap", "mind-map", "mind_map", "flowchart"]):
+                    if not result["mindmap_url"]:
+                        result["mindmap_url"] = full_url
+                        logger.info(f"Classified Mindmap URL: {full_url}")
+                
+                elif any(kw in title or kw in icon_name or kw in desc for kw in ["audio", "podcast", "listen", "audio_magic_eraser"]):
+                    if not result["audio_url"]:
+                        result["audio_url"] = full_url
+                        logger.info(f"Classified Audio/Podcast URL: {full_url}")
+                
+                elif any(kw in title or kw in icon_name or kw in desc for kw in ["video", "watch", "subscriptions"]):
+                    if not result["video_url"]:
+                        result["video_url"] = full_url
+                        logger.info(f"Classified Video URL: {full_url}")
+
+            result["raw_artifacts"] = list(set(artifact_links))
+            
             # Log summary
             found_types = [k for k, v in result.items() if v and k != "raw_artifacts"]
             logger.info(f"Classification summary: {', '.join(found_types) if found_types else 'None'}")
