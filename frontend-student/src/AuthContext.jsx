@@ -10,6 +10,14 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (token) {
       localStorage.setItem('reeky_token', token);
+      // Fetch user profile on reload
+      api.getProfile(token)
+        .then(profile => setUser(profile))
+        .catch(() => {
+          // Token expired or invalid
+          setToken(null);
+          setUser(null);
+        });
     } else {
       localStorage.removeItem('reeky_token');
     }
@@ -34,8 +42,24 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
+  const loginWithGoogle = useCallback(async () => {
+    const mockUser = {
+      id: "google-scholar-id",
+      name: "Google Scholar",
+      email: "scholar@google.com",
+      preferences: null
+    };
+    setToken("mock-google-token");
+    setUser(mockUser);
+    localStorage.setItem('reeky_token', "mock-google-token");
+  }, []);
+
+  const updatePreferences = useCallback((newPreferences) => {
+    setUser(prev => prev ? { ...prev, preferences: newPreferences } : null);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, token, login, signup, logout, isAuthenticated: !!token }}>
+    <AuthContext.Provider value={{ user, token, login, signup, logout, loginWithGoogle, updatePreferences, isAuthenticated: !!token }}>
       {children}
     </AuthContext.Provider>
   );

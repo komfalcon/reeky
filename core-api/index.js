@@ -12,14 +12,33 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+function safeParseJson(val) {
+    if (!val) return null;
+    if (typeof val === 'object') return val;
+    if (val === '[object Object]') return null;
+    try {
+        return JSON.parse(val);
+    } catch (e) {
+        console.error("JSON parse error:", e, "for value:", val);
+        return null;
+    }
+}
+
 // Set up MySQL connection pool
 const dbUrl = process.env.DATABASE_URL;
+
+// Parse out the URL and build a clean pool config for TiDB Serverless
+// TiDB requires SSL but mysql2's URI parser doesn't handle 'sslAccept' param
 const pool = mysql.createPool({
-    uri: dbUrl,
+    uri: dbUrl.replace(/[?&]sslAccept=[^&]*/g, ''),
     ssl: {
-        rejectUnauthorized: true
-    }
+        rejectUnauthorized: false  // TiDB Serverless uses a self-signed-style cert chain
+    },
+    waitForConnections: true,
+    connectionLimit: 5,
+    queueLimit: 0
 });
+
 
 // Health Check Endpoint
 app.get('/api/health', async (req, res) => {
@@ -78,7 +97,7 @@ app.post('/api/auth/signup', async (req, res) => {
         );
 
         const token = jwt.sign({ userId: id, email }, process.env.JWT_SECRET, { expiresIn: '7d' });
-        res.json({ token, user: { id, name, email } });
+        res.json({ token, user: { id, name, email, preferences: null } });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: "Something went wrong" });
@@ -97,10 +116,53 @@ app.post('/api/auth/login', async (req, res) => {
         if (!validPassword) return res.status(400).json({ error: "Invalid password" });
 
         const token = jwt.sign({ userId: user.id, email }, process.env.JWT_SECRET, { expiresIn: '7d' });
-        res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
+        res.json({
+            token,
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                preferences: safeParseJson(user.preferences)
+            }
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: "Something went wrong" });
+    }
+});
+
+// User Preferences and Profile Routes
+app.post('/api/user/preferences', authenticateToken, async (req, res) => {
+    try {
+        const { preferences } = req.body;
+        await pool.execute(
+            'UPDATE `User` SET preferences = ? WHERE id = ?',
+            [JSON.stringify(preferences), req.user.userId]
+        );
+        res.json({ success: true, preferences });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Failed to save preferences" });
+    }
+});
+
+app.get('/api/user/profile', authenticateToken, async (req, res) => {
+    try {
+        const [users] = await pool.execute(
+            'SELECT id, name, email, preferences FROM `User` WHERE id = ?',
+            [req.user.userId]
+        );
+        if (users.length === 0) return res.status(404).json({ error: "User not found" });
+        const user = users[0];
+        res.json({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            preferences: safeParseJson(user.preferences)
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Failed to fetch profile" });
     }
 });
 
@@ -110,15 +172,40 @@ app.post('/api/auth/login', async (req, res) => {
 
 app.post('/api/assets/generate', authenticateToken, async (req, res) => {
     try {
-        const { title, originalFileUrl } = req.body;
+        const { title, originalFileUrl, customInstructions, assetsRequested } = req.body;
         const id = crypto.randomUUID();
 
+        // Save requested assets formats as metadata inside assets JSON column initially
+        const assetsJson = assetsRequested ? JSON.stringify({ requested: assetsRequested }) : null;
+
+        const isNotebookLm = originalFileUrl && originalFileUrl.includes('notebooklm.google.com');
+        const initialStatus = isNotebookLm ? 'PROCESSING' : 'PENDING';
+
         await pool.execute(
-            'INSERT INTO `AssetBundle` (id, title, originalFileUrl, status, userId) VALUES (?, ?, ?, ?, ?)',
-            [id, title, originalFileUrl, 'PENDING', req.user.userId]
+            'INSERT INTO `AssetBundle` (id, title, originalFileUrl, status, userId, customInstructions, assets) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [id, title, originalFileUrl, initialStatus, req.user.userId, customInstructions || null, assetsJson]
         );
 
-        res.json({ message: "Asset generation queued successfully", id });
+        if (isNotebookLm) {
+            const pythonEngineUrl = process.env.PYTHON_ENGINE_URL || 'https://reeky-backend-engine.onrender.com';
+            fetch(`${pythonEngineUrl}/admin/submit-assets`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: id,
+                    artifact_urls: [originalFileUrl],
+                    podcast_audio: null,
+                    video_overview: null,
+                    infographic: null,
+                    slide_deck: null,
+                    study_report: null,
+                    data_table: null
+                })
+            }).catch(err => console.error("Failed to trigger python engine automatically:", err));
+            res.json({ message: "NotebookLM link detected. Auto-scraping started.", id, status: 'PROCESSING' });
+        } else {
+            res.json({ message: "Asset generation queued successfully", id, status: 'PENDING' });
+        }
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: "Failed to queue generation" });
@@ -145,10 +232,18 @@ app.get('/api/assets', authenticateToken, async (req, res) => {
 app.get('/api/admin/queue', async (req, res) => {
     try {
         const [queue] = await pool.execute(
-            'SELECT * FROM `AssetBundle` WHERE status = ? OR status = ? ORDER BY createdAt ASC',
+            'SELECT ab.*, u.name as userName, u.email as userEmail, u.preferences as userPreferences FROM `AssetBundle` ab JOIN `User` u ON ab.userId = u.id WHERE ab.status = ? OR ab.status = ? ORDER BY ab.createdAt ASC',
             ['PENDING', 'PROCESSING']
         );
-        res.json({ queue });
+        
+        // Parse JSON fields to objects
+        const parsedQueue = queue.map(item => ({
+            ...item,
+            assets: safeParseJson(item.assets),
+            userPreferences: safeParseJson(item.userPreferences)
+        }));
+
+        res.json({ queue: parsedQueue });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: "Failed to fetch queue" });
@@ -168,11 +263,46 @@ app.get('/api/admin/queue/completed', async (req, res) => {
     }
 });
 
+// Reset any stuck PROCESSING bundles back to PENDING
+app.post('/api/admin/reset-stuck', async (req, res) => {
+    try {
+        const [result] = await pool.execute(
+            "UPDATE AssetBundle SET status = 'PENDING' WHERE status = 'PROCESSING'"
+        );
+        res.json({ message: `Reset ${result.affectedRows} stuck bundle(s) to PENDING.` });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to reset stuck bundles' });
+    }
+});
+
 app.post('/api/admin/submit-assets', async (req, res) => {
     try {
-        const { assetId, artifact_urls, podcast_audio, video_overview, infographic, slide_deck, study_report, data_table } = req.body;
+        const {
+            assetId,
+            artifact_urls,
+            podcast_audio,
+            video_overview,
+            flashcards_url,
+            quizzes_url,
+            mindmap_url,
+            slide_deck_url,
+            study_report_url,
+            data_table_url,
+            infographic_url
+        } = req.body;
         
-        const staticAssets = { podcast_audio, video_overview, infographic, slide_deck, study_report, data_table };
+        const staticAssets = {
+            podcast_audio,
+            video_overview,
+            flashcards_url,
+            quizzes_url,
+            mindmap_url,
+            slide_deck_url,
+            study_report_url,
+            data_table_url,
+            infographic_url
+        };
         
         // If there are no NotebookLM URLs to scrape, complete the task immediately!
         if (!artifact_urls || artifact_urls.length === 0) {
@@ -190,19 +320,28 @@ app.post('/api/admin/submit-assets', async (req, res) => {
         );
 
         const pythonEngineUrl = process.env.PYTHON_ENGINE_URL || 'https://reeky-backend-engine.onrender.com';
+
+        // Sanitize all fields — Python Pydantic rejects null for list/str fields
+        const pythonPayload = {
+            user_id: assetId,
+            artifact_urls: Array.isArray(artifact_urls) ? artifact_urls : [],
+            podcast_audio: podcast_audio || null,
+            video_overview: video_overview || null,
+            flashcards_url: flashcards_url || null,
+            quizzes_url: quizzes_url || null,
+            mindmap_url: mindmap_url || null,
+            slide_deck_url: slide_deck_url || null,
+            study_report_url: study_report_url || null,
+            data_table_url: data_table_url || null,
+            infographic_url: infographic_url || null
+        };
+
+        console.log("[submit-assets] Sending to Python engine:", JSON.stringify(pythonPayload));
+
         fetch(`${pythonEngineUrl}/admin/submit-assets`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                user_id: assetId, // Fix: Use user_id to match Python FastAPI AdminSubmissionRequest schema!
-                artifact_urls: artifact_urls,
-                podcast_audio: podcast_audio,
-                video_overview: video_overview,
-                infographic: infographic,
-                slide_deck: slide_deck,
-                study_report: study_report,
-                data_table: data_table
-            })
+            body: JSON.stringify(pythonPayload)
         }).catch(err => console.error("Failed to trigger python engine:", err));
         
         res.json({ success: true, completedDirectly: false, message: "Sent to processing" });
@@ -214,21 +353,31 @@ app.post('/api/admin/submit-assets', async (req, res) => {
 
 app.get('/api/admin/task-status/:id', async (req, res) => {
     try {
-        const taskId = req.params.id;
-        const pythonEngineUrl = process.env.PYTHON_ENGINE_URL || 'https://reeky-backend-engine.onrender.com';
-        
-        const response = await fetch(`${pythonEngineUrl}/status/${taskId}`);
-        if (!response.ok) {
-            throw new Error(`Python engine status returned ${response.status}`);
+        const assetId = req.params.id;
+
+        // Poll the DB directly — the Python engine fires a webhook when done
+        // which updates status to COMPLETED. No need to proxy to Python.
+        const [rows] = await pool.execute(
+            'SELECT id, status, assets FROM `AssetBundle` WHERE id = ?',
+            [assetId]
+        );
+
+        if (!rows || rows.length === 0) {
+            return res.status(404).json({ error: 'Bundle not found' });
         }
-        
-        const data = await response.json();
-        res.json(data);
+
+        const bundle = rows[0];
+        res.json({
+            task_id: assetId,
+            task_status: bundle.status,   // PENDING | PROCESSING | COMPLETED | FAILED
+            assets: bundle.assets ? (typeof bundle.assets === 'string' ? JSON.parse(bundle.assets) : bundle.assets) : null
+        });
     } catch (error) {
-        console.error("Error proxying task status:", error);
-        res.status(500).json({ error: "Failed to fetch task status from engine" });
+        console.error("Error fetching task status:", error);
+        res.status(500).json({ error: "Failed to fetch task status" });
     }
 });
+
 
 app.post('/api/assets/webhook/complete', async (req, res) => {
     try {

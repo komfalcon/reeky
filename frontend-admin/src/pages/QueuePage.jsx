@@ -64,12 +64,12 @@ export default function QueuePage() {
     flashcards_url: '',
     quizzes_url: '',
     mindmap_url: '',
+    slide_deck_url: '',
+    study_report_url: '',
+    data_table_url: '',
+    infographic_url: '',
     podcast_audio: '',
     video_overview: '',
-    infographic: '',
-    slide_deck: '',
-    study_report: '',
-    data_table: '',
   });
 
   const [_taskId, setTaskId] = useState(null);
@@ -118,17 +118,19 @@ export default function QueuePage() {
     try {
       const result = await api.getTaskStatus(id);
       setTaskStatus(result.task_status);
-      if (result.task_status === 'SUCCESS') {
-        setTaskResult(result.interactive_assets || {});
+      if (result.task_status === 'COMPLETED') {
+        setTaskResult(result.assets || {});
         setTaskError(null);
         if (pollingRef.current) clearInterval(pollingRef.current);
-      } else if (result.task_status === 'FAILURE') {
+      } else if (result.task_status === 'FAILED') {
         setTaskError('Scraping failed. Please try again.');
         setTaskResult(null);
         if (pollingRef.current) clearInterval(pollingRef.current);
       }
     } catch (err) {
       console.error("Task status poll error", err);
+      // Clear interval on fatal error to prevent browser crash
+      if (pollingRef.current) clearInterval(pollingRef.current);
     }
   }, []);
 
@@ -164,13 +166,20 @@ export default function QueuePage() {
         formData.flashcards_url,
         formData.quizzes_url,
         formData.mindmap_url,
+        formData.slide_deck_url,
+        formData.study_report_url,
+        formData.data_table_url,
+        formData.infographic_url,
       ].filter(Boolean),
       podcast_audio: formData.podcast_audio || null,
       video_overview: formData.video_overview || null,
-      infographic: formData.infographic || null,
-      slide_deck: formData.slide_deck || null,
-      study_report: formData.study_report || null,
-      data_table: formData.data_table || null,
+      flashcards_url: formData.flashcards_url || null,
+      quizzes_url: formData.quizzes_url || null,
+      mindmap_url: formData.mindmap_url || null,
+      slide_deck_url: formData.slide_deck_url || null,
+      study_report_url: formData.study_report_url || null,
+      data_table_url: formData.data_table_url || null,
+      infographic_url: formData.infographic_url || null,
     };
 
     try {
@@ -182,8 +191,8 @@ export default function QueuePage() {
         setTaskError(null);
         setFormData({
           flashcards_url: '', quizzes_url: '', mindmap_url: '',
-          podcast_audio: '', video_overview: '', infographic: '', slide_deck: '',
-          study_report: '', data_table: '',
+          slide_deck_url: '', study_report_url: '', data_table_url: '', infographic_url: '',
+          podcast_audio: '', video_overview: '',
         });
         setSelectedUser(null);
         fetchQueue();
@@ -294,9 +303,9 @@ export default function QueuePage() {
   };
 
   const canSubmit = selectedUser && selectedUser.status === 'PENDING';
-  const showTaskProgress = taskStatus && taskStatus !== 'SUCCESS' && taskStatus !== 'FAILURE';
-  const showTaskSuccess = taskStatus === 'SUCCESS' && !isCompleting;
-  const showTaskFailure = taskStatus === 'FAILURE';
+  const showTaskProgress = taskStatus && taskStatus !== 'COMPLETED' && taskStatus !== 'FAILED';
+  const showTaskSuccess = taskStatus === 'COMPLETED' && !isCompleting;
+  const showTaskFailure = taskStatus === 'FAILED';
   const isCompleted = selectedUser?.status === 'COMPLETED';
 
   return (
@@ -424,30 +433,46 @@ export default function QueuePage() {
                         currentUrl={formData.video_overview}
                         onUploadSuccess={(field, url) => setFormData(prev => ({ ...prev, [field]: url }))}
                       />
-                      <CloudinaryUploadWidget
-                        label="Infographic"
-                        fieldName="infographic"
-                        currentUrl={formData.infographic}
-                        onUploadSuccess={(field, url) => setFormData(prev => ({ ...prev, [field]: url }))}
-                      />
-                      <CloudinaryUploadWidget
-                        label="Slide Deck"
-                        fieldName="slide_deck"
-                        currentUrl={formData.slide_deck}
-                        onUploadSuccess={(field, url) => setFormData(prev => ({ ...prev, [field]: url }))}
-                      />
-                      <CloudinaryUploadWidget
-                        label="Study Report"
-                        fieldName="study_report"
-                        currentUrl={formData.study_report}
-                        onUploadSuccess={(field, url) => setFormData(prev => ({ ...prev, [field]: url }))}
-                      />
-                      <CloudinaryUploadWidget
-                        label="Data Table"
-                        fieldName="data_table"
-                        currentUrl={formData.data_table}
-                        onUploadSuccess={(field, url) => setFormData(prev => ({ ...prev, [field]: url }))}
-                      />
+                      <div className="input-group">
+                        <label>Study Report NotebookLM Shared Link</label>
+                        <input
+                          type="url"
+                          name="study_report_url"
+                          value={formData.study_report_url}
+                          onChange={handleInputChange}
+                          placeholder="https://notebooklm.google.com/notebook/.../artifact/..."
+                        />
+                      </div>
+                      <div className="input-group">
+                        <label>Data Table NotebookLM Shared Link</label>
+                        <input
+                          type="url"
+                          name="data_table_url"
+                          value={formData.data_table_url}
+                          onChange={handleInputChange}
+                          placeholder="https://notebooklm.google.com/notebook/.../artifact/..."
+                        />
+                      </div>
+                      <div className="input-group">
+                        <label>Slide Deck NotebookLM Shared Link</label>
+                        <input
+                          type="url"
+                          name="slide_deck_url"
+                          value={formData.slide_deck_url}
+                          onChange={handleInputChange}
+                          placeholder="https://notebooklm.google.com/notebook/.../artifact/..."
+                        />
+                      </div>
+                      <div className="input-group">
+                        <label>Infographic NotebookLM Shared Link</label>
+                        <input
+                          type="url"
+                          name="infographic_url"
+                          value={formData.infographic_url}
+                          onChange={handleInputChange}
+                          placeholder="https://notebooklm.google.com/notebook/.../artifact/..."
+                        />
+                      </div>
                     </div>
                   </div>
 

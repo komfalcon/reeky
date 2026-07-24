@@ -34,10 +34,20 @@ export const api = {
       body: { email, password },
     }),
 
-  generateAssets: (title, originalFileUrl, token) =>
+  savePreferences: (preferences, token) =>
+    request('/api/user/preferences', {
+      method: 'POST',
+      body: { preferences },
+      token,
+    }),
+
+  getProfile: (token) =>
+    request('/api/user/profile', { token }),
+
+  generateAssets: (title, originalFileUrl, customInstructions, assetsRequested, token) =>
     request('/api/assets/generate', {
       method: 'POST',
-      body: { title, originalFileUrl },
+      body: { title, originalFileUrl, customInstructions, assetsRequested },
       token,
     }),
 
