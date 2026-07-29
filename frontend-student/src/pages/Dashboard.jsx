@@ -4,6 +4,7 @@ import { jsPDF } from 'jspdf';
 import { useAuth } from '../AuthContext';
 import { api } from '../api';
 import OnboardingForm from './OnboardingForm';
+import CollapsibleTree from '../components/CollapsibleTree';
 import { 
   FileText, 
   Sparkles, 
@@ -25,7 +26,9 @@ import {
   Compass, 
   Layers, 
   Network,
-  Grid
+  Video,
+  Image,
+  Table
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -223,63 +226,23 @@ export default function Dashboard() {
   const completedAssets = userAssets.filter(a => a.status === 'COMPLETED');
   const pendingAssets = userAssets.filter(a => a.status !== 'COMPLETED');
 
-  const parseDataTable = (tableStr) => {
-    if (!tableStr || typeof tableStr !== 'string') return null;
-    const lines = tableStr.trim().split('\n');
-    if (lines.length === 0) return null;
-
-    // Detect markdown table
-    if (lines[0].includes('|')) {
-      const parseRow = (line) => line.split('|').map(cell => cell.trim()).filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
-      const headers = parseRow(lines[0]);
-      // Skip formatting row (e.g. |---|---|)
-      const dataLines = lines.slice(1).filter(line => !line.match(/^[|:\s-]+$/) && line.trim() !== '');
-      const rows = dataLines.map(parseRow);
-      return { headers, rows };
-    }
-
-    // Detect CSV
-    const parseCSVRow = (line) => line.split(',').map(cell => cell.trim());
-    const headers = parseCSVRow(lines[0]);
-    const rows = lines.slice(1).filter(line => line.trim() !== '').map(parseCSVRow);
-    return { headers, rows };
-  };
-
   const buildActiveData = (asset) => {
     if (!asset || !asset.assets) return null;
-    let a = typeof asset.assets === 'string' ? JSON.parse(asset.assets) : asset.assets;
-    
-    // Unwrap from Python backend nested structure if it exists
-    if (a.interactive_assets) {
-      a = { ...a, ...a.interactive_assets };
-    }
-    
-    // Parse slides dynamically if it's a string pasted by the admin
-    let parsedSlides = [];
-    if (Array.isArray(a.slides) && a.slides.length > 0) {
-      parsedSlides = a.slides;
-    } else if (a.slide_deck && typeof a.slide_deck === 'string') {
-      const parts = a.slide_deck.split(/(?:^|\n)---(?:\n|$)/);
-      parsedSlides = parts.map((p, idx) => {
-        const lines = p.trim().split('\n');
-        const title = lines[0]?.replace(/^#+\s*/, '') || `Slide ${idx + 1}`;
-        const content = lines.slice(1).join('\n');
-        return { title, content };
-      }).filter(s => s.content.trim() !== '' || s.title.trim() !== '');
-    } else if (typeof a.slide_deck === 'object' && Array.isArray(a.slide_deck)) {
-      parsedSlides = a.slide_deck;
-    }
-
+    const a = typeof asset.assets === 'string' ? JSON.parse(asset.assets) : asset.assets;
     return {
       title: asset.title || 'Untitled Document',
       tagline: a.tagline || 'AI-Generated Study Suite',
       flashcards: Array.isArray(a.flashcards) ? a.flashcards : [],
-      quiz: Array.isArray(a.quizzes?.quiz) ? a.quizzes.quiz : (Array.isArray(a.quiz) ? a.quiz : []),
+      quiz: Array.isArray(a.quiz) ? a.quiz : (Array.isArray(a.quizzes) ? a.quizzes : []),
       mindmap: a.mindmap || { nodes: [], connections: [] },
-      slides: parsedSlides,
-      report: a.study_report || a.report || '',
-      data_table: a.data_table || null,
+      mindmapRaw: a.mindmap_raw || a.mindmap || { nodes: [], connections: [] },
+      slides: Array.isArray(a.slides) ? a.slides : (typeof a.slides === 'string' ? a.slides : (typeof a.slide_deck === 'string' ? a.slide_deck : [])),
+      report: a.report || a.study_report || '',
       transcript: Array.isArray(a.transcript) ? a.transcript : [],
+      podcast_audio: a.podcast_audio || null,
+      video_overview: a.video_overview || null,
+      infographic: a.infographic || null,
+      data_table: a.data_table || null,
     };
   };
 
@@ -531,18 +494,7 @@ export default function Dashboard() {
                         setAudioPlaying(false);
                         setAudioProgress(0);
                         setAudioTime('00:00');
-                        const data = buildActiveData(asset);
-                        const available = [
-                          { id: 'podcast', show: data?.transcript?.length > 0 },
-                          { id: 'flashcards', show: data?.flashcards?.length > 0 },
-                          { id: 'quiz', show: data?.quiz?.length > 0 },
-                          { id: 'mindmap', show: data?.mindmap?.nodes?.length > 0 },
-                          { id: 'slides', show: data?.slides?.length > 0 },
-                          { id: 'table', show: !!data?.data_table },
-                          { id: 'report', show: !!data?.report }
-                        ].find(t => t.show);
-                        
-                        setActiveAsset(available ? available.id : 'podcast');
+                        setActiveTranscriptIndex(0);
                       }}
                     >
                       📚 {asset.title.length > 22 ? asset.title.slice(0, 22) + '...' : asset.title}
@@ -618,14 +570,16 @@ export default function Dashboard() {
                   {/* Tab Selector Toolbar */}
                   <div style={{ display: 'flex', gap: '0.35rem' }}>
                     {[
-                      { id: 'podcast', label: 'Podcast', icon: <Music size={14} />, show: activeData.transcript && activeData.transcript.length > 0 },
-                      { id: 'flashcards', label: 'Flashcards', icon: <Layers size={14} />, show: activeData.flashcards && activeData.flashcards.length > 0 },
-                      { id: 'quiz', label: 'Quiz', icon: <HelpCircle size={14} />, show: activeData.quiz && activeData.quiz.length > 0 },
-                      { id: 'mindmap', label: 'Mindmap', icon: <Network size={14} />, show: activeData.mindmap && activeData.mindmap.nodes && activeData.mindmap.nodes.length > 0 },
-                      { id: 'slides', label: 'Slides', icon: <Compass size={14} />, show: activeData.slides && activeData.slides.length > 0 },
-                      { id: 'table', label: 'Data Table', icon: <Grid size={14} />, show: !!activeData.data_table },
-                      { id: 'report', label: 'Summary', icon: <FileText size={14} />, show: !!activeData.report }
-                    ].filter(tab => tab.show).map(tab => (
+                      { id: 'podcast', label: 'Podcast', icon: <Music size={14} /> },
+                      { id: 'flashcards', label: 'Flashcards', icon: <Layers size={14} /> },
+                      { id: 'quiz', label: 'Quiz', icon: <HelpCircle size={14} /> },
+                      { id: 'mindmap', label: 'Mindmap', icon: <Network size={14} /> },
+                      { id: 'slides', label: 'Slides', icon: <Compass size={14} /> },
+                      { id: 'report', label: 'Summary', icon: <FileText size={14} /> },
+                      { id: 'video', label: 'Video', icon: <Video size={14} /> },
+                      { id: 'infographic', label: 'Infographics', icon: <Image size={14} /> },
+                      { id: 'data_table', label: 'Data Table', icon: <Table size={14} /> }
+                    ].map(tab => (
                       <button
                         key={tab.id}
                         className={activeAsset === tab.id ? 'btn btn-primary' : 'btn btn-secondary'}
@@ -645,106 +599,130 @@ export default function Dashboard() {
                 <div style={{ padding: '2.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
                   
                   {/* 1. AUDITORY PODCAST VIEWER */}
-                  {activeAsset === 'podcast' && activeData.transcript.length > 0 && (
-                    <div className="podcast-layout" style={{ display: 'grid', gridTemplateColumns: '1.2fr 2fr', gap: '2.5rem', width: '100%' }}>
+                  {activeAsset === 'podcast' && (activeData.podcast_audio || activeData.transcript?.length > 0) && (
+                    <div className="podcast-layout" style={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: activeData.podcast_audio ? '1fr' : '1.2fr 2fr', 
+                      gap: '2.5rem', 
+                      width: '100%',
+                      justifyItems: activeData.podcast_audio ? 'center' : 'stretch'
+                    }}>
                       
-                      {/* Audio Disk Controller */}
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                        <div 
-                          className={`podcast-disc ${audioPlaying ? 'playing' : ''}`}
-                          style={{
-                            width: '130px',
-                            height: '130px',
-                            borderRadius: '50%',
-                            background: 'radial-gradient(circle, #1e293b 30%, #03050c 70%)',
-                            border: '6px solid var(--primary)',
-                            boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
-                            marginBottom: '1.5rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}
-                        >
-                          <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--bg)', border: '2px dashed var(--secondary)' }} />
-                        </div>
-                        <h4 style={{ fontWeight: 800, fontSize: '0.95rem', marginBottom: '0.25rem' }}>Personal Study Podcast</h4>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>Episode 1: Core Content Scrape</p>
-
-                        {/* Audio Waveform Bars */}
-                        <div className="podcast-visualizer" style={{ display: 'flex', gap: '4px', height: '60px', alignItems: 'flex-end', marginBottom: '1.5rem' }}>
-                          {visHeights.map((h, i) => (
-                            <div 
-                              key={i} 
-                              style={{ 
-                                width: '4px', 
-                                height: audioPlaying ? `${h}px` : '8px', 
-                                background: i % 2 === 0 ? 'var(--primary)' : 'var(--secondary)',
-                                borderRadius: '10px',
-                                transition: 'height 0.15s ease'
-                              }} 
+                      {activeData.podcast_audio ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', width: '100%', maxWidth: '600px', marginTop: '2rem' }}>
+                          <Music size={64} color="var(--primary)" style={{ marginBottom: '2rem' }} />
+                          <h4 style={{ fontWeight: 800, fontSize: '1.2rem', marginBottom: '0.5rem' }}>Uploaded Podcast Audio</h4>
+                          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '2rem' }}>Listen to the study material provided by your instructor.</p>
+                          {activeData.podcast_audio.includes('drive.google.com') ? (
+                            <iframe 
+                              src={activeData.podcast_audio.replace(/\/view.*$/, '/preview')} 
+                              style={{ width: '100%', height: '140px', border: 'none', borderRadius: '16px', background: 'transparent' }} 
+                              title="Podcast Player"
                             />
-                          ))}
+                          ) : (
+                            <audio controls src={activeData.podcast_audio} style={{ width: '100%', outline: 'none' }} />
+                          )}
                         </div>
-
-                        {/* Player Controls */}
-                        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                            <span>{audioTime}</span>
-                            <span>02:04</span>
-                          </div>
-                          <div style={{ height: '6px', background: 'var(--divider)', borderRadius: '50px', position: 'relative', cursor: 'pointer' }}>
-                            <div style={{ width: `${audioProgress}%`, height: '100%', background: 'var(--primary)', borderRadius: '50px' }}></div>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'center', marginTop: '0.5rem' }}>
-                            <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setAudioMuted(!audioMuted)}>
-                              {audioMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-                            </button>
-                            <button 
-                              className="btn btn-primary" 
-                              style={{ width: '42px', height: '42px', padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justify: 'center' }}
-                              onClick={() => setAudioPlaying(!audioPlaying)}
+                      ) : (
+                        <>
+                          {/* Audio Disk Controller */}
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                            <div 
+                              className={`podcast-disc ${audioPlaying ? 'playing' : ''}`}
+                              style={{
+                                width: '130px',
+                                height: '130px',
+                                borderRadius: '50%',
+                                background: 'radial-gradient(circle, #1e293b 30%, #03050c 70%)',
+                                border: '6px solid var(--primary)',
+                                boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+                                marginBottom: '1.5rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
                             >
-                              {audioPlaying ? <Pause size={18} /> : <Play size={18} style={{ marginLeft: '2px' }} />}
-                            </button>
-                            <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => { setAudioProgress(0); setAudioTime('00:00'); setActiveTranscriptIndex(0); }}>
-                              <RotateCw size={16} />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
+                              <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--bg)', border: '2px dashed var(--secondary)' }} />
+                            </div>
+                            <h4 style={{ fontWeight: 800, fontSize: '0.95rem', marginBottom: '0.25rem' }}>Personal Study Podcast</h4>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>Episode 1: Core Content Scrape</p>
 
-                      {/* Sync Scrolling Transcript */}
-                      <div className="podcast-transcript-panel" style={{
-                        height: '320px',
-                        overflowY: 'auto',
-                        border: '1px solid var(--card-border)',
-                        borderRadius: '16px',
-                        padding: '1rem',
-                        background: 'var(--bg)'
-                      }}>
-                        {activeData.transcript.map((line, idx) => (
-                          <div 
-                            key={idx}
-                            ref={idx === activeTranscriptIndex ? activeLineRef : null}
-                            style={{
-                              padding: '0.75rem',
-                              borderRadius: '10px',
-                              marginBottom: '0.5rem',
-                              background: idx === activeTranscriptIndex ? 'var(--accent-glow)' : 'transparent',
-                              border: idx === activeTranscriptIndex ? '1px solid var(--primary)' : '1px solid transparent',
-                              transition: 'all 0.3s'
-                            }}
-                          >
-                            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--primary)', display: 'block', marginBottom: '0.15rem' }}>
-                              {line.speaker}
-                            </span>
-                            <span style={{ fontSize: '0.85rem', color: idx === activeTranscriptIndex ? 'var(--text-main)' : 'var(--text-muted)', lineHeight: 1.4 }}>
-                              {line.text}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+                            {/* Audio Waveform Bars */}
+                            <div className="podcast-visualizer" style={{ display: 'flex', gap: '4px', height: '60px', alignItems: 'flex-end', marginBottom: '1.5rem' }}>
+                              {visHeights.map((h, i) => (
+                                <div 
+                                  key={i} 
+                                  style={{ 
+                                    width: '4px', 
+                                    height: audioPlaying ? `${h}px` : '8px', 
+                                    background: i % 2 === 0 ? 'var(--primary)' : 'var(--secondary)',
+                                    borderRadius: '10px',
+                                    transition: 'height 0.15s ease'
+                                  }} 
+                                />
+                              ))}
+                            </div>
 
+                            {/* Player Controls */}
+                            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                                <span>{audioTime}</span>
+                                <span>02:04</span>
+                              </div>
+                              <div style={{ height: '6px', background: 'var(--divider)', borderRadius: '50px', position: 'relative', cursor: 'pointer' }}>
+                                <div style={{ width: `${audioProgress}%`, height: '100%', background: 'var(--primary)', borderRadius: '50px' }}></div>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'center', marginTop: '0.5rem' }}>
+                                <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setAudioMuted(!audioMuted)}>
+                                  {audioMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                                </button>
+                                <button 
+                                  className="btn btn-primary" 
+                                  style={{ width: '42px', height: '42px', padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justify: 'center' }}
+                                  onClick={() => setAudioPlaying(!audioPlaying)}
+                                >
+                                  {audioPlaying ? <Pause size={18} /> : <Play size={18} style={{ marginLeft: '2px' }} />}
+                                </button>
+                                <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => { setAudioProgress(0); setAudioTime('00:00'); setActiveTranscriptIndex(0); }}>
+                                  <RotateCw size={16} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Sync Scrolling Transcript */}
+                          <div className="podcast-transcript-panel" style={{
+                            height: '320px',
+                            overflowY: 'auto',
+                            border: '1px solid var(--card-border)',
+                            borderRadius: '16px',
+                            padding: '1rem',
+                            background: 'var(--bg)'
+                          }}>
+                            {activeData.transcript.map((line, idx) => (
+                              <div 
+                                key={idx}
+                                ref={idx === activeTranscriptIndex ? activeLineRef : null}
+                                style={{
+                                  padding: '0.75rem',
+                                  borderRadius: '10px',
+                                  marginBottom: '0.5rem',
+                                  background: idx === activeTranscriptIndex ? 'var(--accent-glow)' : 'transparent',
+                                  border: idx === activeTranscriptIndex ? '1px solid var(--primary)' : '1px solid transparent',
+                                  transition: 'all 0.3s'
+                                }}
+                              >
+                                <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--primary)', display: 'block', marginBottom: '0.15rem' }}>
+                                  {line.speaker}
+                                </span>
+                                <span style={{ fontSize: '0.85rem', color: idx === activeTranscriptIndex ? 'var(--text-main)' : 'var(--text-muted)', lineHeight: 1.4 }}>
+                                  {line.text}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
 
@@ -772,7 +750,8 @@ export default function Dashboard() {
                             height: '100%',
                             transformStyle: 'preserve-3d',
                             transition: 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            transform: flashcardFlipped ? 'rotateY(180deg)' : 'rotateY(0)'
                           }}
                         >
                           {/* Front Face */}
@@ -796,7 +775,7 @@ export default function Dashboard() {
                               Question {currentFlashcard + 1} of {activeData.flashcards.length}
                             </span>
                             <p style={{ fontSize: '1rem', fontWeight: 700, margin: 0, lineHeight: 1.5 }}>
-                              {activeData.flashcards[currentFlashcard].q}
+                              {activeData.flashcards[currentFlashcard].f || activeData.flashcards[currentFlashcard].q}
                             </p>
                             <span style={{ position: 'absolute', bottom: '1rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                               Click card to flip and view answer
@@ -825,7 +804,7 @@ export default function Dashboard() {
                               Answer Explanation
                             </span>
                             <p style={{ fontSize: '0.95rem', fontWeight: 600, margin: 0, lineHeight: 1.5, color: 'var(--text-main)' }}>
-                              {activeData.flashcards[currentFlashcard].a}
+                              {activeData.flashcards[currentFlashcard].b || activeData.flashcards[currentFlashcard].a}
                             </p>
                           </div>
                         </div>
@@ -906,18 +885,22 @@ export default function Dashboard() {
                           </div>
 
                           <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.4, marginBottom: '1.5rem' }}>
-                            {activeData.quiz[quizStep].q}
+                            {activeData.quiz[quizStep].q || activeData.quiz[quizStep].question}
                           </h3>
 
                           {/* Options list */}
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
-                            {activeData.quiz[quizStep].options.map((option, idx) => {
+                            {(activeData.quiz[quizStep].options || (activeData.quiz[quizStep].answerOptions || []).map(o => o.text)).map((option, idx) => {
                               let optionBg = 'var(--card-bg)';
                               let optionBorder = 'var(--card-border)';
                               let optionColor = 'var(--text-main)';
+                              
+                              const isCorrectOption = activeData.quiz[quizStep].answerOptions ? 
+                                activeData.quiz[quizStep].answerOptions[idx].isCorrect : 
+                                (idx === activeData.quiz[quizStep].correct);
 
                               if (quizAnswered) {
-                                if (idx === activeData.quiz[quizStep].correct) {
+                                if (isCorrectOption) {
                                   optionBg = 'var(--success-glow)';
                                   optionBorder = 'var(--success)';
                                   optionColor = 'var(--success)';
@@ -935,7 +918,7 @@ export default function Dashboard() {
                                   onClick={() => {
                                     setSelectedQuizOption(idx);
                                     setQuizAnswered(true);
-                                    if (idx === activeData.quiz[quizStep].correct) {
+                                    if (isCorrectOption) {
                                       setQuizScore(prev => prev + 1);
                                     }
                                   }}
@@ -957,8 +940,8 @@ export default function Dashboard() {
                                   }}
                                 >
                                   {option}
-                                  {quizAnswered && idx === activeData.quiz[quizStep].correct && <span style={{ color: 'var(--success)' }}>✓</span>}
-                                  {quizAnswered && idx === selectedQuizOption && idx !== activeData.quiz[quizStep].correct && <span style={{ color: 'var(--error)' }}>✗</span>}
+                                  {quizAnswered && isCorrectOption && <span style={{ color: 'var(--success)' }}>✓</span>}
+                                  {quizAnswered && idx === selectedQuizOption && !isCorrectOption && <span style={{ color: 'var(--error)' }}>✗</span>}
                                 </button>
                               );
                             })}
@@ -976,13 +959,13 @@ export default function Dashboard() {
                               <h4 style={{
                                 fontWeight: 800,
                                 fontSize: '0.9rem',
-                                color: selectedQuizOption === activeData.quiz[quizStep].correct ? 'var(--success)' : 'var(--error)',
+                                color: (activeData.quiz[quizStep].answerOptions ? activeData.quiz[quizStep].answerOptions[selectedQuizOption].isCorrect : (selectedQuizOption === activeData.quiz[quizStep].correct)) ? 'var(--success)' : 'var(--error)',
                                 marginBottom: '0.5rem'
                               }}>
-                                {selectedQuizOption === activeData.quiz[quizStep].correct ? '🌟 Perfect! Correct!' : '🎯 Close, but not quite!'}
+                                {(activeData.quiz[quizStep].answerOptions ? activeData.quiz[quizStep].answerOptions[selectedQuizOption].isCorrect : (selectedQuizOption === activeData.quiz[quizStep].correct)) ? '🌟 Perfect! Correct!' : '🎯 Close, but not quite!'}
                               </h4>
                               <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '1.25rem' }}>
-                                {activeData.quiz[quizStep].explanation}
+                                {activeData.quiz[quizStep].explanation || (activeData.quiz[quizStep].answerOptions && activeData.quiz[quizStep].answerOptions[selectedQuizOption].rationale)}
                               </p>
                               <button
                                 className="btn btn-primary"
@@ -1060,184 +1043,198 @@ export default function Dashboard() {
                   )}
 
                   {/* 4. INTERACTIVE MINDMAP EXPLORER */}
-                  {activeAsset === 'mindmap' && activeData.mindmap.nodes.length > 0 && (
-                    <div style={{ width: '100%', height: '360px', position: 'relative', border: '1px solid var(--card-border)', borderRadius: '16px', overflow: 'hidden', background: 'var(--bg)' }}>
-                      <svg width="100%" height="100%" style={{ position: 'absolute', top: 0, left: 0, zIndex: 0 }}>
-                        {activeData.mindmap.connections.map((c, i) => {
-                          const fromNode = activeData.mindmap.nodes.find(n => n.id === c.from);
-                          const toNode = activeData.mindmap.nodes.find(n => n.id === c.to);
-                          if (!fromNode || !toNode) return null;
-                          return (
-                            <line 
-                              key={i} 
-                              x1={fromNode.x} 
-                              y1={fromNode.y} 
-                              x2={toNode.x} 
-                              y2={toNode.y} 
-                              stroke="var(--primary)" 
-                              strokeWidth="2"
-                              strokeOpacity="0.4"
-                              style={{ strokeDasharray: '4 4' }}
-                            />
-                          );
-                        })}
-                      </svg>
-
-                      {activeData.mindmap.nodes.map((node) => {
-                        let nodeBg = 'var(--card-bg)';
-                        let nodeBorder = 'var(--card-border)';
-                        let nodeColor = 'var(--text-main)';
-                        
-                        if (node.type === 'root') {
-                          nodeBg = 'var(--primary)';
-                          nodeColor = '#ffffff';
-                          nodeBorder = 'transparent';
-                        } else if (node.type === 'child') {
-                          nodeBg = 'var(--accent-glow)';
-                          nodeBorder = 'var(--primary)';
-                        }
-
-                        return (
-                          <div 
-                            key={node.id} 
-                            style={{
-                              position: 'absolute',
-                              left: `${node.x}px`,
-                              top: `${node.y}px`,
-                              transform: 'translate(-50%, -50%)',
-                              zIndex: 1
-                            }}
-                          >
-                            <div 
-                              style={{
-                                background: nodeBg,
-                                border: `1px solid ${nodeBorder}`,
-                                color: nodeColor,
-                                borderRadius: '20px',
-                                padding: '0.4rem 1rem',
-                                fontSize: '0.75rem',
-                                fontWeight: 700,
-                                boxShadow: '0 4px 10px rgba(0,0,0,0.05)',
-                                whiteSpace: 'nowrap',
-                                cursor: 'pointer'
-                              }}
-                              onClick={() => alert(`Node Concept: "${node.label}"\nFocus category set.`)}
-                            >
-                              {node.label}
-                            </div>
-                          </div>
-                        );
-                      })}
+                  {activeAsset === 'mindmap' && activeData.mindmapRaw && (
+                    <div style={{ flex: 1, border: '1px solid var(--card-border)', borderRadius: '16px', overflow: 'hidden' }}>
+                      <CollapsibleTree treeData={activeData.mindmapRaw} title={activeData.title} />
                     </div>
                   )}
 
+                  {/* 4b. NEW TABS CONTENT */}
+                  {activeAsset === 'video' && (
+                    activeData.video_overview ? (
+                      <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                        {activeData.video_overview.includes('drive.google.com') ? (
+                          <iframe 
+                            src={activeData.video_overview.replace(/\/view.*$/, '/preview')} 
+                            style={{ width: '100%', height: '500px', maxWidth: '800px', border: 'none', borderRadius: '16px', boxShadow: 'var(--card-shadow)' }} 
+                            title="Video Player"
+                            allow="autoplay"
+                          />
+                        ) : (
+                          <video controls src={activeData.video_overview} style={{ width: '100%', maxWidth: '800px', maxHeight: '600px', borderRadius: '16px', boxShadow: 'var(--card-shadow)' }} />
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                        <Sparkles size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
+                        <h3 style={{ margin: 0, fontWeight: 700 }}>AI Video Generation</h3>
+                        <p style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>This feature is currently processing or coming in the next update.</p>
+                      </div>
+                    )
+                  )}
+
+                  {activeAsset === 'data_table' && (
+                    activeData.data_table ? (
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--divider)', paddingBottom: '0.75rem', marginBottom: '1.5rem' }}>
+                          <h4 style={{ fontWeight: 800, margin: 0, fontSize: '1.1rem' }}>Dataset Viewer</h4>
+                          <a href={activeData.data_table} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ padding: '0.5rem 1rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <FileText size={16} /> Open Full View
+                          </a>
+                        </div>
+                        {activeData.data_table.includes('drive.google.com') ? (
+                          <iframe 
+                            src={activeData.data_table.replace(/\/view.*$/, '/preview')} 
+                            style={{ width: '100%', flex: 1, minHeight: '600px', border: 'none', borderRadius: '12px' }} 
+                            title="Data Table"
+                          />
+                        ) : (
+                          <iframe src={activeData.data_table} style={{ width: '100%', flex: 1, minHeight: '600px', border: 'none', borderRadius: '12px' }} title="Data Table" />
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                        <Sparkles size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
+                        <h3 style={{ margin: 0, fontWeight: 700 }}>AI Data Tables</h3>
+                        <p style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>This feature is currently processing or coming in the next update.</p>
+                      </div>
+                    )
+                  )}
+
+                  {activeAsset === 'infographic' && (
+                    activeData.infographic ? (
+                      <div style={{ flex: 1, display: 'flex', justifyContent: 'center', overflow: 'auto', padding: '1rem' }}>
+                        {activeData.infographic.includes('drive.google.com') ? (
+                          <iframe 
+                            src={activeData.infographic.replace(/\/view.*$/, '/preview')} 
+                            style={{ width: '100%', height: '600px', border: 'none', borderRadius: '16px', boxShadow: 'var(--card-shadow)' }} 
+                            title="Infographic"
+                          />
+                        ) : (
+                          <img src={activeData.infographic} alt="Infographic" style={{ maxWidth: '100%', objectFit: 'contain', borderRadius: '16px', boxShadow: 'var(--card-shadow)' }} />
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                        <Sparkles size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
+                        <h3 style={{ margin: 0, fontWeight: 700 }}>AI Infographics</h3>
+                        <p style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>This feature is currently processing or coming in the next update.</p>
+                      </div>
+                    )
+                  )}
+
                   {/* 5. SLIDE DECK VIEWER */}
-                  {activeAsset === 'slides' && activeData.slides.length > 0 && (
-                    <div style={{ width: '100%', maxWidth: '520px', margin: '0 auto', textAlign: 'center' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '1.5rem' }}>
-                        <span>SLIDE {currentSlide + 1} OF {activeData.slides.length}</span>
-                        <span>REEKY ACADEMIC SUITE</span>
+                  {activeAsset === 'slides' && (
+                    typeof activeData.slides === 'string' ? (
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--divider)', paddingBottom: '0.75rem', marginBottom: '1.5rem' }}>
+                          <h4 style={{ fontWeight: 800, margin: 0, fontSize: '1.1rem' }}>Slide Deck Viewer</h4>
+                          <a href={activeData.slides} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ padding: '0.5rem 1rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <FileText size={16} /> Open Full View
+                          </a>
+                        </div>
+                        {activeData.slides.includes('drive.google.com') ? (
+                          <iframe 
+                            src={activeData.slides.replace(/\/view.*$/, '/preview')} 
+                            style={{ width: '100%', flex: 1, minHeight: '600px', border: 'none', borderRadius: '12px' }} 
+                            title="Slide Deck"
+                          />
+                        ) : (
+                          <iframe src={activeData.slides} style={{ width: '100%', flex: 1, minHeight: '600px', border: 'none', borderRadius: '12px' }} title="Slide Deck" />
+                        )}
                       </div>
+                    ) : activeData.slides.length > 0 ? (
+                      <div style={{ width: '100%', maxWidth: '520px', margin: '0 auto', textAlign: 'center' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '1.5rem' }}>
+                          <span>SLIDE {currentSlide + 1} OF {activeData.slides.length}</span>
+                          <span>REEKY ACADEMIC SUITE</span>
+                        </div>
 
-                      <div style={{
-                        background: 'var(--card-bg)',
-                        border: '1.5px solid var(--card-border)',
-                        borderRadius: '24px',
-                        padding: '2.5rem 2rem',
-                        minHeight: '180px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'center',
-                        marginBottom: '1.5rem',
-                        boxShadow: 'var(--card-shadow)'
-                      }}>
-                        <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.25rem', marginBottom: '1rem', color: 'var(--primary)' }}>
-                          {activeData.slides[currentSlide].title}
-                        </h3>
-                        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                          {activeData.slides[currentSlide].content}
-                        </p>
-                      </div>
+                        <div style={{
+                          background: 'var(--card-bg)',
+                          border: '1.5px solid var(--card-border)',
+                          borderRadius: '24px',
+                          padding: '2.5rem 2rem',
+                          minHeight: '180px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'center',
+                          marginBottom: '1.5rem',
+                          boxShadow: 'var(--card-shadow)'
+                        }}>
+                          <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.25rem', marginBottom: '1rem', color: 'var(--primary)' }}>
+                            {activeData.slides[currentSlide].title}
+                          </h3>
+                          <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                            {activeData.slides[currentSlide].content}
+                          </p>
+                        </div>
 
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <button 
-                          className="btn btn-secondary" 
-                          disabled={currentSlide === 0}
-                          onClick={() => setCurrentSlide(prev => prev - 1)}
-                        >
-                          Previous
-                        </button>
-                        <button 
-                          className="btn btn-primary" 
-                          disabled={currentSlide === activeData.slides.length - 1}
-                          onClick={() => setCurrentSlide(prev => prev + 1)}
-                        >
-                          Next
-                        </button>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <button 
+                            className="btn btn-secondary" 
+                            disabled={currentSlide === 0}
+                            onClick={() => setCurrentSlide(prev => prev - 1)}
+                          >
+                            Previous
+                          </button>
+                          <button 
+                            className="btn btn-primary" 
+                            disabled={currentSlide === activeData.slides.length - 1}
+                            onClick={() => setCurrentSlide(prev => prev + 1)}
+                          >
+                            Next
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                        <Compass size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
+                        <h3 style={{ margin: 0, fontWeight: 700 }}>AI Slide Deck</h3>
+                        <p style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>This bundle does not contain a generated Slide Deck.</p>
+                      </div>
+                    )
                   )}
 
                   {/* 6. SUMMARY REPORT VIEWER */}
                   {activeAsset === 'report' && activeData.report && (
-                    <div style={{ width: '100%' }}>
+                    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', height: '100%' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--divider)', paddingBottom: '0.75rem', marginBottom: '1.5rem' }}>
                         <h4 style={{ fontWeight: 800, fontSize: '1.1rem', margin: 0 }}>Executive Summary Study Report</h4>
-                        <button className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', display: 'flex', gap: '0.25rem' }} onClick={downloadReportPdf}>
-                          <Download size={14} /> Download PDF
-                        </button>
+                        {activeData.report.startsWith('http') ? (
+                          <a href={activeData.report} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', display: 'flex', gap: '0.25rem', textDecoration: 'none' }}>
+                            <Download size={14} /> Open Document
+                          </a>
+                        ) : (
+                          <button className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', display: 'flex', gap: '0.25rem' }} onClick={downloadReportPdf}>
+                            <Download size={14} /> Download PDF
+                          </button>
+                        )}
                       </div>
-                      <div style={{
-                        whiteSpace: 'pre-line',
-                        fontSize: '0.88rem',
-                        lineHeight: 1.6,
-                        color: 'var(--text-muted)',
-                        background: 'var(--card-bg)',
-                        border: '1px solid var(--card-border)',
-                        borderRadius: '20px',
-                        padding: '1.5rem'
-                      }}>
-                        {activeData.report}
-                      </div>
+                      
+                      {activeData.report.startsWith('http') ? (
+                        <iframe 
+                          src={activeData.report.includes('drive.google.com') ? activeData.report.replace(/\/view.*$/, '/preview') : activeData.report} 
+                          style={{ width: '100%', flex: 1, minHeight: '500px', border: 'none', borderRadius: '16px', background: '#fff' }} 
+                          title="Document Viewer"
+                        />
+                      ) : (
+                        <div style={{
+                          whiteSpace: 'pre-line',
+                          fontSize: '0.88rem',
+                          lineHeight: 1.6,
+                          color: 'var(--text-muted)',
+                          background: 'var(--card-bg)',
+                          border: '1px solid var(--card-border)',
+                          borderRadius: '20px',
+                          padding: '1.5rem',
+                          overflowY: 'auto'
+                        }}>
+                          {activeData.report}
+                        </div>
+                      )}
                     </div>
                   )}
-
-                  {/* 7. DATA TABLE VIEWER */}
-                  {activeAsset === 'table' && activeData.data_table && (() => {
-                    const parsed = parseDataTable(activeData.data_table);
-                    if (!parsed || !parsed.headers || parsed.headers.length === 0) {
-                      return (
-                        <div style={{ whiteSpace: 'pre-line', fontSize: '0.88rem', color: 'var(--text-muted)', background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: '20px', padding: '1.5rem' }}>
-                          {activeData.data_table}
-                        </div>
-                      );
-                    }
-                    return (
-                      <div style={{ width: '100%' }}>
-                        <h4 style={{ fontWeight: 800, fontSize: '1.1rem', marginBottom: '1.5rem' }}>Study Reference Data Table</h4>
-                        <div style={{ overflowX: 'auto', border: '1.5px solid var(--card-border)', borderRadius: '20px', background: 'var(--card-bg)' }}>
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                            <thead>
-                              <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1.5px solid var(--card-border)' }}>
-                                {parsed.headers.map((h, i) => (
-                                  <th key={i} style={{ padding: '1rem 1.25rem', textAlign: 'left', fontWeight: 800, color: 'var(--primary)' }}>{h}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {parsed.rows.map((row, rIdx) => (
-                                <tr key={rIdx} style={{ borderBottom: rIdx === parsed.rows.length - 1 ? 'none' : '1px solid var(--card-border)' }}>
-                                  {row.map((cell, cIdx) => (
-                                    <td key={cIdx} style={{ padding: '1rem 1.25rem', color: 'var(--text-muted)' }}>{cell}</td>
-                                  ))}
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    );
-                  })()}
 
                 </div>
 

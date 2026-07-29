@@ -5,12 +5,30 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import mysql from 'mysql2/promise';
 import crypto from 'crypto';
+import multer from 'multer';
+import { uploadFileToDrive } from './services/googleDriveService.js';
 
 dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const upload = multer({ storage: multer.memoryStorage() });
+
+// Ensure local uploads directory exists for testing
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) {
+    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+app.use('/uploads', express.static(UPLOADS_DIR));
 
 function safeParseJson(val) {
     if (!val) return null;
@@ -26,19 +44,12 @@ function safeParseJson(val) {
 
 // Set up MySQL connection pool
 const dbUrl = process.env.DATABASE_URL;
-
-// Parse out the URL and build a clean pool config for TiDB Serverless
-// TiDB requires SSL but mysql2's URI parser doesn't handle 'sslAccept' param
 const pool = mysql.createPool({
-    uri: dbUrl.replace(/[?&]sslAccept=[^&]*/g, ''),
+    uri: dbUrl,
     ssl: {
-        rejectUnauthorized: false  // TiDB Serverless uses a self-signed-style cert chain
-    },
-    waitForConnections: true,
-    connectionLimit: 5,
-    queueLimit: 0
+        rejectUnauthorized: true
+    }
 });
-
 
 // Health Check Endpoint
 app.get('/api/health', async (req, res) => {
@@ -75,6 +86,32 @@ const authenticateToken = (req, res, next) => {
 // =======================
 // AUTHENTICATION ROUTES
 // =======================
+
+// =======================
+// ADMIN UPLOAD ROUTE (Google Drive)
+// =======================
+app.post('/api/admin/upload-asset', upload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded.' });
+        }
+        
+        // Ensure user is admin (optional, for now we just rely on authenticateToken)
+        // If you have role checks, put them here
+        
+        const uploadedFile = await uploadFileToDrive(req.file.buffer, req.file.mimetype, req.file.originalname);
+        
+        res.json({
+            message: 'Upload successful',
+            url: uploadedFile.webViewLink,
+            downloadUrl: uploadedFile.webContentLink,
+            id: uploadedFile.id
+        });
+    } catch (error) {
+        console.error('Drive Upload Error:', error);
+        res.status(500).json({ error: 'Failed to upload to Google Drive' });
+    }
+});
 
 app.post('/api/auth/signup', async (req, res) => {
     try {
@@ -178,34 +215,12 @@ app.post('/api/assets/generate', authenticateToken, async (req, res) => {
         // Save requested assets formats as metadata inside assets JSON column initially
         const assetsJson = assetsRequested ? JSON.stringify({ requested: assetsRequested }) : null;
 
-        const isNotebookLm = originalFileUrl && originalFileUrl.includes('notebooklm.google.com');
-        const initialStatus = isNotebookLm ? 'PROCESSING' : 'PENDING';
-
         await pool.execute(
             'INSERT INTO `AssetBundle` (id, title, originalFileUrl, status, userId, customInstructions, assets) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [id, title, originalFileUrl, initialStatus, req.user.userId, customInstructions || null, assetsJson]
+            [id, title, originalFileUrl, 'PENDING', req.user.userId, customInstructions || null, assetsJson]
         );
 
-        if (isNotebookLm) {
-            const pythonEngineUrl = process.env.PYTHON_ENGINE_URL || 'https://reeky-backend-engine.onrender.com';
-            fetch(`${pythonEngineUrl}/admin/submit-assets`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    user_id: id,
-                    artifact_urls: [originalFileUrl],
-                    podcast_audio: null,
-                    video_overview: null,
-                    infographic: null,
-                    slide_deck: null,
-                    study_report: null,
-                    data_table: null
-                })
-            }).catch(err => console.error("Failed to trigger python engine automatically:", err));
-            res.json({ message: "NotebookLM link detected. Auto-scraping started.", id, status: 'PROCESSING' });
-        } else {
-            res.json({ message: "Asset generation queued successfully", id, status: 'PENDING' });
-        }
+        res.json({ message: "Asset generation queued successfully", id });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: "Failed to queue generation" });
@@ -263,46 +278,11 @@ app.get('/api/admin/queue/completed', async (req, res) => {
     }
 });
 
-// Reset any stuck PROCESSING bundles back to PENDING
-app.post('/api/admin/reset-stuck', async (req, res) => {
-    try {
-        const [result] = await pool.execute(
-            "UPDATE AssetBundle SET status = 'PENDING' WHERE status = 'PROCESSING'"
-        );
-        res.json({ message: `Reset ${result.affectedRows} stuck bundle(s) to PENDING.` });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Failed to reset stuck bundles' });
-    }
-});
-
 app.post('/api/admin/submit-assets', async (req, res) => {
     try {
-        const {
-            assetId,
-            artifact_urls,
-            podcast_audio,
-            video_overview,
-            flashcards_url,
-            quizzes_url,
-            mindmap_url,
-            slide_deck_url,
-            study_report_url,
-            data_table_url,
-            infographic_url
-        } = req.body;
+        const { assetId, artifact_urls, podcast_audio, video_overview, infographic, slide_deck, study_report, data_table } = req.body;
         
-        const staticAssets = {
-            podcast_audio,
-            video_overview,
-            flashcards_url,
-            quizzes_url,
-            mindmap_url,
-            slide_deck_url,
-            study_report_url,
-            data_table_url,
-            infographic_url
-        };
+        const staticAssets = { podcast_audio, video_overview, infographic, slide_deck, study_report, data_table };
         
         // If there are no NotebookLM URLs to scrape, complete the task immediately!
         if (!artifact_urls || artifact_urls.length === 0) {
@@ -319,29 +299,20 @@ app.post('/api/admin/submit-assets', async (req, res) => {
             ['PROCESSING', JSON.stringify(staticAssets), assetId]
         );
 
-        const pythonEngineUrl = process.env.PYTHON_ENGINE_URL || 'https://reeky-backend-engine.onrender.com';
-
-        // Sanitize all fields — Python Pydantic rejects null for list/str fields
-        const pythonPayload = {
-            user_id: assetId,
-            artifact_urls: Array.isArray(artifact_urls) ? artifact_urls : [],
-            podcast_audio: podcast_audio || null,
-            video_overview: video_overview || null,
-            flashcards_url: flashcards_url || null,
-            quizzes_url: quizzes_url || null,
-            mindmap_url: mindmap_url || null,
-            slide_deck_url: slide_deck_url || null,
-            study_report_url: study_report_url || null,
-            data_table_url: data_table_url || null,
-            infographic_url: infographic_url || null
-        };
-
-        console.log("[submit-assets] Sending to Python engine:", JSON.stringify(pythonPayload));
-
+        const pythonEngineUrl = process.env.PYTHON_ENGINE_URL || 'http://127.0.0.1:8000';
         fetch(`${pythonEngineUrl}/admin/submit-assets`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(pythonPayload)
+            body: JSON.stringify({
+                user_id: assetId, // Fix: Use user_id to match Python FastAPI AdminSubmissionRequest schema!
+                artifact_urls: artifact_urls,
+                podcast_audio: podcast_audio,
+                video_overview: video_overview,
+                infographic: infographic,
+                slide_deck: slide_deck,
+                study_report: study_report,
+                data_table: data_table
+            })
         }).catch(err => console.error("Failed to trigger python engine:", err));
         
         res.json({ success: true, completedDirectly: false, message: "Sent to processing" });
@@ -353,31 +324,21 @@ app.post('/api/admin/submit-assets', async (req, res) => {
 
 app.get('/api/admin/task-status/:id', async (req, res) => {
     try {
-        const assetId = req.params.id;
-
-        // Poll the DB directly — the Python engine fires a webhook when done
-        // which updates status to COMPLETED. No need to proxy to Python.
-        const [rows] = await pool.execute(
-            'SELECT id, status, assets FROM `AssetBundle` WHERE id = ?',
-            [assetId]
-        );
-
-        if (!rows || rows.length === 0) {
-            return res.status(404).json({ error: 'Bundle not found' });
+        const taskId = req.params.id;
+        const pythonEngineUrl = process.env.PYTHON_ENGINE_URL || 'http://127.0.0.1:8000';
+        
+        const response = await fetch(`${pythonEngineUrl}/status/${taskId}`);
+        if (!response.ok) {
+            throw new Error(`Python engine status returned ${response.status}`);
         }
-
-        const bundle = rows[0];
-        res.json({
-            task_id: assetId,
-            task_status: bundle.status,   // PENDING | PROCESSING | COMPLETED | FAILED
-            assets: bundle.assets ? (typeof bundle.assets === 'string' ? JSON.parse(bundle.assets) : bundle.assets) : null
-        });
+        
+        const data = await response.json();
+        res.json(data);
     } catch (error) {
-        console.error("Error fetching task status:", error);
-        res.status(500).json({ error: "Failed to fetch task status" });
+        console.error("Error proxying task status:", error);
+        res.status(500).json({ error: "Failed to fetch task status from engine" });
     }
 });
-
 
 app.post('/api/assets/webhook/complete', async (req, res) => {
     try {

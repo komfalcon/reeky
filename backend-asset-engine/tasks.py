@@ -2,14 +2,14 @@
 import os
 import json
 import asyncio
+# pyrefly: ignore [missing-import]
+from celery import Celery
+from storage import StorageManager
 
-# StorageManager is optional - skip gracefully if not available
-try:
-    from storage import StorageManager
-    storage = StorageManager(use_cloud=False)
-except Exception:
-    storage = None
+app = Celery('tasks')
+app.config_from_object('celeryconfig')
 
+storage = StorageManager(use_cloud=False)
 
 async def scrape_notebooklm_url(url: str):
     """
@@ -20,16 +20,64 @@ async def scrape_notebooklm_url(url: str):
     
     async with async_playwright() as p:
         b = await p.chromium.launch(headless=True)
-        page = await b.new_page()
         
-        print(f"Navigating to URL: {url}")
-        # Use domcontentloaded instead of networkidle because NotebookLM has background polling that never idles
-        await page.goto(url, wait_until="domcontentloaded", timeout=60000)
+        # Load state.json if it exists to bypass Google Login wall
+        state_path = "/app/state.json"
+        if not os.path.exists(state_path):
+            state_path = "state.json" # Fallback to local dir
+            
+        if os.path.exists(state_path):
+            print("🔑 Found state.json! Injecting authenticated session cookies...")
+            try:
+                with open(state_path, "r", encoding="utf-8") as f:
+                    state_data = json.load(f)
+                
+                # If the user pasted EditThisCookie's raw array directly
+                if isinstance(state_data, list):
+                    print("🔄 Converting EditThisCookie array format to Playwright format...")
+                    
+                    # Playwright expects specific sameSite strings, EditThisCookie often puts "unspecified" or "no_restriction"
+                    for cookie in state_data:
+                        if "sameSite" in cookie:
+                            if cookie["sameSite"] == "unspecified":
+                                cookie["sameSite"] = "Lax" # Default fallback
+                            elif cookie["sameSite"] == "no_restriction":
+                                cookie["sameSite"] = "None"
+                                
+                    state_data = {"cookies": state_data, "origins": []}
+                    with open(state_path, "w", encoding="utf-8") as f:
+                        json.dump(state_data, f, indent=2)
+                elif isinstance(state_data, dict) and "cookies" in state_data:
+                    # Fix previously converted state files that still have invalid sameSite values
+                    needs_save = False
+                    for cookie in state_data["cookies"]:
+                        if "sameSite" in cookie:
+                            if cookie["sameSite"] == "unspecified":
+                                cookie["sameSite"] = "Lax"
+                                needs_save = True
+                            elif cookie["sameSite"] == "no_restriction":
+                                cookie["sameSite"] = "None"
+                                needs_save = True
+                    if needs_save:
+                        with open(state_path, "w", encoding="utf-8") as f:
+                            json.dump(state_data, f, indent=2)
+            except Exception as e:
+                print(f"⚠️ Error reading/converting state.json: {e}")
+
+            context = await b.new_context(storage_state=state_path)
+        else:
+            print("⚠️ No state.json found. Proceeding without authentication (may hit login wall).")
+            context = await b.new_context()
+            
+        page = await context.new_page()
         
-        print(" Waiting 5 seconds for the iframe to fully load and render...")
-        await asyncio.sleep(5)
+        print(f"🌐 Navigating to URL: {url}")
+        await page.goto(url, wait_until="networkidle")
         
-        print(f" Found {len(page.frames)} total frames on the page.")
+        print("⏳ Waiting 10 seconds for the iframe to fully load and render...")
+        await asyncio.sleep(10)
+        
+        print(f"✅ Found {len(page.frames)} total frames on the page.")
         
         extracted_data = None
         
@@ -43,7 +91,7 @@ async def scrape_notebooklm_url(url: str):
                 start_idx = html.find(marker)
                 
                 if start_idx != -1:
-                    print(f"---  BINGO! FOUND PERFECT JSON STATE IN FRAME {i} ---")
+                    print(f"--- 🌟 BINGO! FOUND PERFECT JSON STATE IN FRAME {i} ---")
                     
                     # Extract the JSON string embedded inside the HTML attribute
                     start_json = start_idx + len(marker)
@@ -61,157 +109,209 @@ async def scrape_notebooklm_url(url: str):
             except Exception as e:
                 print(f"Error parsing frame {i}: {e}")
                 
-        await b.close()
-        
+        print("DEBUG: Closing browser...")
+        try:
+            await b.close()
+        except Exception as e:
+            print(f"DEBUG: Browser close error: {e}")
+            
+        print("DEBUG: Returning extracted data.")
         return extracted_data
 
-def format_scraped_text(data):
-    if not data:
-        return ""
-    if isinstance(data, str):
-        return data
-    if isinstance(data, list):
-        return "\n\n".join([format_scraped_text(item) for item in data])
-    if isinstance(data, dict):
-        if "text" in data:
-            return str(data["text"])
-        if "content" in data:
-            return format_scraped_text(data["content"])
-        if "body" in data:
-            return format_scraped_text(data["body"])
-        if "description" in data:
-            return str(data["description"])
-        return json.dumps(data, indent=2)
-    return str(data)
+import math
+import uuid
+
+def transform_mindmap_to_graph(tree_data):
+    nodes = []
+    connections = []
+    
+    # Root node at center
+    root_id = str(uuid.uuid4())
+    nodes.append({
+        "id": root_id,
+        "type": "root",
+        "title": tree_data.get("name", "Root"),
+        "x": 600,
+        "y": 400
+    })
+    
+    children = tree_data.get("children", [])
+    num_children = len(children)
+    
+    if num_children > 0:
+        radius = 280
+        angle_step = (2 * math.pi) / num_children
+        for i, child in enumerate(children):
+            angle = i * angle_step
+            child_x = 600 + (radius * math.cos(angle))
+            child_y = 400 + (radius * math.sin(angle))
+            child_id = str(uuid.uuid4())
+            nodes.append({
+                "id": child_id,
+                "type": "child",
+                "title": child.get("name", "Concept"),
+                "x": child_x,
+                "y": child_y
+            })
+            connections.append({"from": root_id, "to": child_id})
+            
+            # Grandchildren (leaf nodes) spread around the child
+            grandchildren = child.get("children", [])
+            num_grandchildren = len(grandchildren)
+            if num_grandchildren > 0:
+                gc_radius = 160
+                gc_angle_step = (math.pi) / num_grandchildren
+                # Start angle pointing away from root
+                base_angle = angle - (math.pi/2) + (gc_angle_step/2)
+                for j, gc in enumerate(grandchildren):
+                    gc_angle = base_angle + (j * gc_angle_step)
+                    gc_x = child_x + (gc_radius * math.cos(gc_angle))
+                    gc_y = child_y + (gc_radius * math.sin(gc_angle))
+                    gc_id = str(uuid.uuid4())
+                    nodes.append({
+                        "id": gc_id,
+                        "type": "leaf",
+                        "title": gc.get("name", "Detail"),
+                        "x": gc_x,
+                        "y": gc_y
+                    })
+                    connections.append({"from": child_id, "to": gc_id})
+                    
+    return {"nodes": nodes, "connections": connections}
 
 def process_submission_sync(config: dict):
     """
     Synchronous wrapper for the async scraper.
     """
     results = {}
-    
-    # Check if there are any valid NotebookLM URLs to scrape
-    url_fields = [
-        "flashcards_url", "quizzes_url", "mindmap_url", 
-        "slide_deck_url", "study_report_url", "data_table_url", "infographic_url"
-    ]
-    
-    has_scrape_urls = False
-    for field in url_fields:
-        url = config.get(field)
-        if url and isinstance(url, str) and url.strip().startswith("http"):
-            has_scrape_urls = True
-            
-    # Also support generic artifact_urls list fallback
-    artifact_urls = config.get("artifact_urls", [])
-    if not isinstance(artifact_urls, list):
+    artifact_urls = config.get("artifact_urls")
+    if not artifact_urls or not isinstance(artifact_urls, list):
         artifact_urls = []
-    if len(artifact_urls) > 0:
-        has_scrape_urls = True
-
-    if not has_scrape_urls:
-        print(" No valid NotebookLM URLs provided for scraping. Skipping Playwright scraper.")
-        # Handle direct media/text pass-throughs from Admin
-        for field in ["podcast_audio", "video_overview", "infographic", "slide_deck", "study_report", "data_table", "flashcards", "quizzes", "mindmap"]:
-            if config.get(field):
-                results[field] = config[field]
+    
+    # Filter only valid http/https URLs to avoid scraping empty or placeholder strings
+    clean_urls = []
+    for url in artifact_urls:
+        if url and isinstance(url, str) and url.strip() and url.strip().startswith("http"):
+            clean_urls.append(url.strip())
+            
+    if not clean_urls:
+        print("ℹ️ No valid NotebookLM URLs provided for scraping. Skipping Playwright scraper.")
+        # Handle direct media pass-throughs from Admin
+        if config.get("podcast_audio"):
+            results["podcast_audio"] = config["podcast_audio"]
+        if config.get("video_overview"):
+            results["video_overview"] = config["video_overview"]
+        if config.get("infographic"):
+            results["infographic"] = config["infographic"]
+        if config.get("slide_deck"):
+            results["slide_deck"] = config["slide_deck"]
+        if config.get("study_report"):
+            results["study_report"] = config["study_report"]
+        if config.get("data_table"):
+            results["data_table"] = config["data_table"]
         return results
     
     async def run_scraper():
-        # Scrape specific URLs based on their fields
-        if config.get("flashcards_url"):
-            print(" Scraping Flashcards...")
-            data = await scrape_notebooklm_url(config["flashcards_url"])
-            if data:
-                results["flashcards"] = data
-        elif len(artifact_urls) > 0:
-            # Fallback classification for generic URLs
-            pass
-
-        if config.get("quizzes_url"):
-            print(" Scraping Quiz...")
-            data = await scrape_notebooklm_url(config["quizzes_url"])
-            if data:
-                results["quizzes"] = data
-
-        if config.get("mindmap_url"):
-            print(" Scraping Mindmap...")
-            data = await scrape_notebooklm_url(config["mindmap_url"])
-            if data:
-                results["mindmap"] = data
-
-        if config.get("slide_deck_url"):
-            print(" Scraping Slide Deck...")
-            data = await scrape_notebooklm_url(config["slide_deck_url"])
-            if data:
-                results["slide_deck"] = format_scraped_text(data)
-
-        if config.get("study_report_url"):
-            print(" Scraping Study Report...")
-            data = await scrape_notebooklm_url(config["study_report_url"])
-            if data:
-                results["study_report"] = format_scraped_text(data)
-
-        if config.get("data_table_url"):
-            print(" Scraping Data Table...")
-            data = await scrape_notebooklm_url(config["data_table_url"])
-            if data:
-                results["data_table"] = format_scraped_text(data)
-
-        if config.get("infographic_url"):
-            print(" Scraping Infographic...")
-            data = await scrape_notebooklm_url(config["infographic_url"])
-            if data:
-                results["infographic"] = format_scraped_text(data)
-
-        # Fallback generic scraper loop if config fields are empty but artifact_urls has data
-        if len(artifact_urls) > 0 and not results:
-            for url in artifact_urls:
-                if not url or not url.strip().startswith("http"):
-                    continue
-                data = await scrape_notebooklm_url(url)
-                if not data:
-                    continue
-                # Classify the extracted JSON based on its structure
-                if isinstance(data, list) and len(data) > 0:
-                    first_item = data[0]
-                    if "f" in first_item and "b" in first_item:
-                        results["flashcards"] = data
-                    elif "question" in first_item and "answerOptions" in first_item:
-                        results["quizzes"] = data
-                elif isinstance(data, dict):
-                    if "name" in data and "children" in data:
-                        results["mindmap"] = data
-
+        for url in clean_urls:
+            data = await scrape_notebooklm_url(url)
+            if not data:
+                print(f"⚠️ Failed to extract data from {url}")
+                continue
+                
+            # Classify the extracted JSON based on its structure
+            
+            # Helper function to recursively search for the data we need
+            def find_target_data(obj):
+                # If we found a string, see if it's our JSON
+                if isinstance(obj, str):
+                    if obj.strip().startswith('[') or obj.strip().startswith('{'):
+                        if '"f"' in obj and '"b"' in obj:
+                            try:
+                                return "flashcards", json.loads(obj)
+                            except: pass
+                        if '"question"' in obj and '"answerOptions"' in obj:
+                            try:
+                                return "quizzes", json.loads(obj)
+                            except: pass
+                        if '"name"' in obj and '"children"' in obj:
+                            try:
+                                return "mindmap", json.loads(obj)
+                            except: pass
+                # If we found a dict, check if it IS the target data
+                elif isinstance(obj, dict):
+                    if "name" in obj and "children" in obj:
+                        return "mindmap", obj
+                    if "f" in obj and "b" in obj:
+                        return "flashcard_item", obj
+                    if "question" in obj and "answerOptions" in obj:
+                        return "quiz_item", obj
+                    for v in obj.values():
+                        res = find_target_data(v)
+                        if res: return res
+                # If list, search all items
+                elif isinstance(obj, list):
+                    # Check if this list IS the flashcards/quizzes list
+                    if len(obj) > 0 and isinstance(obj[0], dict):
+                        if "f" in obj[0] and "b" in obj[0]:
+                            return "flashcards", obj
+                        if "question" in obj[0] and "answerOptions" in obj[0]:
+                            return "quizzes", obj
+                    
+                    for item in obj:
+                        res = find_target_data(item)
+                        if res: return res
+                return None
+            
+            target = find_target_data(data)
+            if target:
+                type_name, payload = target
+                if type_name == "flashcards":
+                    print(f"✅ Extracted {len(payload)} Flashcards!")
+                    results["flashcards"] = payload
+                elif type_name == "quizzes":
+                    print(f"✅ Extracted Quiz with {len(payload)} questions!")
+                    results["quizzes"] = payload
+                elif type_name == "mindmap":
+                    print(f"✅ Extracted Mindmap (nodes: {len(payload.get('children', []))})")
+                    results["mindmap"] = transform_mindmap_to_graph(payload)
+                    results["mindmap_raw"] = payload
+                elif type_name == "flashcard_item" or type_name == "quiz_item":
+                    print(f"✅ Extracted single {type_name}")
+                    # In a real app we'd accumulate these, but assuming array wrapper
+                    pass
+            else:
+                print(f"⚠️ Could not find target data inside the extracted JSON structure for {url}")
+                
     # Run the async loop
     asyncio.run(run_scraper())
     
-    # Handle direct media / static text pass-throughs from Admin
+    # Handle direct media pass-throughs from Admin
     if config.get("podcast_audio"):
         results["podcast_audio"] = config["podcast_audio"]
     if config.get("video_overview"):
         results["video_overview"] = config["video_overview"]
-    if config.get("infographic") and not results.get("infographic"):
+    if config.get("infographic"):
         results["infographic"] = config["infographic"]
-    if config.get("slide_deck") and not results.get("slide_deck"):
+    if config.get("slide_deck"):
         results["slide_deck"] = config["slide_deck"]
-    if config.get("study_report") and not results.get("study_report"):
+    if config.get("study_report"):
         results["study_report"] = config["study_report"]
-    if config.get("data_table") and not results.get("data_table"):
+    if config.get("data_table"):
         results["data_table"] = config["data_table"]
         
     return results
 
+@app.task
 def process_admin_submission_task(config: dict):
     """
-    Wrapper kept for backwards compatibility.
-    Now calls process_submission_sync directly (no Celery needed).
+    Production Core Orchestrator for the Productized Service model.
+    Receives public links and media from the Admin Dashboard, scrapes the links, and finalizes the asset bundle.
     """
-    print(" Orchestrator: Processing Admin Submission...")
+    print("⚡ Orchestrator: Processing Admin Submission...")
     try:
         results = process_submission_sync(config)
-        print(" Orchestrator: Pipeline succeeded gracefully!")
+        print("✅ Orchestrator: Pipeline succeeded gracefully!")
         return results
     except Exception as e:
-        print(f" Orchestrator: Pipeline suffered a fatal error: {e}")
-        raise
+        print(f"❌ Orchestrator: Pipeline suffered a fatal error: {e}")
+        raise

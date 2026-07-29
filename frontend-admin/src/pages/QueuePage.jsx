@@ -9,21 +9,25 @@ const STATUS_BADGE = {
   COMPLETED: { label: 'Completed', color: '#10b981' },
 };
 
-const CloudinaryUploadWidget = ({ fieldName, label, currentUrl, onUploadSuccess }) => {
-  const openWidget = () => {
-    window.cloudinary.createUploadWidget(
-      {
-        cloudName: 'x9lbk1ea',
-        uploadPreset: 'Reeky Academic Hub',
-        sources: ['local', 'url'],
-        multiple: false,
-      },
-      (error, result) => {
-        if (!error && result && result.event === "success") {
-          onUploadSuccess(fieldName, result.info.secure_url);
-        }
-      }
-    ).open();
+const GoogleDriveUploadWidget = ({ fieldName, label, currentUrl, onUploadSuccess }) => {
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const handleUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const res = await api.uploadAsset(file);
+      // res.url is the Google Drive webViewLink
+      onUploadSuccess(fieldName, res.url);
+    } catch (err) {
+      console.error("Upload failed", err);
+      alert("Failed to upload file to Google Drive");
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -35,17 +39,24 @@ const CloudinaryUploadWidget = ({ fieldName, label, currentUrl, onUploadSuccess 
           value={currentUrl}
           readOnly
           placeholder="Click upload to add file..."
-          style={{ opacity: 0.8, backgroundColor: 'rgba(0,0,0,0.4)', cursor: 'not-allowed' }}
+          style={{ opacity: 0.8, backgroundColor: 'rgba(0,0,0,0.4)', cursor: 'not-allowed', flex: 1 }}
+        />
+        <input
+          type="file"
+          ref={fileInputRef}
+          style={{ display: 'none' }}
+          onChange={handleUpload}
         />
         <button
           type="button"
-          onClick={openWidget}
+          onClick={() => fileInputRef.current.click()}
+          disabled={uploading}
           style={{
-            background: 'var(--primary)', border: 'none', borderRadius: '8px',
-            padding: '0 1rem', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center'
+            background: uploading ? '#666' : 'var(--primary)', border: 'none', borderRadius: '8px',
+            padding: '0 1rem', color: 'white', cursor: uploading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center'
           }}
         >
-          <UploadCloud size={20} />
+          {uploading ? <Loader2 size={20} className="spinner" /> : <UploadCloud size={20} />}
         </button>
       </div>
     </div>
@@ -64,12 +75,12 @@ export default function QueuePage() {
     flashcards_url: '',
     quizzes_url: '',
     mindmap_url: '',
-    slide_deck_url: '',
-    study_report_url: '',
-    data_table_url: '',
-    infographic_url: '',
     podcast_audio: '',
     video_overview: '',
+    infographic: '',
+    slide_deck: '',
+    study_report: '',
+    data_table: '',
   });
 
   const [_taskId, setTaskId] = useState(null);
@@ -118,19 +129,17 @@ export default function QueuePage() {
     try {
       const result = await api.getTaskStatus(id);
       setTaskStatus(result.task_status);
-      if (result.task_status === 'COMPLETED') {
-        setTaskResult(result.assets || {});
+      if (result.task_status === 'SUCCESS') {
+        setTaskResult(result.interactive_assets || {});
         setTaskError(null);
         if (pollingRef.current) clearInterval(pollingRef.current);
-      } else if (result.task_status === 'FAILED') {
+      } else if (result.task_status === 'FAILURE') {
         setTaskError('Scraping failed. Please try again.');
         setTaskResult(null);
         if (pollingRef.current) clearInterval(pollingRef.current);
       }
     } catch (err) {
       console.error("Task status poll error", err);
-      // Clear interval on fatal error to prevent browser crash
-      if (pollingRef.current) clearInterval(pollingRef.current);
     }
   }, []);
 
@@ -166,20 +175,13 @@ export default function QueuePage() {
         formData.flashcards_url,
         formData.quizzes_url,
         formData.mindmap_url,
-        formData.slide_deck_url,
-        formData.study_report_url,
-        formData.data_table_url,
-        formData.infographic_url,
       ].filter(Boolean),
       podcast_audio: formData.podcast_audio || null,
       video_overview: formData.video_overview || null,
-      flashcards_url: formData.flashcards_url || null,
-      quizzes_url: formData.quizzes_url || null,
-      mindmap_url: formData.mindmap_url || null,
-      slide_deck_url: formData.slide_deck_url || null,
-      study_report_url: formData.study_report_url || null,
-      data_table_url: formData.data_table_url || null,
-      infographic_url: formData.infographic_url || null,
+      infographic: formData.infographic || null,
+      slide_deck: formData.slide_deck || null,
+      study_report: formData.study_report || null,
+      data_table: formData.data_table || null,
     };
 
     try {
@@ -191,13 +193,13 @@ export default function QueuePage() {
         setTaskError(null);
         setFormData({
           flashcards_url: '', quizzes_url: '', mindmap_url: '',
-          slide_deck_url: '', study_report_url: '', data_table_url: '', infographic_url: '',
-          podcast_audio: '', video_overview: '',
+          podcast_audio: '', video_overview: '', infographic: '', slide_deck: '',
+          study_report: '', data_table: '',
         });
         setSelectedUser(null);
         fetchQueue();
       } else {
-        startPolling(selectedUser.id);
+        startPolling(payload.assetId);
         fetchQueue();
       }
     } catch (err) {
@@ -303,9 +305,9 @@ export default function QueuePage() {
   };
 
   const canSubmit = selectedUser && selectedUser.status === 'PENDING';
-  const showTaskProgress = taskStatus && taskStatus !== 'COMPLETED' && taskStatus !== 'FAILED';
-  const showTaskSuccess = taskStatus === 'COMPLETED' && !isCompleting;
-  const showTaskFailure = taskStatus === 'FAILED';
+  const showTaskProgress = taskStatus && taskStatus !== 'SUCCESS' && taskStatus !== 'FAILURE';
+  const showTaskSuccess = taskStatus === 'SUCCESS' && !isCompleting;
+  const showTaskFailure = taskStatus === 'FAILURE';
   const isCompleted = selectedUser?.status === 'COMPLETED';
 
   return (
@@ -421,58 +423,42 @@ export default function QueuePage() {
                     {/* Static Media */}
                     <div>
                       <h3 style={{ marginBottom: '1rem', color: 'var(--primary)', fontSize: '1.1rem' }}>Static Media Overrides</h3>
-                      <CloudinaryUploadWidget
+                      <GoogleDriveUploadWidget
                         label="Podcast Audio"
                         fieldName="podcast_audio"
                         currentUrl={formData.podcast_audio}
                         onUploadSuccess={(field, url) => setFormData(prev => ({ ...prev, [field]: url }))}
                       />
-                      <CloudinaryUploadWidget
+                      <GoogleDriveUploadWidget
                         label="Video Overview"
                         fieldName="video_overview"
                         currentUrl={formData.video_overview}
                         onUploadSuccess={(field, url) => setFormData(prev => ({ ...prev, [field]: url }))}
                       />
-                      <div className="input-group">
-                        <label>Study Report NotebookLM Shared Link</label>
-                        <input
-                          type="url"
-                          name="study_report_url"
-                          value={formData.study_report_url}
-                          onChange={handleInputChange}
-                          placeholder="https://notebooklm.google.com/notebook/.../artifact/..."
-                        />
-                      </div>
-                      <div className="input-group">
-                        <label>Data Table NotebookLM Shared Link</label>
-                        <input
-                          type="url"
-                          name="data_table_url"
-                          value={formData.data_table_url}
-                          onChange={handleInputChange}
-                          placeholder="https://notebooklm.google.com/notebook/.../artifact/..."
-                        />
-                      </div>
-                      <div className="input-group">
-                        <label>Slide Deck NotebookLM Shared Link</label>
-                        <input
-                          type="url"
-                          name="slide_deck_url"
-                          value={formData.slide_deck_url}
-                          onChange={handleInputChange}
-                          placeholder="https://notebooklm.google.com/notebook/.../artifact/..."
-                        />
-                      </div>
-                      <div className="input-group">
-                        <label>Infographic NotebookLM Shared Link</label>
-                        <input
-                          type="url"
-                          name="infographic_url"
-                          value={formData.infographic_url}
-                          onChange={handleInputChange}
-                          placeholder="https://notebooklm.google.com/notebook/.../artifact/..."
-                        />
-                      </div>
+                      <GoogleDriveUploadWidget
+                        label="Infographic"
+                        fieldName="infographic"
+                        currentUrl={formData.infographic}
+                        onUploadSuccess={(field, url) => setFormData(prev => ({ ...prev, [field]: url }))}
+                      />
+                      <GoogleDriveUploadWidget
+                        label="Slide Deck"
+                        fieldName="slide_deck"
+                        currentUrl={formData.slide_deck}
+                        onUploadSuccess={(field, url) => setFormData(prev => ({ ...prev, [field]: url }))}
+                      />
+                      <GoogleDriveUploadWidget
+                        label="Study Report"
+                        fieldName="study_report"
+                        currentUrl={formData.study_report}
+                        onUploadSuccess={(field, url) => setFormData(prev => ({ ...prev, [field]: url }))}
+                      />
+                      <GoogleDriveUploadWidget
+                        label="Data Table"
+                        fieldName="data_table"
+                        currentUrl={formData.data_table}
+                        onUploadSuccess={(field, url) => setFormData(prev => ({ ...prev, [field]: url }))}
+                      />
                     </div>
                   </div>
 

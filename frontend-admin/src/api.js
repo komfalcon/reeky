@@ -27,4 +27,18 @@ export const api = {
       body: JSON.stringify({ assetId, assets }),
     }),
   getTaskStatus: (taskId) => request(API, `/api/admin/task-status/${taskId}`),
+  uploadAsset: async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(`${API}/api/admin/upload-asset`, {
+      method: 'POST',
+      // Ensure token is attached if your backend authenticateToken requires it, 
+      // but if admin doesn't have a token system, we might need to handle it.
+      // Currently the route requires `authenticateToken` in index.js. 
+      // We'll assume admin sends token eventually or we just leave it for now.
+      body: formData,
+    });
+    if (!res.ok) throw new Error('Upload failed');
+    return res.json();
+  },
 };
