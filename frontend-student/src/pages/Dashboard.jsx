@@ -1084,7 +1084,7 @@ export default function Dashboard() {
                         </div>
                         {(activeData.data_table.includes('drive.google.com') || activeData.data_table.includes('docs.google.com')) ? (
                           <iframe 
-                            src={activeData.data_table.replace(/\/(view|edit|preview).*$/i, '/preview')} 
+                            src={activeData.data_table.includes('spreadsheets') ? activeData.data_table.replace(/\/(view|edit|preview).*$/i, '/htmlembed?widget=false&chrome=false&headers=false') : activeData.data_table.replace(/\/(view|edit|preview).*$/i, '/preview')} 
                             style={{ width: '100%', flex: 1, minHeight: '600px', border: 'none', borderRadius: '12px' }} 
                             title="Data Table"
                           />
