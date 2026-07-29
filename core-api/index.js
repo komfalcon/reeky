@@ -24,9 +24,13 @@ const __dirname = path.dirname(__filename);
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Ensure local uploads directory exists for testing
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
-if (!fs.existsSync(UPLOADS_DIR)) {
-    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+const UPLOADS_DIR = process.env.VERCEL ? '/tmp/uploads' : path.join(__dirname, 'uploads');
+try {
+    if (!fs.existsSync(UPLOADS_DIR)) {
+        fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+    }
+} catch (err) {
+    console.warn("Skipping local uploads dir creation (expected on serverless):", err.message);
 }
 app.use('/uploads', express.static(UPLOADS_DIR));
 
