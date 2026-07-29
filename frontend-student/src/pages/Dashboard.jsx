@@ -615,7 +615,7 @@ export default function Dashboard() {
                           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '2rem' }}>Listen to the study material provided by your instructor.</p>
                           {activeData.podcast_audio.includes('drive.google.com') ? (
                             <iframe 
-                              src={activeData.podcast_audio.replace(/\/view.*$/, '/preview')} 
+                              src={activeData.podcast_audio.replace(/\/(view|edit|preview).*$/i, '/preview')} 
                               style={{ width: '100%', height: '140px', border: 'none', borderRadius: '16px', background: 'transparent' }} 
                               title="Podcast Player"
                             />
@@ -1055,7 +1055,7 @@ export default function Dashboard() {
                       <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                         {activeData.video_overview.includes('drive.google.com') ? (
                           <iframe 
-                            src={activeData.video_overview.replace(/\/view.*$/, '/preview')} 
+                            src={activeData.video_overview.replace(/\/(view|edit|preview).*$/i, '/preview')} 
                             style={{ width: '100%', height: '500px', maxWidth: '800px', border: 'none', borderRadius: '16px', boxShadow: 'var(--card-shadow)' }} 
                             title="Video Player"
                             allow="autoplay"
@@ -1084,7 +1084,7 @@ export default function Dashboard() {
                         </div>
                         {activeData.data_table.includes('drive.google.com') ? (
                           <iframe 
-                            src={activeData.data_table.replace(/\/view.*$/, '/preview')} 
+                            src={activeData.data_table.replace(/\/(view|edit|preview).*$/i, '/preview')} 
                             style={{ width: '100%', flex: 1, minHeight: '600px', border: 'none', borderRadius: '12px' }} 
                             title="Data Table"
                           />
@@ -1106,7 +1106,7 @@ export default function Dashboard() {
                       <div style={{ flex: 1, display: 'flex', justifyContent: 'center', overflow: 'auto', padding: '1rem' }}>
                         {activeData.infographic.includes('drive.google.com') ? (
                           <iframe 
-                            src={activeData.infographic.replace(/\/view.*$/, '/preview')} 
+                            src={activeData.infographic.replace(/\/(view|edit|preview).*$/i, '/preview')} 
                             style={{ width: '100%', height: '600px', border: 'none', borderRadius: '16px', boxShadow: 'var(--card-shadow)' }} 
                             title="Infographic"
                           />
@@ -1135,7 +1135,7 @@ export default function Dashboard() {
                         </div>
                         {activeData.slides.includes('drive.google.com') ? (
                           <iframe 
-                            src={activeData.slides.replace(/\/view.*$/, '/preview')} 
+                            src={activeData.slides.replace(/\/(view|edit|preview).*$/i, '/preview')} 
                             style={{ width: '100%', flex: 1, minHeight: '600px', border: 'none', borderRadius: '12px' }} 
                             title="Slide Deck"
                           />
