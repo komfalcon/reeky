@@ -613,7 +613,7 @@ export default function Dashboard() {
                           <Music size={64} color="var(--primary)" style={{ marginBottom: '2rem' }} />
                           <h4 style={{ fontWeight: 800, fontSize: '1.2rem', marginBottom: '0.5rem' }}>Uploaded Podcast Audio</h4>
                           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '2rem' }}>Listen to the study material provided by your instructor.</p>
-                          {activeData.podcast_audio.includes('drive.google.com') ? (
+                          {(activeData.podcast_audio.includes('drive.google.com') || activeData.podcast_audio.includes('docs.google.com')) ? (
                             <iframe 
                               src={activeData.podcast_audio.replace(/\/(view|edit|preview).*$/i, '/preview')} 
                               style={{ width: '100%', height: '140px', border: 'none', borderRadius: '16px', background: 'transparent' }} 
@@ -1053,7 +1053,7 @@ export default function Dashboard() {
                   {activeAsset === 'video' && (
                     activeData.video_overview ? (
                       <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                        {activeData.video_overview.includes('drive.google.com') ? (
+                        {(activeData.video_overview.includes('drive.google.com') || activeData.video_overview.includes('docs.google.com')) ? (
                           <iframe 
                             src={activeData.video_overview.replace(/\/(view|edit|preview).*$/i, '/preview')} 
                             style={{ width: '100%', height: '500px', maxWidth: '800px', border: 'none', borderRadius: '16px', boxShadow: 'var(--card-shadow)' }} 
@@ -1082,7 +1082,7 @@ export default function Dashboard() {
                             <FileText size={16} /> Open Full View
                           </a>
                         </div>
-                        {activeData.data_table.includes('drive.google.com') ? (
+                        {(activeData.data_table.includes('drive.google.com') || activeData.data_table.includes('docs.google.com')) ? (
                           <iframe 
                             src={activeData.data_table.replace(/\/(view|edit|preview).*$/i, '/preview')} 
                             style={{ width: '100%', flex: 1, minHeight: '600px', border: 'none', borderRadius: '12px' }} 
@@ -1104,7 +1104,7 @@ export default function Dashboard() {
                   {activeAsset === 'infographic' && (
                     activeData.infographic ? (
                       <div style={{ flex: 1, display: 'flex', justifyContent: 'center', overflow: 'auto', padding: '1rem' }}>
-                        {activeData.infographic.includes('drive.google.com') ? (
+                        {(activeData.infographic.includes('drive.google.com') || activeData.infographic.includes('docs.google.com')) ? (
                           <iframe 
                             src={activeData.infographic.replace(/\/(view|edit|preview).*$/i, '/preview')} 
                             style={{ width: '100%', height: '600px', border: 'none', borderRadius: '16px', boxShadow: 'var(--card-shadow)' }} 
@@ -1133,7 +1133,7 @@ export default function Dashboard() {
                             <FileText size={16} /> Open Full View
                           </a>
                         </div>
-                        {activeData.slides.includes('drive.google.com') ? (
+                        {(activeData.slides.includes('drive.google.com') || activeData.slides.includes('docs.google.com')) ? (
                           <iframe 
                             src={activeData.slides.replace(/\/(view|edit|preview).*$/i, '/preview')} 
                             style={{ width: '100%', flex: 1, minHeight: '600px', border: 'none', borderRadius: '12px' }} 
@@ -1214,7 +1214,7 @@ export default function Dashboard() {
                       
                       {activeData.report.startsWith('http') ? (
                         <iframe 
-                          src={activeData.report.includes('drive.google.com') ? activeData.report.replace(/\/view.*$/, '/preview') : activeData.report} 
+                          src={(activeData.report.includes('drive.google.com') || activeData.report.includes('docs.google.com')) ? activeData.report.replace(/\/(view|edit|preview).*$/i, '/preview') : activeData.report} 
                           style={{ width: '100%', flex: 1, minHeight: '500px', border: 'none', borderRadius: '16px', background: '#fff' }} 
                           title="Document Viewer"
                         />
