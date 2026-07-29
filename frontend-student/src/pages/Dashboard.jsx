@@ -1135,8 +1135,8 @@ export default function Dashboard() {
                         </div>
                         {(activeData.slides.includes('drive.google.com') || activeData.slides.includes('docs.google.com')) ? (
                           <iframe 
-                            src={activeData.slides.replace(/\/(view|edit|preview).*$/i, '/preview')} 
-                            style={{ width: '100%', flex: 1, minHeight: '600px', border: 'none', borderRadius: '12px' }} 
+                            src={activeData.slides.replace(/\/(view|edit|preview).*$/i, '/embed?rm=minimal')} 
+                            style={{ width: '100%', flex: 1, minHeight: '600px', border: 'none', borderRadius: '12px', background: '#000' }} 
                             title="Slide Deck"
                           />
                         ) : (
