@@ -237,6 +237,13 @@ h1, h2, h3 {
   animation: spin 1s linear infinite;
 }
 
+.foundry-admin-status-detail { margin: 0.35rem 0 0.65rem; color: var(--text-muted); font-size: 0.72rem; line-height: 1.4; }
+.foundry-admin-status { border: 1px solid currentColor; }
+.foundry-admin-status.queued { background: rgba(196, 134, 75, 0.14); color: #c4864b; }
+.foundry-admin-status.active { background: rgba(79, 120, 168, 0.14); color: #6f9dcc; }
+.foundry-admin-status.ready { background: rgba(75, 139, 107, 0.14); color: #69b88c; }
+.foundry-admin-selected-detail { margin: -0.5rem 0 1rem 0.1rem; color: var(--text-muted); font-size: 0.78rem; }
+
 /* --- MOBILE RESPONSIVENESS --- */
 .mobile-nav {
   display: none;

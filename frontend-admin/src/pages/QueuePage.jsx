@@ -4,9 +4,9 @@ import { Users, FileText, ClipboardCopy, Send, Loader2, CheckCircle2, UploadClou
 import { api } from '../api';
 
 const STATUS_BADGE = {
-  PENDING: { label: 'Pending', color: '#f59e0b' },
-  PROCESSING: { label: 'Processing', color: '#3b82f6' },
-  COMPLETED: { label: 'Completed', color: '#10b981' },
+  PENDING: { label: 'Awaiting review', detail: 'Source is ready for an operator brief.', color: '#c4864b', tone: 'queued' },
+  PROCESSING: { label: 'Shaping kit', detail: 'Instruments are being assembled for the student.', color: '#4f78a8', tone: 'active' },
+  COMPLETED: { label: 'Kit released', detail: 'The learning kit is ready at the student’s bench.', color: '#4b8b6b', tone: 'ready' },
 };
 
 const GoogleDriveUploadWidget = ({ fieldName, label, currentUrl, onUploadSuccess }) => {
@@ -285,7 +285,7 @@ export default function QueuePage() {
           marginBottom: '0.75rem',
           marginTop: statusKey !== 'PENDING' ? '1.5rem' : 0,
         }}>
-          {title} ({items.length})
+          {STATUS_BADGE[statusKey]?.label || title} ({items.length})
         </div>
         {items.map((item) => (
           <div
@@ -294,9 +294,10 @@ export default function QueuePage() {
             onClick={() => handleSelectUser(item)}
           >
             <h3>{statusIcon(item.status)} {item.title || item.id.slice(0, 8)}</h3>
-            <p>Uploaded: {new Date(item.createdAt).toLocaleTimeString()}</p>
+              <p>Submitted: {new Date(item.createdAt).toLocaleTimeString()}</p>
+              <p className="foundry-admin-status-detail">{STATUS_BADGE[item.status]?.detail || 'Source is moving through the Foundry.'}</p>
             <div className="tag-list">
-              <span className="tag">{item.status}</span>
+              <span className={`tag foundry-admin-status ${STATUS_BADGE[item.status]?.tone || ''}`}>{STATUS_BADGE[item.status]?.label || item.status}</span>
             </div>
           </div>
         ))}
@@ -372,8 +373,9 @@ export default function QueuePage() {
                 fontSize: '0.8rem',
                 padding: '0.35rem 0.75rem',
               }}>
-                {statusIcon(selectedUser.status)} {selectedUser.status}
+                {statusIcon(selectedUser.status)} {STATUS_BADGE[selectedUser.status]?.label || selectedUser.status}
               </span>
+              <p className="foundry-admin-selected-detail">{STATUS_BADGE[selectedUser.status]?.detail || 'Source is moving through the Foundry.'}</p>
             </div>
 
             {/* TAILORED PROMPT BOX */}
