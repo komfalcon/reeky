@@ -2064,3 +2064,98 @@ a {
     display: flex;
   }
 }
+
+/* REEKY FORGE — source-to-instrument visual system */
+:root {
+  --forge-ink: #17161c;
+  --forge-copper: #c66a3d;
+  --forge-copper-soft: #f2d4c1;
+  --forge-cobalt: #3159d8;
+  --forge-signal: #78a86b;
+  --forge-paper: #fffaf2;
+}
+
+.hero-section {
+  background:
+    radial-gradient(circle at 78% 18%, rgba(198, 106, 61, 0.13), transparent 28%),
+    radial-gradient(circle at 20% 72%, rgba(49, 89, 216, 0.08), transparent 32%);
+}
+
+.hero-section::before {
+  content: 'SOURCE  /  TRANSFORM  /  USE';
+  position: absolute;
+  top: 118px;
+  right: 4vw;
+  color: var(--forge-copper);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  opacity: 0.75;
+}
+
+.hero-title {
+  max-width: 720px;
+  letter-spacing: -0.055em;
+}
+
+.hero-title span {
+  background: linear-gradient(110deg, var(--forge-copper) 8%, var(--forge-cobalt) 88%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.hero-subtitle {
+  max-width: 590px;
+}
+
+.hero-interactive-dashboard {
+  border-radius: 12px;
+  border-width: 1px !important;
+  background: linear-gradient(var(--forge-paper), var(--forge-paper)) padding-box,
+    linear-gradient(135deg, var(--forge-copper), var(--forge-cobalt), var(--forge-signal)) border-box !important;
+  box-shadow: 18px 24px 0 rgba(23, 22, 28, 0.07), 0 28px 70px rgba(23, 22, 28, 0.18);
+}
+
+.dashboard-base {
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--forge-paper) 92%, var(--card-bg));
+  box-shadow: none;
+}
+
+.dashboard-base::before {
+  content: 'FORGE CYCLE  /  03';
+  position: absolute;
+  top: 1rem;
+  right: 1.25rem;
+  color: var(--forge-copper);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.floating-sub-card {
+  border-radius: 8px;
+  border-color: rgba(23, 22, 28, 0.16);
+  background: rgba(255, 250, 242, 0.95);
+  box-shadow: 8px 12px 0 rgba(23, 22, 28, 0.08), 0 16px 32px rgba(23, 22, 28, 0.12);
+}
+
+.card-doc { border-left: 4px solid var(--forge-copper); }
+.card-podcast { border-left: 4px solid var(--forge-signal); }
+.card-mindmap { border-left: 4px solid var(--forge-cobalt); }
+.card-flashcard { border-left: 4px solid #d6a23c; }
+
+@media (max-width: 768px) {
+  .hero-section::before { top: 92px; right: 1.25rem; font-size: 0.5rem; }
+  .hero-title { font-size: clamp(2.35rem, 11vw, 3.5rem); }
+  .hero-interactive-dashboard { max-width: calc(100vw - 2.5rem); }
+  .floating-sub-card { transform: scale(0.82) !important; }
+  .card-doc { left: -8%; }
+  .card-podcast { right: -8%; }
+  .card-mindmap { right: -3%; }
+  .card-flashcard { left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-interactive-dashboard, .floating-sub-card, .badge span { animation: none !important; transition: none !important; }
+}

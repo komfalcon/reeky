@@ -778,7 +778,7 @@ export default function App() {
               <path d="M12 2L2 22H22L12 2Z" />
               <path d="M20 12L15 22H29L20 12Z" />
             </svg>
-            Reeky Academic Hub
+            REEKY / FORGE
           </div>
 
           <ul className="nav-menu">
@@ -858,18 +858,18 @@ export default function App() {
             </div>
 
             <div className="badge">
-              <span></span> Tailored AI Study Suites
+              <span></span> A learning system, forged from your source
             </div>
             <h1 className="hero-title">
-              Turn Raw PDFs Into <br />
-              <span>Interactive Study Suites</span>
+              Turn one source into <br />
+              <span>your way to learn</span>
             </h1>
             <p className="hero-subtitle">
-              Upload textbook chapters, syllabi, or research papers. Our engine instantly processes your source material into customized study podcasts, adaptive quizzes, slide decks, interactive mindmaps, and study guides.
+              Drop in a textbook chapter, lecture note, or research paper. Reeky forges it into the exact instruments you need to understand, practise, and remember the material.
             </p>
             <div className="hero-buttons">
               <a href="#demo" className="btn btn-primary">
-                Try the Sandbox <Sparkles size={18} />
+                Enter the Forge <Sparkles size={18} />
               </a>
               <button className="btn btn-secondary" onClick={() => { document.getElementById('comparison').scrollIntoView({ behavior: 'smooth'}); }}>
                 How It Works <ChevronRight size={18} />
@@ -1856,7 +1856,7 @@ export default function App() {
         <div className="container">
           <div className="footer-grid">
             <div className="footer-col footer-about">
-              <div className="logo" style={{ marginBottom: '1rem' }}>Reeky Academic Hub</div>
+              <div className="logo" style={{ marginBottom: '1rem' }}>REEKY / FORGE</div>
               <p>An AI-driven educational tool designed to transform static study materials into interactive, auditory, and visual media ecosystems.</p>
             </div>
             <div className="footer-col">
@@ -1878,7 +1878,7 @@ export default function App() {
           </div>
 
           <div className="footer-bottom">
-            <p>&copy; {new Date().getFullYear()} Reeky Academic Hub. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} REEKY / FORGE. All rights reserved.</p>
             <p style={{ display: 'flex', gap: '1rem' }}>
               <span>Made for students</span>
             </p>

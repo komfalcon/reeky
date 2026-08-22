@@ -211,10 +211,10 @@ export default function Dashboard() {
 
       <main className="container dash-main">
         <div className="dash-hero">
-          <h1>Your study library</h1>
+          <div className="forge-kicker">SOURCE → INSTRUMENTS</div>
+          <h1>Your Forge Floor</h1>
           <p>
-            Upload a PDF to queue a study suite. When it is ready, open it here to
-            study with flashcards, quizzes, mindmaps, and more.
+            Place a source on the floor. When the forge completes, open the instruments it created to understand, practise, and remember the material.
           </p>
           <div className="dash-stats">
             <div className="dash-stat">
@@ -238,12 +238,12 @@ export default function Dashboard() {
               style={{ display: 'inline-flex', gap: '0.4rem' }}
             >
               <BookOpen size={18} />
-              New study suite
+              Open a new source
             </button>
           ) : (
             <div className="dash-panel">
               <div className="dash-panel-head">
-                <h2>Create study suite</h2>
+                <h2>Prepare the forge</h2>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowUpload(false)}>
                   Close
                 </button>
@@ -277,7 +277,7 @@ export default function Dashboard() {
             <div className="dash-panel-head">
               <h2>
                 <Library size={18} style={{ verticalAlign: 'middle', marginRight: 6 }} />
-                Library
+                Source shelf
               </h2>
             </div>
             <div className="dash-panel-body">
@@ -337,10 +337,9 @@ export default function Dashboard() {
             {!selected ? (
               <div className="dash-empty" style={{ padding: '4rem 1.5rem' }}>
                 <BookOpen size={48} />
-                <h3>Select a suite to study</h3>
+                <h3>Select a source to begin</h3>
                 <p>
-                  Pick an item from your library. Ready suites open flashcards, quizzes,
-                  mindmaps, and media in this panel.
+                  Choose a source from the shelf. Its forged instruments will appear here when they are ready.
                 </p>
               </div>
             ) : (

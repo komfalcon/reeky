@@ -473,3 +473,108 @@
     font-size: 1.05rem;
   }
 }
+
+/* REEKY FORGE — authenticated Forge Floor */
+.dash-shell {
+  --forge-ink: #17161c;
+  --forge-copper: #c66a3d;
+  --forge-paper: #fffaf2;
+  --forge-cobalt: #3159d8;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 78% 6%, rgba(198, 106, 61, 0.16), transparent 22%),
+    radial-gradient(circle at 8% 60%, rgba(49, 89, 216, 0.16), transparent 24%),
+    var(--forge-ink);
+  color: #f7f1e7;
+}
+
+.dash-header {
+  background: rgba(23, 22, 28, 0.84);
+  border-bottom-color: rgba(255, 250, 242, 0.13);
+}
+
+.dash-brand { color: #fffaf2; letter-spacing: 0.02em; }
+.dash-brand svg path { stroke: var(--forge-copper) !important; }
+.dash-user-chip { color: #f0b18f; }
+.dash-main { padding-top: 2.4rem; }
+
+.dash-hero { position: relative; margin-bottom: 2rem; }
+.dash-hero::after {
+  content: 'FORGE FLOOR / LIVE WORKSPACE';
+  position: absolute;
+  top: 0;
+  right: 0;
+  color: rgba(255, 250, 242, 0.44);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.forge-kicker {
+  color: #e49368;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  margin-bottom: 0.55rem;
+}
+
+.dash-hero h1 { color: #fffaf2; font-size: clamp(2rem, 4vw, 3.25rem); letter-spacing: -0.055em; }
+.dash-hero p { color: rgba(255, 250, 242, 0.68); max-width: 42rem; }
+
+.dash-stat {
+  border: 1px solid rgba(255, 250, 242, 0.15);
+  border-radius: 6px;
+  background: rgba(255, 250, 242, 0.06);
+  color: rgba(255, 250, 242, 0.62);
+}
+.dash-stat strong { color: #fffaf2; }
+
+.dash-panel {
+  border: 1px solid rgba(255, 250, 242, 0.15);
+  border-radius: 10px;
+  background: rgba(255, 250, 242, 0.97);
+  box-shadow: 10px 16px 0 rgba(0, 0, 0, 0.16), 0 24px 55px rgba(0, 0, 0, 0.2);
+}
+
+.dash-panel-head { border-bottom-color: rgba(23, 22, 28, 0.12); }
+.dash-panel-head h2, .study-top h2, .dash-empty h3 { color: var(--forge-ink); }
+.dash-panel-body, .study-top, .study-body { color: var(--forge-ink); }
+
+.suite-card {
+  border-radius: 6px;
+  border-color: rgba(23, 22, 28, 0.14);
+  background: rgba(255, 250, 242, 0.66);
+}
+.suite-card:hover { border-color: var(--forge-cobalt); background: rgba(49, 89, 216, 0.07); transform: translateX(3px); }
+.suite-card.active { border-color: var(--forge-copper); background: rgba(198, 106, 61, 0.1); box-shadow: inset 4px 0 0 var(--forge-copper); }
+.suite-chip { border-radius: 4px; background: rgba(49, 89, 216, 0.1); color: var(--forge-cobalt); }
+.suite-chip.muted { background: rgba(23, 22, 28, 0.07); }
+
+.study-workspace { position: relative; }
+.study-workspace::before {
+  content: 'INSTRUMENT RACK';
+  position: absolute;
+  right: 1.25rem;
+  top: 1.15rem;
+  color: var(--forge-copper);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  pointer-events: none;
+}
+.study-top { padding-right: 11rem; }
+.study-tabs { border-top: 1px solid rgba(23, 22, 28, 0.1); padding-top: 0.75rem; }
+.study-tab { border-radius: 5px; }
+.study-tab.active { background: var(--forge-cobalt); border-color: var(--forge-cobalt); }
+
+.dash-upload-wrap .btn-primary { background: var(--forge-copper); border-color: var(--forge-copper); box-shadow: 4px 4px 0 rgba(23, 22, 28, 0.22); }
+.dash-upload-wrap .btn-primary:hover { background: #a9532c; }
+
+@media (max-width: 640px) {
+  .dash-main { padding-top: 1.4rem; }
+  .dash-hero::after { position: static; display: block; margin-top: 1rem; }
+  .dash-panel { border-radius: 8px; }
+  .study-workspace::before { position: static; display: block; padding: 1rem 1.25rem 0; }
+  .study-top { padding-right: 1.25rem; }
+  .dash-header-actions .btn { padding-inline: 0.65rem; }
+}
