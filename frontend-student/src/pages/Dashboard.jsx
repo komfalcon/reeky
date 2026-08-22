@@ -328,8 +328,9 @@ export default function Dashboard() {
           <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.25rem', marginBottom: '1rem', color: 'var(--primary)' }}>
             Commission a learning kit
           </h3>
+          <p className="foundry-commission-copy">Begin with the source. We’ll shape it into a small set of instruments built for the way you want to study.</p>
 
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+          <div className="foundry-source-switcher" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
             <button
               className={uploadMode === 'file' ? 'btn btn-primary' : 'btn btn-secondary'}
               style={{ fontSize: '0.85rem', padding: '0.4rem 1.25rem' }}
@@ -352,6 +353,7 @@ export default function Dashboard() {
               {showGenerationOptions ? 'Hide Custom Options' : 'Configure Formats & Topics'}
             </button>
           </div>
+          <div className="foundry-commission-note"><span>COMMISSION STEP {uploadMode === 'file' ? '01' : '02'}</span><strong>{uploadMode === 'file' ? 'Bring a source from your device' : 'Point us to a published PDF'}</strong></div>
 
           {/* Selective Options Dropdown Drawer */}
           {showGenerationOptions && (

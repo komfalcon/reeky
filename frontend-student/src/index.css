@@ -2310,3 +2310,15 @@ a {
   .foundry-dashboard-intro h1 { font-size: clamp(2.1rem, 11vw, 3.2rem); }
   .foundry-intro-index { display: none; }
 }
+.foundry-commission-copy { max-width: 38rem; margin: -0.35rem 0 1.35rem; color: var(--text-muted); font-size: 0.9rem; line-height: 1.55; }
+.foundry-source-switcher { align-items: center; flex-wrap: wrap; padding-bottom: 1rem; border-bottom: 1px solid var(--divider); }
+.foundry-source-switcher .btn { border-radius: 999px; }
+.foundry-commission-note { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin: -0.35rem 0 1.25rem; color: var(--text-muted); }
+.foundry-commission-note span { color: var(--primary); font-size: 0.61rem; font-weight: 900; letter-spacing: 0.14em; }
+.foundry-commission-note strong { font-family: var(--font-heading); font-size: 0.96rem; letter-spacing: -0.02em; }
+@media (max-width: 640px) {
+  .foundry-source-switcher { align-items: stretch; }
+  .foundry-source-switcher .btn { flex: 1 1 auto; }
+  .foundry-source-switcher .btn:last-child { flex-basis: 100%; margin-left: 0 !important; }
+  .foundry-commission-note { align-items: flex-start; flex-direction: column; gap: 0.25rem; }
+}
