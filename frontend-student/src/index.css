@@ -2287,3 +2287,26 @@ a {
   .foundry-public .stat-item { padding-right: 1rem; }
   .foundry-public .hero-visual { min-height: 330px; transform: scale(0.88); transform-origin: center top; margin-bottom: -2rem; }
 }
+
+.foundry-dashboard-intro {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 0 0 2rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(246, 241, 232, 0.16);
+}
+.foundry-eyebrow { display: block; margin-bottom: 0.75rem; color: #e6a07a; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.2em; }
+.foundry-dashboard-intro h1 { max-width: 18ch; color: #f6f1e8; font-family: var(--font-heading); font-size: clamp(2rem, 4vw, 3.75rem); line-height: 0.98; letter-spacing: -0.065em; }
+.foundry-dashboard-intro p { max-width: 34rem; margin-top: 0.8rem; color: rgba(246, 241, 232, 0.62); font-size: 0.9rem; line-height: 1.6; }
+.foundry-intro-index { display: flex; align-items: flex-end; gap: 0.65rem; padding-bottom: 0.35rem; color: rgba(246, 241, 232, 0.45); font-size: 0.6rem; font-weight: 800; letter-spacing: 0.16em; }
+.foundry-intro-index strong { color: #c66a3d; font-family: var(--font-heading); font-size: 3.6rem; line-height: 0.8; letter-spacing: -0.08em; }
+.foundry-source-panel > h3 { font-size: 1.45rem !important; }
+.foundry-source-panel > h3::before { content: '01 / '; color: #c66a3d; font-size: 0.66rem; letter-spacing: 0.14em; vertical-align: middle; }
+
+@media (max-width: 640px) {
+  .foundry-dashboard-intro { align-items: flex-start; padding-bottom: 1.5rem; }
+  .foundry-dashboard-intro h1 { font-size: clamp(2.1rem, 11vw, 3.2rem); }
+  .foundry-intro-index { display: none; }
+}

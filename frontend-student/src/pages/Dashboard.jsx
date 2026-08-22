@@ -314,7 +314,15 @@ export default function Dashboard() {
       </header>
 
       <div className="container foundry-main" style={{ paddingTop: '2.5rem', paddingBottom: '5rem' }}>
-        
+        <div className="foundry-dashboard-intro">
+          <div>
+            <span className="foundry-eyebrow">STUDENT WORKSPACE / SOURCE DESK</span>
+            <h1>Build a learning kit from the material in front of you.</h1>
+            <p>Submit one source, choose the instruments you need, and return here when the kit is ready to study.</p>
+          </div>
+          <div className="foundry-intro-index"><span>REEKY</span><strong>02</strong></div>
+        </div>
+
         {/* Upload & Preference Form */}
         <div className="dashboard-card foundry-source-panel" style={{ marginBottom: '2rem', padding: '2rem' }}>
           <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.25rem', marginBottom: '1rem', color: 'var(--primary)' }}>
