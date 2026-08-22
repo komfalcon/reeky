@@ -840,18 +840,18 @@ export default function App() {
             </div>
 
             <div className="badge">
-              <span></span> Tailored AI Study Suites
+              <span></span> A learning kit, forged from your source
             </div>
             <h1 className="hero-title">
-              Turn Raw PDFs Into <br />
-              <span>Interactive Study Suites</span>
+              Turn one source into <br />
+              <span>your way to learn</span>
             </h1>
             <p className="hero-subtitle">
-              Upload textbook chapters, syllabi, or research papers. Our engine instantly processes your source material into customized study podcasts, adaptive quizzes, slide decks, interactive mindmaps, and study guides.
+              Bring a textbook chapter, lecture note, or research paper. Reeky shapes it into the exact instruments you need to understand, practise, and remember the material.
             </p>
             <div className="hero-buttons">
               <a href="#demo" className="btn btn-primary">
-                Try the Sandbox <Sparkles size={18} />
+                Enter the Foundry <Sparkles size={18} />
               </a>
               <button className="btn btn-secondary" onClick={() => { document.getElementById('comparison').scrollIntoView({ behavior: 'smooth'}); }}>
                 How It Works <ChevronRight size={18} />
@@ -1797,21 +1797,21 @@ export default function App() {
               <div className="pipeline-step">
                 <div className="step-num">1</div>
                 <div className="step-content">
-                  <h3>Document Upload</h3>
+                  <h3>Submit your source</h3>
                   <p>Drop your lecture notes, textbook chapters, or academic papers into the platform. We support standard formats including PDF, DOCX, and plain text.</p>
                 </div>
               </div>
               <div className="pipeline-step">
                 <div className="step-num">2</div>
                 <div className="step-content">
-                  <h3>Tailored Generation</h3>
+                  <h3>Shape your kit</h3>
                   <p>Set custom learning preferences (e.g. "Focus on equations", "Explain in simple terms"). The engine parses headings, extracts context, and generates 8 study assets.</p>
                 </div>
               </div>
               <div className="pipeline-step">
                 <div className="step-num">3</div>
                 <div className="step-content">
-                  <h3>Interactive Portal</h3>
+                  <h3>Open your instruments</h3>
                   <p>Access your personal learning ecosystem. Flip flashcards, take quizzes, print slides, or listen to the AI-generated study podcast on your mobile device.</p>
                 </div>
               </div>

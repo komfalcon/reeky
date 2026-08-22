@@ -290,9 +290,9 @@ export default function Dashboard() {
   if (!isAuthenticated) return null;
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+    <div className="foundry-dashboard" style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       {/* Mini Navbar */}
-      <header className="navbar" style={{ position: 'sticky' }}>
+      <header className="navbar foundry-header" style={{ position: 'sticky' }}>
         <div className="container nav-container">
           <Link to="/" className="logo" style={{ textDecoration: 'none' }}>
             <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
@@ -313,12 +313,12 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <div className="container" style={{ paddingTop: '2.5rem', paddingBottom: '5rem' }}>
+      <div className="container foundry-main" style={{ paddingTop: '2.5rem', paddingBottom: '5rem' }}>
         
         {/* Upload & Preference Form */}
-        <div className="dashboard-card" style={{ marginBottom: '2rem', padding: '2rem' }}>
+        <div className="dashboard-card foundry-source-panel" style={{ marginBottom: '2rem', padding: '2rem' }}>
           <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.25rem', marginBottom: '1rem', color: 'var(--primary)' }}>
-            Start A New Chapter
+            Commission a learning kit
           </h3>
 
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
@@ -450,13 +450,13 @@ export default function Dashboard() {
         </div>
 
         {/* Assets Overview Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 3.2fr', gap: '2rem' }}>
+        <div className="foundry-workbench" style={{ display: 'grid', gridTemplateColumns: '1fr 3.2fr', gap: '2rem' }}>
           
           {/* Sidebar selector */}
           <div>
-            <div className="dashboard-card" style={{ padding: '1.25rem', minHeight: '400px' }}>
+            <div className="dashboard-card foundry-source-desk" style={{ padding: '1.25rem', minHeight: '400px' }}>
               <h4 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '0.95rem', marginBottom: '1rem', borderBottom: '1px solid var(--divider)', paddingBottom: '0.5rem' }}>
-                Study Cabinets
+                Source Desk
               </h4>
 
               {fetchingAssets && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading...</p>}
@@ -538,16 +538,16 @@ export default function Dashboard() {
               <div className="dashboard-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px', textAlign: 'center', opacity: 0.8 }}>
                 <Sparkles size={48} style={{ color: 'var(--primary)', marginBottom: '1rem' }} />
                 <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.25rem', marginBottom: '0.5rem' }}>
-                  Open A Study Cabinet
+                  Open a learning kit
                 </h3>
                 <p style={{ color: 'var(--text-muted)', maxWidth: '340px', fontSize: '0.85rem', lineHeight: 1.5 }}>
-                  Select one of your completed documents in the left cabinet to load your custom interactive flashcards, quizzes, podcasts, and mindmaps.
+                  Select a completed source from the desk to open its forged instruments: flashcards, quizzes, podcasts, mindmaps, and more.
                 </p>
               </div>
             )}
 
             {selectedAsset && activeData && (
-              <div className="dashboard-card" style={{ padding: '0', overflow: 'hidden', minHeight: '520px', display: 'flex', flexDirection: 'column' }}>
+              <div className="dashboard-card foundry-kit-bench" style={{ padding: '0', overflow: 'hidden', minHeight: '520px', display: 'flex', flexDirection: 'column' }}>
                 
                 {/* Header Sandbox Bar */}
                 <div style={{

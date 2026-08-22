@@ -2059,3 +2059,88 @@ a {
     display: flex;
   }
 }
+
+/* REEKY FOUNDRY — branch-adapted student workspace */
+.foundry-dashboard {
+  --foundry-ink: #17161c;
+  --foundry-paper: #fffaf2;
+  --foundry-copper: #c66a3d;
+  --foundry-cobalt: #3159d8;
+  --foundry-green: #4f8b67;
+  background:
+    radial-gradient(circle at 80% 4%, rgba(198, 106, 61, 0.14), transparent 24%),
+    radial-gradient(circle at 10% 70%, rgba(49, 89, 216, 0.14), transparent 26%),
+    var(--foundry-ink) !important;
+  color: var(--foundry-paper);
+}
+
+.foundry-header {
+  background: rgba(23, 22, 28, 0.88) !important;
+  border-bottom-color: rgba(255, 250, 242, 0.13) !important;
+}
+.foundry-header .logo { color: var(--foundry-paper); }
+.foundry-header .logo svg path { stroke: var(--foundry-copper) !important; }
+.foundry-header .btn-secondary { background: rgba(255, 250, 242, 0.08); border-color: rgba(255, 250, 242, 0.18); color: var(--foundry-paper); }
+.foundry-main { padding-top: 2.4rem !important; }
+.foundry-main > .dashboard-card { border-radius: 10px; }
+.foundry-main > .dashboard-card:first-child { border-top: 4px solid var(--foundry-copper); }
+.foundry-main h3 { color: var(--foundry-ink) !important; letter-spacing: -0.025em; }
+
+.foundry-source-panel { position: relative; overflow: hidden; }
+.foundry-source-panel::after {
+  content: 'SUBMIT  /  SHAPE  /  RECEIVE';
+  position: absolute;
+  right: 2rem;
+  top: 2rem;
+  color: rgba(23, 22, 28, 0.42);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+.foundry-source-panel .btn-primary { background: var(--foundry-copper); border-color: var(--foundry-copper); }
+.foundry-source-panel .btn-primary:hover { background: #a9532c; }
+.foundry-source-panel .auth-input { border-radius: 6px; border-color: rgba(23, 22, 28, 0.18); }
+.foundry-source-panel [style*='border: 2px dashed'] { border-radius: 8px !important; background: rgba(198, 106, 61, 0.045) !important; }
+
+.foundry-workbench { align-items: start; }
+.foundry-source-desk, .foundry-kit-bench { border-radius: 10px !important; overflow: hidden; }
+.foundry-source-desk { border-top: 4px solid var(--foundry-cobalt); }
+.foundry-kit-bench { border-top: 4px solid var(--foundry-green); }
+.foundry-source-desk h4::before { content: '01  '; color: var(--foundry-cobalt); font-size: 0.65rem; letter-spacing: 0.1em; }
+.foundry-kit-bench h3::before { content: 'KIT /  '; color: var(--foundry-green); font-size: 0.62rem; letter-spacing: 0.12em; }
+.foundry-workbench .dashboard-card { box-shadow: 8px 12px 0 rgba(0, 0, 0, 0.18), 0 20px 42px rgba(0, 0, 0, 0.18); }
+.foundry-workbench .sample-badge { border-radius: 6px !important; }
+.foundry-workbench .sample-badge:hover { transform: translateX(3px); }
+
+@media (max-width: 840px) {
+  .foundry-source-panel::after { position: static; display: block; margin: 1rem 0 -0.25rem; }
+  .foundry-workbench { grid-template-columns: 1fr !important; gap: 1rem !important; }
+  .foundry-source-desk { min-height: auto !important; }
+  .foundry-kit-bench { min-height: 420px !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .foundry-workbench .sample-badge { transition: none !important; }
+}
+
+/* Foundry public landing layer */
+.badge {
+  border-radius: 4px !important;
+  border-color: rgba(198, 106, 61, 0.42) !important;
+  background: rgba(198, 106, 61, 0.1) !important;
+  color: #d98a63 !important;
+  letter-spacing: 0.03em;
+}
+.hero-title span { color: #d47c54 !important; }
+.hero-subtitle { max-width: 38rem; }
+.hero-buttons .btn-primary { background: #c66a3d !important; border-color: #c66a3d !important; box-shadow: 4px 4px 0 rgba(23, 22, 28, 0.32); }
+.hero-buttons .btn-primary:hover { background: #a9532c !important; }
+.pipeline-step .step-num { background: #c66a3d !important; color: #fffaf2 !important; }
+.pipeline-step:nth-child(2) .step-num { background: #3159d8 !important; }
+.pipeline-step:nth-child(3) .step-num { background: #4f8b67 !important; }
+
+@media (max-width: 700px) {
+  .hero-title { font-size: clamp(2.2rem, 12vw, 3.8rem) !important; line-height: 0.98 !important; }
+  .hero-subtitle { font-size: 0.95rem !important; }
+  .hero-buttons { flex-wrap: wrap; }
+}
