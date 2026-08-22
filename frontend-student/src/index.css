@@ -2144,3 +2144,39 @@ a {
   .hero-subtitle { font-size: 0.95rem !important; }
   .hero-buttons { flex-wrap: wrap; }
 }
+
+.foundry-stage-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  margin: -0.9rem 0 2rem;
+  border: 1px solid rgba(255, 250, 242, 0.16);
+  background: rgba(255, 250, 242, 0.06);
+  overflow: hidden;
+}
+.foundry-stage {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-height: 78px;
+  padding: 1rem;
+  color: rgba(255, 250, 242, 0.48);
+  border-right: 1px solid rgba(255, 250, 242, 0.12);
+}
+.foundry-stage:last-child { border-right: 0; }
+.foundry-stage-number { color: rgba(255, 250, 242, 0.38); font-size: 0.62rem; font-weight: 800; letter-spacing: 0.12em; }
+.foundry-stage strong { display: block; color: rgba(255, 250, 242, 0.66); font-size: 0.78rem; margin-bottom: 0.25rem; }
+.foundry-stage small { display: block; color: rgba(255, 250, 242, 0.44); font-size: 0.68rem; line-height: 1.35; }
+.foundry-stage.complete { background: rgba(79, 139, 103, 0.12); }
+.foundry-stage.complete .foundry-stage-number, .foundry-stage.complete strong { color: #8bc49b; }
+.foundry-stage.active { background: rgba(198, 106, 61, 0.14); }
+.foundry-stage.active .foundry-stage-number, .foundry-stage.active strong { color: #e49368; }
+.foundry-stage.ready { background: rgba(49, 89, 216, 0.14); }
+.foundry-stage.ready .foundry-stage-number, .foundry-stage.ready strong { color: #91a9ff; }
+
+@media (max-width: 700px) {
+  .foundry-stage-strip { grid-template-columns: 1fr; margin-top: -0.5rem; }
+  .foundry-stage { min-height: auto; border-right: 0; border-bottom: 1px solid rgba(255, 250, 242, 0.12); }
+  .foundry-stage:last-child { border-bottom: 0; }
+}

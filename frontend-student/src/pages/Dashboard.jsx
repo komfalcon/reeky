@@ -449,6 +449,21 @@ export default function Dashboard() {
           )}
         </div>
 
+        <div className="foundry-stage-strip" aria-label="Learning kit production status">
+          <div className="foundry-stage complete">
+            <span className="foundry-stage-number">01</span>
+            <div><strong>Source submitted</strong><small>{userAssets.length ? `${userAssets.length} source${userAssets.length === 1 ? '' : 's'} on desk` : 'Waiting for your first source'}</small></div>
+          </div>
+          <div className={`foundry-stage ${pendingAssets.length ? 'active' : userAssets.length ? 'complete' : ''}`}>
+            <span className="foundry-stage-number">02</span>
+            <div><strong>Kit in production</strong><small>{pendingAssets.length ? `${pendingAssets.length} bundle${pendingAssets.length === 1 ? '' : 's'} being shaped` : 'No active production queue'}</small></div>
+          </div>
+          <div className={`foundry-stage ${completedAssets.length ? 'ready' : ''}`}>
+            <span className="foundry-stage-number">03</span>
+            <div><strong>Instruments ready</strong><small>{completedAssets.length ? `${completedAssets.length} learning kit${completedAssets.length === 1 ? '' : 's'} ready to open` : 'Complete kits appear here'}</small></div>
+          </div>
+        </div>
+
         {/* Assets Overview Grid */}
         <div className="foundry-workbench" style={{ display: 'grid', gridTemplateColumns: '1fr 3.2fr', gap: '2rem' }}>
           
