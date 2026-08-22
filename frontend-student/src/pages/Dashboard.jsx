@@ -582,29 +582,33 @@ export default function Dashboard() {
                     </p>
                   </div>
 
-                  {/* Tab Selector Toolbar */}
-                  <div style={{ display: 'flex', gap: '0.35rem' }}>
+                  {/* Purpose-led instrument bench */}
+                  <div className="foundry-instrument-grid" aria-label="Learning instruments">
                     {[
-                      { id: 'podcast', label: 'Podcast', icon: <Music size={14} /> },
-                      { id: 'flashcards', label: 'Flashcards', icon: <Layers size={14} /> },
-                      { id: 'quiz', label: 'Quiz', icon: <HelpCircle size={14} /> },
-                      { id: 'mindmap', label: 'Mindmap', icon: <Network size={14} /> },
-                      { id: 'slides', label: 'Slides', icon: <Compass size={14} /> },
-                      { id: 'report', label: 'Summary', icon: <FileText size={14} /> },
-                      { id: 'video', label: 'Video', icon: <Video size={14} /> },
-                      { id: 'infographic', label: 'Infographics', icon: <Image size={14} /> },
-                      { id: 'data_table', label: 'Data Table', icon: <Table size={14} /> }
+                      { id: 'podcast', label: 'Listen', technical: 'Podcast', purpose: 'Absorb the source on the move', icon: <Music size={15} />, ready: Boolean(activeData.podcast_audio || activeData.transcript?.length) },
+                      { id: 'flashcards', label: 'Recall', technical: 'Flashcards', purpose: 'Retrieve the key ideas', icon: <Layers size={15} />, ready: activeData.flashcards.length > 0 },
+                      { id: 'quiz', label: 'Test', technical: 'Quiz', purpose: 'Expose what needs work', icon: <HelpCircle size={15} />, ready: activeData.quiz.length > 0 },
+                      { id: 'mindmap', label: 'Map', technical: 'Mindmap', purpose: 'See the relationships', icon: <Network size={15} />, ready: Boolean(activeData.mindmapRaw) },
+                      { id: 'slides', label: 'Present', technical: 'Slides', purpose: 'Turn ideas into a deck', icon: <Compass size={15} />, ready: activeData.slides.length > 0 || typeof activeData.slides === 'string' },
+                      { id: 'report', label: 'Read', technical: 'Summary', purpose: 'Follow the full explanation', icon: <FileText size={15} />, ready: Boolean(activeData.report) },
+                      { id: 'video', label: 'Watch', technical: 'Video', purpose: 'Follow a visual walkthrough', icon: <Video size={15} />, ready: Boolean(activeData.video_overview) },
+                      { id: 'infographic', label: 'Scan', technical: 'Infographic', purpose: 'See the fast visual brief', icon: <Image size={15} />, ready: Boolean(activeData.infographic) },
+                      { id: 'data_table', label: 'Compare', technical: 'Data table', purpose: 'Inspect facts side by side', icon: <Table size={15} />, ready: Boolean(activeData.data_table) }
                     ].map(tab => (
                       <button
                         key={tab.id}
-                        className={activeAsset === tab.id ? 'btn btn-primary' : 'btn btn-secondary'}
-                        style={{ fontSize: '0.75rem', padding: '0.35rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.25rem', borderRadius: '8px' }}
+                        type="button"
+                        disabled={!tab.ready}
+                        className={`foundry-instrument ${activeAsset === tab.id ? 'active' : ''} ${tab.ready ? 'ready' : 'unavailable'}`}
                         onClick={() => {
+                          if (!tab.ready) return;
                           setActiveAsset(tab.id);
-                          setAudioPlaying(false); // Pause podcast simulation on switch
+                          setAudioPlaying(false);
                         }}
                       >
-                        {tab.icon} {tab.label}
+                        <span className="foundry-instrument-icon">{tab.icon}</span>
+                        <span className="foundry-instrument-copy"><strong>{tab.label}</strong><small>{tab.purpose}</small></span>
+                        <span className="foundry-instrument-meta">{tab.ready ? tab.technical : 'Queued'}</span>
                       </button>
                     ))}
                   </div>
