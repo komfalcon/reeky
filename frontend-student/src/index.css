@@ -2322,3 +2322,17 @@ a {
   .foundry-source-switcher .btn:last-child { flex-basis: 100%; margin-left: 0 !important; }
   .foundry-commission-note { align-items: flex-start; flex-direction: column; gap: 0.25rem; }
 }
+.foundry-source-desk [class*="sample-badge"] { position: relative; flex-wrap: wrap; }
+.foundry-processing-mark { display: inline-grid; width: 1.4rem; height: 1.4rem; place-items: center; flex: 0 0 auto; border: 1px solid rgba(198, 106, 61, 0.35); border-radius: 50%; color: var(--forge-copper, #c66a3d); font-size: 0.7rem; }
+.foundry-processing-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.foundry-status-pill { margin-left: auto; padding: 0.22rem 0.45rem; border: 1px solid currentColor; border-radius: 999px; font-size: 0.58rem; font-weight: 900; letter-spacing: 0.04em; white-space: nowrap; }
+.foundry-status-pill.queued { color: #8b6b4d; }
+.foundry-status-pill.active { color: #b45e36; animation: foundryStatusPulse 2s ease-in-out infinite; }
+.foundry-status-pill.ready { color: #35745b; }
+.foundry-status-pill.error { color: #a84444; }
+.foundry-status-detail { flex-basis: 100%; padding-left: 2rem; color: var(--text-muted); font-size: 0.64rem; line-height: 1.35; }
+@keyframes foundryStatusPulse { 50% { opacity: 0.55; } }
+@media (max-width: 640px) {
+  .foundry-status-pill { margin-left: 0; }
+  .foundry-status-detail { padding-left: 0; }
+}

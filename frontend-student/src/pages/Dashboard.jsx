@@ -225,6 +225,13 @@ export default function Dashboard() {
 
   const completedAssets = userAssets.filter(a => a.status === 'COMPLETED');
   const pendingAssets = userAssets.filter(a => a.status !== 'COMPLETED');
+  const getProductionStatus = (status) => {
+    const normalized = String(status || '').toUpperCase();
+    if (normalized.includes('FAIL')) return { label: 'Needs attention', detail: 'The Foundry could not finish this kit.', tone: 'error' };
+    if (normalized.includes('PROCESS')) return { label: 'Shaping instruments', detail: 'The source is being turned into study tools.', tone: 'active' };
+    if (normalized.includes('COMPLETE')) return { label: 'Ready to study', detail: 'Your instruments are ready at the Kit Bench.', tone: 'ready' };
+    return { label: 'Queued at the Foundry', detail: 'Your source is safely in line for production.', tone: 'queued' };
+  };
 
   const buildActiveData = (asset) => {
     if (!asset || !asset.assets) return null;
@@ -466,7 +473,7 @@ export default function Dashboard() {
           </div>
           <div className={`foundry-stage ${pendingAssets.length ? 'active' : userAssets.length ? 'complete' : ''}`}>
             <span className="foundry-stage-number">02</span>
-            <div><strong>Kit in production</strong><small>{pendingAssets.length ? `${pendingAssets.length} bundle${pendingAssets.length === 1 ? '' : 's'} being shaped` : 'No active production queue'}</small></div>
+            <div><strong>Kit in production</strong><small>{pendingAssets.length ? `${pendingAssets.length} bundle${pendingAssets.length === 1 ? '' : 's'} moving through the Foundry` : 'No active production queue'}</small></div>
           </div>
           <div className={`foundry-stage ${completedAssets.length ? 'ready' : ''}`}>
             <span className="foundry-stage-number">03</span>
@@ -545,11 +552,13 @@ export default function Dashboard() {
                         padding: '0.6rem 0.8rem',
                         borderRadius: '12px'
                       }}
-                    >
-                      ⏳ {asset.title.length > 18 ? asset.title.slice(0, 18) + '...' : asset.title}
-                      <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: 'var(--primary)' }}>
-                        {asset.status}
+                      >
+                      <span className="foundry-processing-mark">{getProductionStatus(asset.status).tone === 'error' ? '!' : '⏳'}</span>
+                      <span className="foundry-processing-title">{asset.title.length > 18 ? asset.title.slice(0, 18) + '...' : asset.title}</span>
+                      <span className={`foundry-status-pill ${getProductionStatus(asset.status).tone}`}>
+                        {getProductionStatus(asset.status).label}
                       </span>
+                      <span className="foundry-status-detail">{getProductionStatus(asset.status).detail}</span>
                     </div>
                   ))}
                 </div>
