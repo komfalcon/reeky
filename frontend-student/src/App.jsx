@@ -712,7 +712,7 @@ export default function App() {
   };
 
   return (
-    <div style={{ position: 'relative', minHeight: '100vh' }}>
+    <div className="foundry-public" style={{ position: 'relative', minHeight: '100vh' }}>
       {/* CANVAS NEURAL PARTICLES BACKDROP */}
       <canvas ref={canvasRef} className="canvas-backdrop" />
 

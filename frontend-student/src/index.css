@@ -2221,3 +2221,69 @@ a {
   .foundry-instrument-grid { grid-template-columns: 1fr; }
   .foundry-instrument { min-height: 60px; }
 }
+
+/* REEKY FOUNDRY — full public redesign */
+.foundry-public {
+  --forge-night: #07111f;
+  --forge-night-2: #0d1b2d;
+  --forge-paper: #f6f1e8;
+  --forge-paper-2: #fffaf2;
+  --forge-copper: #c66a3d;
+  --forge-copper-light: #e6a07a;
+  --forge-blue: #78a8ff;
+  --forge-line: rgba(246, 241, 232, 0.14);
+  background: var(--forge-night) !important;
+  color: var(--forge-paper);
+}
+.foundry-public .navbar {
+  background: rgba(7, 17, 31, 0.86) !important;
+  border-bottom: 1px solid var(--forge-line) !important;
+}
+.foundry-public .logo { color: var(--forge-paper); background: none; -webkit-text-fill-color: initial; }
+.foundry-public .logo svg { stroke: var(--forge-copper); }
+.foundry-public .nav-link { color: rgba(246, 241, 232, 0.66); }
+.foundry-public .nav-link:hover, .foundry-public .nav-link.active { color: var(--forge-copper-light); }
+.foundry-public .nav-link::after { background: var(--forge-copper); }
+.foundry-public .nav-actions .btn-secondary { color: var(--forge-paper); background: rgba(246, 241, 232, 0.06); border-color: var(--forge-line); }
+.foundry-public .hero-section { position: relative; padding: 9.5rem 0 6.5rem; background: radial-gradient(circle at 80% 20%, rgba(49, 89, 216, 0.18), transparent 28%), linear-gradient(180deg, rgba(255,255,255,0.02), transparent 65%); }
+.foundry-public .hero-section::before { content: 'REEKY / FOUNDRY / 01'; position: absolute; top: 7.5rem; left: max(1.5rem, calc((100vw - 1280px) / 2)); color: rgba(230, 160, 122, 0.65); font-size: 0.62rem; font-weight: 800; letter-spacing: 0.22em; }
+.foundry-public .hero-grid { align-items: center; gap: clamp(3rem, 8vw, 8rem); }
+.foundry-public .badge { border-radius: 3px !important; border: 1px solid rgba(230, 160, 122, 0.4) !important; background: rgba(198, 106, 61, 0.12) !important; color: var(--forge-copper-light) !important; letter-spacing: 0.04em; }
+.foundry-public .hero-title { max-width: 14ch; color: var(--forge-paper); font-size: clamp(3.2rem, 6.5vw, 6.2rem); line-height: 0.91; letter-spacing: -0.075em; }
+.foundry-public .hero-title span { color: var(--forge-copper-light) !important; }
+.foundry-public .hero-subtitle { max-width: 34rem; color: rgba(246, 241, 232, 0.67); line-height: 1.7; }
+.foundry-public .hero-buttons .btn-primary { border-radius: 3px; background: var(--forge-copper) !important; border-color: var(--forge-copper) !important; box-shadow: 5px 5px 0 rgba(0,0,0,0.35); }
+.foundry-public .hero-buttons .btn-secondary { border-radius: 3px; color: var(--forge-paper); background: transparent; border-color: var(--forge-line); }
+.foundry-public .hero-stats { border-top: 1px solid var(--forge-line); padding-top: 1.3rem; }
+.foundry-public .stat-item { border-right: 1px solid var(--forge-line); padding-right: 2.2rem; }
+.foundry-public .stat-item:last-child { border-right: 0; }
+.foundry-public .stat-item h3 { color: var(--forge-copper-light); }
+.foundry-public .stat-item p { color: rgba(246, 241, 232, 0.52); }
+.foundry-public .hero-visual { min-height: 540px; display: grid; place-items: center; perspective: 1400px; }
+.foundry-public .hero-interactive-dashboard { border: 1px solid rgba(230, 160, 122, 0.4); border-radius: 2px; background: linear-gradient(145deg, #18283c, #0c1727); box-shadow: 22px 28px 0 rgba(0,0,0,0.22), 0 35px 70px rgba(0,0,0,0.35); }
+.foundry-public .dashboard-base { border: 1px solid rgba(246, 241, 232, 0.16); background: rgba(246, 241, 232, 0.06); }
+.foundry-public .floating-sub-card { border-radius: 2px; border-color: rgba(246, 241, 232, 0.2); background: var(--forge-paper-2); box-shadow: 7px 9px 0 rgba(0,0,0,0.2); }
+.foundry-public .floating-sub-card p { color: #667085; }
+.foundry-public .split-slider-section, .foundry-public .features-section, .foundry-public .demo-section, .foundry-public .pipeline-section { background: var(--forge-paper); color: #182334; }
+.foundry-public .section-title h2 { letter-spacing: -0.06em; }
+.foundry-public .section-title h2 span { color: var(--forge-copper); }
+.foundry-public .feature-card, .foundry-public .bento-card, .foundry-public .demo-sandbox { border-radius: 3px; box-shadow: 8px 10px 0 rgba(7, 17, 31, 0.08); }
+.foundry-public .bento-card:hover, .foundry-public .feature-card:hover { transform: translateY(-4px); }
+.foundry-public .pipeline-step { border-left-color: var(--forge-copper); }
+.foundry-public .step-num { background: var(--forge-copper) !important; }
+.foundry-public .footer { background: var(--forge-night); border-top-color: var(--forge-line); }
+
+@media (max-width: 900px) {
+  .foundry-public .hero-section { padding-top: 8rem; }
+  .foundry-public .hero-section::before { left: 1.25rem; }
+  .foundry-public .hero-title { max-width: 12ch; }
+  .foundry-public .hero-visual { min-height: 420px; }
+}
+@media (max-width: 640px) {
+  .foundry-public .hero-section { padding: 7.2rem 0 4.5rem; }
+  .foundry-public .hero-grid { gap: 2rem; }
+  .foundry-public .hero-title { font-size: clamp(3.2rem, 6.5vw, 6.2rem); }
+  .foundry-public .hero-stats { gap: 1rem; }
+  .foundry-public .stat-item { padding-right: 1rem; }
+  .foundry-public .hero-visual { min-height: 330px; transform: scale(0.88); transform-origin: center top; margin-bottom: -2rem; }
+}
