@@ -31,6 +31,25 @@ import {
   Table
 } from 'lucide-react';
 
+const isGoogleDriveUrl = (value = '') => /(?:drive\.google\.com|docs\.google\.com)/i.test(value);
+const getDriveFileId = (value = '') => {
+  const match = value.match(/(?:\/d\/|[?&]id=)([-\w]{10,})/i);
+  return match?.[1] || '';
+};
+const getDrivePreviewUrl = (value = '', mode = 'preview') => {
+  if (!isGoogleDriveUrl(value)) return value;
+  const fileId = getDriveFileId(value);
+  if (!fileId) return value.replace(/\/(view|edit|preview).*$/i, '/preview');
+  if (mode === 'sheet') return `https://docs.google.com/spreadsheets/d/${fileId}/htmlembed?widget=false&chrome=false&headers=false`;
+  if (mode === 'slides') return `https://docs.google.com/presentation/d/${fileId}/embed?rm=minimal`;
+  return `https://drive.google.com/file/d/${fileId}/preview`;
+};
+const getCustomerFileUrl = (value = '') => {
+  if (!isGoogleDriveUrl(value)) return value;
+  const fileId = getDriveFileId(value);
+  return fileId ? `https://drive.google.com/uc?export=download&id=${fileId}` : value;
+};
+
 export default function Dashboard() {
   const { user, token, logout, updatePreferences, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -651,9 +670,9 @@ export default function Dashboard() {
                           <Music size={64} color="var(--primary)" style={{ marginBottom: '2rem' }} />
                           <h4 style={{ fontWeight: 800, fontSize: '1.2rem', marginBottom: '0.5rem' }}>Uploaded Podcast Audio</h4>
                           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '2rem' }}>Listen to the study material provided by your instructor.</p>
-                          {(activeData.podcast_audio.includes('drive.google.com') || activeData.podcast_audio.includes('docs.google.com')) ? (
+                          {(isGoogleDriveUrl(activeData.podcast_audio)) ? (
                             <iframe 
-                              src={activeData.podcast_audio.replace(/\/(view|edit|preview).*$/i, '/preview')} 
+                              src={getDrivePreviewUrl(activeData.podcast_audio)}
                               style={{ width: '100%', height: '140px', border: 'none', borderRadius: '16px', background: 'transparent' }} 
                               title="Podcast Player"
                             />
@@ -1091,9 +1110,9 @@ export default function Dashboard() {
                   {activeAsset === 'video' && (
                     activeData.video_overview ? (
                       <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                        {(activeData.video_overview.includes('drive.google.com') || activeData.video_overview.includes('docs.google.com')) ? (
+                        {(isGoogleDriveUrl(activeData.video_overview)) ? (
                           <iframe 
-                            src={activeData.video_overview.replace(/\/(view|edit|preview).*$/i, '/preview')} 
+                            src={getDrivePreviewUrl(activeData.video_overview)}
                             style={{ width: '100%', height: '500px', maxWidth: '800px', border: 'none', borderRadius: '16px', boxShadow: 'var(--card-shadow)' }} 
                             title="Video Player"
                             allow="autoplay"
@@ -1116,13 +1135,13 @@ export default function Dashboard() {
                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--divider)', paddingBottom: '0.75rem', marginBottom: '1.5rem' }}>
                           <h4 style={{ fontWeight: 800, margin: 0, fontSize: '1.1rem' }}>Dataset Viewer</h4>
-                          <a href={activeData.data_table} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ padding: '0.5rem 1rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <a href={getCustomerFileUrl(activeData.data_table)} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ padding: '0.5rem 1rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <FileText size={16} /> Open Full View
                           </a>
                         </div>
-                        {(activeData.data_table.includes('drive.google.com') || activeData.data_table.includes('docs.google.com')) ? (
+                        {(isGoogleDriveUrl(activeData.data_table)) ? (
                           <iframe 
-                            src={activeData.data_table.includes('spreadsheets') ? activeData.data_table.replace(/\/(view|edit|preview).*$/i, '/htmlembed?widget=false&chrome=false&headers=false') : activeData.data_table.replace(/\/(view|edit|preview).*$/i, '/preview')} 
+                            src={activeData.data_table.includes('spreadsheets') ? getDrivePreviewUrl(activeData.data_table, 'sheet') : getDrivePreviewUrl(activeData.data_table)}
                             style={{ width: '100%', flex: 1, minHeight: '600px', border: 'none', borderRadius: '12px' }} 
                             title="Data Table"
                           />
@@ -1142,9 +1161,9 @@ export default function Dashboard() {
                   {activeAsset === 'infographic' && (
                     activeData.infographic ? (
                       <div style={{ flex: 1, display: 'flex', justifyContent: 'center', overflow: 'auto', padding: '1rem' }}>
-                        {(activeData.infographic.includes('drive.google.com') || activeData.infographic.includes('docs.google.com')) ? (
+                        {(isGoogleDriveUrl(activeData.infographic)) ? (
                           <iframe 
-                            src={activeData.infographic.replace(/\/(view|edit|preview).*$/i, '/preview')} 
+                            src={getDrivePreviewUrl(activeData.infographic)}
                             style={{ width: '100%', height: '600px', border: 'none', borderRadius: '16px', boxShadow: 'var(--card-shadow)' }} 
                             title="Infographic"
                           />
@@ -1167,13 +1186,13 @@ export default function Dashboard() {
                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--divider)', paddingBottom: '0.75rem', marginBottom: '1.5rem' }}>
                           <h4 style={{ fontWeight: 800, margin: 0, fontSize: '1.1rem' }}>Slide Deck Viewer</h4>
-                          <a href={activeData.slides} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ padding: '0.5rem 1rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <a href={getCustomerFileUrl(activeData.slides)} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ padding: '0.5rem 1rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <FileText size={16} /> Open Full View
                           </a>
                         </div>
-                        {(activeData.slides.includes('drive.google.com') || activeData.slides.includes('docs.google.com')) ? (
+                        {(isGoogleDriveUrl(activeData.slides)) ? (
                           <iframe 
-                            src={activeData.slides.replace(/\/(view|edit|preview).*$/i, '/embed?rm=minimal')} 
+                            src={getDrivePreviewUrl(activeData.slides, 'slides')}
                             style={{ width: '100%', flex: 1, minHeight: '600px', border: 'none', borderRadius: '12px', background: '#000' }} 
                             title="Slide Deck"
                           />
@@ -1240,7 +1259,7 @@ export default function Dashboard() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--divider)', paddingBottom: '0.75rem', marginBottom: '1.5rem' }}>
                         <h4 style={{ fontWeight: 800, fontSize: '1.1rem', margin: 0 }}>Executive Summary Study Report</h4>
                         {activeData.report.startsWith('http') ? (
-                          <a href={activeData.report} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', display: 'flex', gap: '0.25rem', textDecoration: 'none' }}>
+                          <a href={getCustomerFileUrl(activeData.report)} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', display: 'flex', gap: '0.25rem', textDecoration: 'none' }}>
                             <Download size={14} /> Open Document
                           </a>
                         ) : (
@@ -1252,7 +1271,7 @@ export default function Dashboard() {
                       
                       {activeData.report.startsWith('http') ? (
                         <iframe 
-                          src={(activeData.report.includes('drive.google.com') || activeData.report.includes('docs.google.com')) ? activeData.report.replace(/\/(view|edit|preview).*$/i, '/preview') : activeData.report} 
+                          src={isGoogleDriveUrl(activeData.report) ? getDrivePreviewUrl(activeData.report) : activeData.report}
                           style={{ width: '100%', flex: 1, minHeight: '500px', border: 'none', borderRadius: '16px', background: '#fff' }} 
                           title="Document Viewer"
                         />
