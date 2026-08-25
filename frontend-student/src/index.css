@@ -2422,3 +2422,67 @@ a {
   .foundry-table-frame { min-height: 420px; padding: 0.65rem; }
   .foundry-table-embed { min-width: 620px; height: 420px; }
 }
+
+
+.foundry-table-message,
+.foundry-native-table-wrap {
+  flex: 1;
+  min-height: 520px;
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  background: var(--bg);
+}
+.foundry-table-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  text-align: center;
+}
+.foundry-table-message strong { font-family: var(--font-heading); font-size: 1.1rem; }
+.foundry-table-message p { max-width: 26rem; color: var(--text-muted); font-size: 0.85rem; line-height: 1.5; }
+.foundry-native-table-wrap { overflow: auto; padding: 0; }
+.foundry-native-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  color: var(--text-main);
+  font-size: 0.94rem;
+  line-height: 1.45;
+}
+.foundry-native-table th,
+.foundry-native-table td {
+  padding: 1rem 1.15rem;
+  border-right: 1px solid var(--divider);
+  border-bottom: 1px solid var(--divider);
+  text-align: left;
+  vertical-align: top;
+}
+.foundry-native-table th:last-child,
+.foundry-native-table td:last-child { border-right: 0; }
+.foundry-native-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--primary);
+  color: #fff;
+  font-family: var(--font-heading);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.foundry-native-table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--card-bg) 82%, var(--primary) 18%); }
+.foundry-native-table tbody tr:hover { background: var(--accent-glow); }
+.foundry-native-table td { background: transparent; }
+.foundry-native-table tbody tr:last-child td { border-bottom: 0; font-weight: 800; }
+@media (max-width: 640px) {
+  .foundry-table-message,
+  .foundry-native-table-wrap { min-height: 420px; }
+  .foundry-native-table { min-width: 560px; font-size: 0.84rem; }
+  .foundry-native-table th,
+  .foundry-native-table td { padding: 0.8rem 0.9rem; }
+}

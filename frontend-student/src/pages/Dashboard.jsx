@@ -54,6 +54,58 @@ const getCustomerFileUrl = (value = '') => {
   return fileId ? `https://drive.google.com/uc?export=download&id=${fileId}` : value;
 };
 
+function NativeDriveTable({ url }) {
+  const [tableState, setTableState] = useState({ status: 'loading', headers: [], rows: [] });
+
+  useEffect(() => {
+    let cancelled = false;
+    setTableState({ status: 'loading', headers: [], rows: [] });
+    fetch(getDriveTableUrl(url))
+      .then(response => {
+        if (!response.ok) throw new Error('Table preview unavailable');
+        return response.text();
+      })
+      .then(markup => {
+        const documentNode = new DOMParser().parseFromString(markup, 'text/html');
+        const sourceTable = documentNode.querySelector('table');
+        const parsedRows = sourceTable
+          ? Array.from(sourceTable.querySelectorAll('tr')).map(row => Array.from(row.querySelectorAll('th, td')).map(cell => cell.textContent.trim())).filter(row => row.some(Boolean))
+          : [];
+        if (!parsedRows.length) throw new Error('No tabular data found');
+        const [firstRow, ...bodyRows] = parsedRows;
+        if (!cancelled) setTableState({ status: 'ready', headers: firstRow, rows: bodyRows });
+      })
+      .catch(() => {
+        if (!cancelled) setTableState({ status: 'error', headers: [], rows: [] });
+      });
+    return () => { cancelled = true; };
+  }, [url]);
+
+  if (tableState.status === 'loading') {
+    return <div className="foundry-table-message"><div className="spinner" /><strong>Preparing your table</strong><p>Reeky is setting the source data into a readable instrument.</p></div>;
+  }
+
+  if (tableState.status === 'error') {
+    return (
+      <div className="foundry-asset-fallback">
+        <div className="foundry-asset-fallback-mark"><Table size={24} /></div>
+        <strong>This table is ready to download</strong>
+        <p>The live preview is unavailable right now, so we kept you inside Reeky and prepared a safe read-only download instead.</p>
+        <a href={getCustomerFileUrl(url)} target="_blank" rel="noreferrer" className="btn btn-primary" style={{ textDecoration: 'none' }}><Download size={16} /> Download table</a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="foundry-native-table-wrap">
+      <table className="foundry-native-table">
+        <thead><tr>{tableState.headers.map((header, index) => <th key={`header-${index}`}>{header || `Column ${index + 1}`}</th>)}</tr></thead>
+        <tbody>{tableState.rows.map((row, rowIndex) => <tr key={`row-${rowIndex}`}>{tableState.headers.map((_, colIndex) => <td key={`cell-${rowIndex}-${colIndex}`}>{row[colIndex] || '—'}</td>)}</tr>)}</tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user, token, logout, updatePreferences, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -1151,28 +1203,17 @@ export default function Dashboard() {
                             <Download size={16} /> Download table
                           </a>
                         </div>
-                        {tableEmbedError ? (
+                        {isGoogleDriveUrl(activeData.data_table) ? (
+                          <NativeDriveTable url={activeData.data_table} />
+                        ) : tableEmbedError ? (
                           <div className="foundry-asset-fallback">
                             <div className="foundry-asset-fallback-mark"><Table size={24} /></div>
                             <strong>This table is ready to download</strong>
-                            <p>Google’s live table preview is unavailable right now, so we kept you inside Reeky and prepared a safe read-only download instead.</p>
-                            <a href={getCustomerFileUrl(activeData.data_table)} target="_blank" rel="noreferrer" className="btn btn-primary" style={{ textDecoration: 'none' }}>
-                              <Download size={16} /> Download table
-                            </a>
-                          </div>
-                        ) : isGoogleDriveUrl(activeData.data_table) ? (
-                          <div className="foundry-table-frame">
-                            <iframe
-                              className="foundry-table-embed"
-                              src={activeData.data_table.includes('spreadsheets') ? getDriveTableUrl(activeData.data_table) : getDrivePreviewUrl(activeData.data_table)}
-                              onError={() => setTableEmbedError(true)}
-                              title="Read-only data table"
-                            />
+                            <p>The live preview is unavailable right now, so we kept you inside Reeky and prepared a safe read-only download instead.</p>
+                            <a href={getCustomerFileUrl(activeData.data_table)} target="_blank" rel="noreferrer" className="btn btn-primary" style={{ textDecoration: 'none' }}><Download size={16} /> Download table</a>
                           </div>
                         ) : (
-                          <div className="foundry-table-frame">
-                            <iframe className="foundry-table-embed" src={activeData.data_table} onError={() => setTableEmbedError(true)} title="Data Table" />
-                          </div>
+                          <div className="foundry-table-frame"><iframe className="foundry-table-embed" src={activeData.data_table} onError={() => setTableEmbedError(true)} title="Data Table" /></div>
                         )}
                       </div>
                     ) : (
