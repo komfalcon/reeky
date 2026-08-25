@@ -1141,11 +1141,14 @@ export default function Dashboard() {
 
                   {activeAsset === 'data_table' && (
                     activeData.data_table ? (
-                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--divider)', paddingBottom: '0.75rem', marginBottom: '1.5rem' }}>
-                          <h4 style={{ fontWeight: 800, margin: 0, fontSize: '1.1rem' }}>Dataset Viewer</h4>
+                      <div className="foundry-table-instrument" style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--divider)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
+                          <div>
+                            <h4 style={{ fontWeight: 800, margin: 0, fontSize: '1.1rem' }}>Dataset Viewer</h4>
+                            <span className="foundry-table-caption">Read-only instrument · values preserved from the source</span>
+                          </div>
                           <a href={getCustomerFileUrl(activeData.data_table)} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ padding: '0.5rem 1rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <FileText size={16} /> Open Full View
+                            <Download size={16} /> Download table
                           </a>
                         </div>
                         {tableEmbedError ? (
@@ -1158,14 +1161,18 @@ export default function Dashboard() {
                             </a>
                           </div>
                         ) : isGoogleDriveUrl(activeData.data_table) ? (
-                          <iframe
-                            src={activeData.data_table.includes('spreadsheets') ? getDriveTableUrl(activeData.data_table) : getDrivePreviewUrl(activeData.data_table)}
-                            onError={() => setTableEmbedError(true)}
-                            style={{ width: '100%', flex: 1, minHeight: '600px', border: 'none', borderRadius: '12px' }}
-                            title="Read-only data table"
-                          />
+                          <div className="foundry-table-frame">
+                            <iframe
+                              className="foundry-table-embed"
+                              src={activeData.data_table.includes('spreadsheets') ? getDriveTableUrl(activeData.data_table) : getDrivePreviewUrl(activeData.data_table)}
+                              onError={() => setTableEmbedError(true)}
+                              title="Read-only data table"
+                            />
+                          </div>
                         ) : (
-                          <iframe src={activeData.data_table} onError={() => setTableEmbedError(true)} style={{ width: '100%', flex: 1, minHeight: '600px', border: 'none', borderRadius: '12px' }} title="Data Table" />
+                          <div className="foundry-table-frame">
+                            <iframe className="foundry-table-embed" src={activeData.data_table} onError={() => setTableEmbedError(true)} title="Data Table" />
+                          </div>
                         )}
                       </div>
                     ) : (

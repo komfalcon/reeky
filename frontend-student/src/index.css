@@ -2384,3 +2384,41 @@ a {
     padding: 2rem 1rem;
   }
 }
+
+
+/* Data table instrument surface */
+.foundry-table-instrument { min-width: 0; }
+.foundry-table-caption {
+  display: block;
+  margin-top: 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+}
+.foundry-table-frame {
+  flex: 1;
+  min-height: 600px;
+  overflow: auto;
+  padding: 1.25rem;
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  background: var(--bg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.foundry-table-embed {
+  display: block;
+  width: 100%;
+  min-width: 680px;
+  height: 560px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--card-bg);
+  color-scheme: light;
+}
+
+@media (max-width: 640px) {
+  .foundry-table-instrument > div:first-child { align-items: flex-start !important; flex-direction: column; gap: 0.75rem; }
+  .foundry-table-instrument > div:first-child > a { width: 100%; }
+  .foundry-table-frame { min-height: 420px; padding: 0.65rem; }
+  .foundry-table-embed { min-width: 620px; height: 420px; }
+}
