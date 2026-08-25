@@ -1,0 +1,20 @@
+{
+  "name": "Reeky Foundry",
+  "short_name": "Reeky",
+  "description": "Forge any source into a personal learning kit you can study anywhere.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#07080c",
+  "theme_color": "#07080c",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

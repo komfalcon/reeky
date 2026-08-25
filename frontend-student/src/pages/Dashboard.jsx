@@ -118,6 +118,7 @@ export default function Dashboard() {
   const [userAssets, setUserAssets] = useState([]);
   const [fetchingAssets, setFetchingAssets] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState(null);
+  const [isOffline, setIsOffline] = useState(() => typeof navigator !== 'undefined' && !navigator.onLine);
 
   // Selective Generation configurations
   const [customInstructions, setCustomInstructions] = useState('');
@@ -177,19 +178,37 @@ export default function Dashboard() {
   const fetchUserAssets = useCallback(async () => {
     if (!token) return;
     setFetchingAssets(true);
+    const cacheKey = `reeky_assets_cache_${user?.id || user?.email || 'current'}`;
     try {
       const assets = await api.getAssets(token);
       setUserAssets(assets || []);
+      localStorage.setItem(cacheKey, JSON.stringify(assets || []));
     } catch {
-      // silently fail
+      try {
+        const cachedAssets = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+        if (Array.isArray(cachedAssets)) setUserAssets(cachedAssets);
+      } catch {
+        // Keep the existing workspace state if local cache is unavailable.
+      }
     } finally {
       setFetchingAssets(false);
     }
-  }, [token]);
+  }, [token, user?.id, user?.email]);
 
   useEffect(() => {
     if (isAuthenticated) fetchUserAssets();
   }, [isAuthenticated, fetchUserAssets]);
+
+  useEffect(() => {
+    const markOnline = () => setIsOffline(false);
+    const markOffline = () => setIsOffline(true);
+    window.addEventListener('online', markOnline);
+    window.addEventListener('offline', markOffline);
+    return () => {
+      window.removeEventListener('online', markOnline);
+      window.removeEventListener('offline', markOffline);
+    };
+  }, []);
 
   // Handle Synced Audio Simulation
   useEffect(() => {
@@ -381,7 +400,7 @@ export default function Dashboard() {
       {/* Mini Navbar */}
       <header className="navbar foundry-header" style={{ position: 'sticky' }}>
         <div className="container nav-container">
-          <Link to="/" className="logo" style={{ textDecoration: 'none' }}>
+            <Link to="/" className="logo" style={{ textDecoration: 'none' }}>
             <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
               <path d="M12 2L2 22H22L12 2Z" stroke="var(--primary)" fill="none" />
               <path d="M20 12L15 22H29L20 12Z" stroke="var(--secondary)" fill="none" />
@@ -401,6 +420,13 @@ export default function Dashboard() {
       </header>
 
       <div className="container foundry-main" style={{ paddingTop: '2.5rem', paddingBottom: '5rem' }}>
+        {isOffline && (
+          <div className="foundry-offline-banner" role="status">
+            <span className="foundry-offline-dot" />
+            <div><strong>Offline study mode</strong><span>Your saved learning kits remain available. New sources and production updates will sync when you reconnect.</span></div>
+          </div>
+        )}
+
         <div className="foundry-dashboard-intro">
           <div>
             <span className="foundry-eyebrow">STUDENT WORKSPACE / SOURCE DESK</span>
