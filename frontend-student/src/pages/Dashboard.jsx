@@ -36,6 +36,10 @@ const getDriveFileId = (value = '') => {
   const match = value.match(/(?:\/d\/|[?&]id=)([-\w]{10,})/i);
   return match?.[1] || '';
 };
+const getDriveTableUrl = (value = '') => {
+  const fileId = getDriveFileId(value);
+  return fileId ? `https://docs.google.com/spreadsheets/d/${fileId}/gviz/tq?tqx=out:html&gid=0` : value;
+};
 const getDrivePreviewUrl = (value = '', mode = 'preview') => {
   if (!isGoogleDriveUrl(value)) return value;
   const fileId = getDriveFileId(value);
@@ -98,6 +102,7 @@ export default function Dashboard() {
 
   // Slides States
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [tableEmbedError, setTableEmbedError] = useState(false);
 
   const activeLineRef = useRef(null);
   const timerRef = useRef(null);
@@ -105,6 +110,10 @@ export default function Dashboard() {
   useEffect(() => {
     if (!isAuthenticated) navigate('/login');
   }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    setTableEmbedError(false);
+  }, [selectedAsset?.id, activeAsset]);
 
   const handleLogout = () => {
     if (window.confirm('Are you sure you want to log out?')) {
@@ -1139,14 +1148,24 @@ export default function Dashboard() {
                             <FileText size={16} /> Open Full View
                           </a>
                         </div>
-                        {(isGoogleDriveUrl(activeData.data_table)) ? (
-                          <iframe 
-                            src={activeData.data_table.includes('spreadsheets') ? getDrivePreviewUrl(activeData.data_table, 'sheet') : getDrivePreviewUrl(activeData.data_table)}
-                            style={{ width: '100%', flex: 1, minHeight: '600px', border: 'none', borderRadius: '12px' }} 
-                            title="Data Table"
+                        {tableEmbedError ? (
+                          <div className="foundry-asset-fallback">
+                            <div className="foundry-asset-fallback-mark"><Table size={24} /></div>
+                            <strong>This table is ready to download</strong>
+                            <p>Google’s live table preview is unavailable right now, so we kept you inside Reeky and prepared a safe read-only download instead.</p>
+                            <a href={getCustomerFileUrl(activeData.data_table)} target="_blank" rel="noreferrer" className="btn btn-primary" style={{ textDecoration: 'none' }}>
+                              <Download size={16} /> Download table
+                            </a>
+                          </div>
+                        ) : isGoogleDriveUrl(activeData.data_table) ? (
+                          <iframe
+                            src={activeData.data_table.includes('spreadsheets') ? getDriveTableUrl(activeData.data_table) : getDrivePreviewUrl(activeData.data_table)}
+                            onError={() => setTableEmbedError(true)}
+                            style={{ width: '100%', flex: 1, minHeight: '600px', border: 'none', borderRadius: '12px' }}
+                            title="Read-only data table"
                           />
                         ) : (
-                          <iframe src={activeData.data_table} style={{ width: '100%', flex: 1, minHeight: '600px', border: 'none', borderRadius: '12px' }} title="Data Table" />
+                          <iframe src={activeData.data_table} onError={() => setTableEmbedError(true)} style={{ width: '100%', flex: 1, minHeight: '600px', border: 'none', borderRadius: '12px' }} title="Data Table" />
                         )}
                       </div>
                     ) : (

@@ -2336,3 +2336,51 @@ a {
   .foundry-status-pill { margin-left: 0; }
   .foundry-status-detail { padding-left: 0; }
 }
+
+
+/* Reeky-native fallback for unavailable external table previews */
+.foundry-asset-fallback {
+  min-height: 360px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2.5rem 1.5rem;
+  border: 1px dashed var(--card-border);
+  border-radius: 18px;
+  background: linear-gradient(145deg, var(--card-bg), color-mix(in srgb, var(--card-bg) 72%, var(--primary) 28%));
+  text-align: center;
+  color: var(--text-main);
+}
+
+.foundry-asset-fallback-mark {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  color: var(--primary);
+  background: var(--accent-glow);
+  border: 1px solid var(--card-border);
+}
+
+.foundry-asset-fallback strong {
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+}
+
+.foundry-asset-fallback p {
+  max-width: 430px;
+  margin: 0 0 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+@media (max-width: 640px) {
+  .foundry-asset-fallback {
+    min-height: 280px;
+    padding: 2rem 1rem;
+  }
+}
