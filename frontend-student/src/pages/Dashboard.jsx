@@ -353,6 +353,19 @@ export default function Dashboard() {
   };
 
   const activeData = selectedAsset ? buildActiveData(selectedAsset) : null;
+  const kitRoute = activeData ? [
+    { id: 'podcast', label: 'Listen', ready: Boolean(activeData.podcast_audio || activeData.transcript?.length) },
+    { id: 'report', label: 'Read', ready: Boolean(activeData.report) },
+    { id: 'flashcards', label: 'Recall', ready: activeData.flashcards.length > 0 },
+    { id: 'quiz', label: 'Test', ready: activeData.quiz.length > 0 },
+    { id: 'mindmap', label: 'Map', ready: Boolean(activeData.mindmapRaw) },
+    { id: 'data_table', label: 'Compare', ready: Boolean(activeData.data_table) },
+    { id: 'slides', label: 'Present', ready: activeData.slides.length > 0 || typeof activeData.slides === 'string' },
+    { id: 'video', label: 'Watch', ready: Boolean(activeData.video_overview) },
+    { id: 'infographic', label: 'Scan', ready: Boolean(activeData.infographic) }
+  ] : [];
+  const readyKitCount = kitRoute.filter(item => item.ready).length;
+  const recommendedInstrument = kitRoute.find(item => item.ready && item.id !== activeAsset) || kitRoute.find(item => item.ready);
 
   const downloadReportPdf = () => {
     if (!activeData?.report) return;
@@ -705,6 +718,19 @@ export default function Dashboard() {
                     <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
                       {activeData.tagline}
                     </p>
+                  </div>
+
+                  <div className="foundry-kit-overview">
+                    <div className="foundry-kit-overview-copy">
+                      <span className="foundry-overline">KIT OVERVIEW / {String(readyKitCount).padStart(2, '0')} INSTRUMENTS READY</span>
+                      <strong>{recommendedInstrument ? `Continue with ${recommendedInstrument.label.toLowerCase()}` : 'Your kit is taking shape'}</strong>
+                      <span>{recommendedInstrument ? 'Follow the route from orientation to recall, then test what stayed with you.' : 'Your completed instruments will appear here when production finishes.'}</span>
+                    </div>
+                    {recommendedInstrument && (
+                      <button className="btn btn-primary foundry-next-action" type="button" onClick={() => { setActiveAsset(recommendedInstrument.id); setAudioPlaying(false); }}>
+                        Start next <ChevronRight size={16} />
+                      </button>
+                    )}
                   </div>
 
                   {/* Purpose-led instrument bench */}

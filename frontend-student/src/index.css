@@ -2514,3 +2514,26 @@ a {
 @media (max-width: 640px) {
   .foundry-offline-banner { margin-bottom: 1rem; }
 }
+
+
+.foundry-kit-overview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  margin-top: 1.2rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(198, 106, 61, 0.28);
+  border-radius: 14px;
+  background: linear-gradient(110deg, rgba(198, 106, 61, 0.11), rgba(99, 102, 241, 0.08));
+}
+.foundry-kit-overview-copy { display: grid; gap: 0.24rem; min-width: 0; }
+.foundry-overline { color: var(--primary); font-size: 0.59rem; font-weight: 900; letter-spacing: 0.14em; }
+.foundry-kit-overview-copy strong { font-family: var(--font-heading); font-size: 0.96rem; }
+.foundry-kit-overview-copy > span:last-child { color: var(--text-muted); font-size: 0.72rem; line-height: 1.4; }
+.foundry-next-action { flex: 0 0 auto; padding: 0.62rem 0.9rem; font-size: 0.78rem; }
+@media (max-width: 840px) {
+  .foundry-kit-overview { align-items: stretch; flex-direction: column; }
+  .foundry-next-action { width: 100%; }
+}
