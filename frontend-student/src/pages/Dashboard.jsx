@@ -28,7 +28,10 @@ import {
   Network,
   Video,
   Image,
-  Table
+  Table,
+  Bookmark,
+  BookmarkCheck,
+  StickyNote
 } from 'lucide-react';
 
 const isGoogleDriveUrl = (value = '') => /(?:drive\.google\.com|docs\.google\.com)/i.test(value);
@@ -156,6 +159,10 @@ export default function Dashboard() {
   // Slides States
   const [currentSlide, setCurrentSlide] = useState(0);
   const [tableEmbedError, setTableEmbedError] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [studyNote, setStudyNote] = useState('');
+  const [notesOpen, setNotesOpen] = useState(false);
+  const studyMemoryKey = selectedAsset?.id ? `reeky_memory_${user?.id || user?.email || 'current'}_${selectedAsset.id}_${activeAsset}` : '';
 
   const activeLineRef = useRef(null);
   const timerRef = useRef(null);
@@ -166,7 +173,21 @@ export default function Dashboard() {
 
   useEffect(() => {
     setTableEmbedError(false);
-  }, [selectedAsset?.id, activeAsset]);
+    setNotesOpen(false);
+    if (!studyMemoryKey) {
+      setIsBookmarked(false);
+      setStudyNote('');
+      return;
+    }
+    try {
+      const savedMemory = JSON.parse(localStorage.getItem(studyMemoryKey) || 'null');
+      setIsBookmarked(Boolean(savedMemory?.bookmarked));
+      setStudyNote(typeof savedMemory?.note === 'string' ? savedMemory.note : '');
+    } catch {
+      setIsBookmarked(false);
+      setStudyNote('');
+    }
+  }, [selectedAsset?.id, activeAsset, studyMemoryKey]);
 
   useEffect(() => {
     if (!selectedAsset?.id) return;
@@ -401,6 +422,16 @@ export default function Dashboard() {
   const quizProgress = activeData?.quiz.length ? Math.round((quizFinished ? 100 : (quizStep / activeData.quiz.length) * 100)) : 0;
   const studyProgress = activeData ? Math.round((deckMastery + quizProgress) / (activeData.quiz.length ? 2 : 1)) : 0;
   const recommendedInstrument = kitRoute.find(item => item.ready && item.id !== activeAsset) || kitRoute.find(item => item.ready);
+
+  const saveStudyMemory = (overrides = {}) => {
+    if (!studyMemoryKey) return;
+    localStorage.setItem(studyMemoryKey, JSON.stringify({
+      bookmarked: isBookmarked,
+      note: studyNote,
+      ...overrides,
+      savedAt: new Date().toISOString()
+    }));
+  };
 
   const downloadReportPdf = () => {
     if (!activeData?.report) return;
@@ -769,6 +800,31 @@ export default function Dashboard() {
                       <button className="btn btn-primary foundry-next-action" type="button" onClick={() => { setActiveAsset(recommendedInstrument.id); setAudioPlaying(false); }}>
                         Start next <ChevronRight size={16} />
                       </button>
+                    )}
+                  </div>
+
+                  <div className="foundry-study-tools">
+                    <button className={`foundry-memory-button ${isBookmarked ? 'saved' : ''}`} type="button" onClick={() => {
+                      const nextValue = !isBookmarked;
+                      setIsBookmarked(nextValue);
+                      saveStudyMemory({ bookmarked: nextValue });
+                    }}>
+                      {isBookmarked ? <BookmarkCheck size={15} /> : <Bookmark size={15} />}
+                      {isBookmarked ? 'Bookmarked' : 'Bookmark instrument'}
+                    </button>
+                    <button className={`foundry-memory-button ${notesOpen || studyNote ? 'saved' : ''}`} type="button" onClick={() => setNotesOpen(prev => !prev)}>
+                      <StickyNote size={15} /> {studyNote ? 'Edit note' : 'Add note'}
+                    </button>
+                    {notesOpen && (
+                      <textarea
+                        className="foundry-note-editor"
+                        value={studyNote}
+                        onChange={event => setStudyNote(event.target.value)}
+                        onBlur={() => saveStudyMemory()}
+                        placeholder="Capture a question, connection, or reminder..."
+                        aria-label="Personal study note"
+                        rows={2}
+                      />
                     )}
                   </div>
 
