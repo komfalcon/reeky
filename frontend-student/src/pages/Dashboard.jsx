@@ -168,6 +168,24 @@ export default function Dashboard() {
     setTableEmbedError(false);
   }, [selectedAsset?.id, activeAsset]);
 
+  useEffect(() => {
+    if (!selectedAsset?.id) return;
+    const progressKey = `reeky_progress_${user?.id || user?.email || 'current'}_${selectedAsset.id}`;
+    try {
+      const saved = JSON.parse(localStorage.getItem(progressKey) || 'null');
+      if (!saved) return;
+      if (saved.activeAsset) setActiveAsset(saved.activeAsset);
+      if (Number.isInteger(saved.currentFlashcard)) setCurrentFlashcard(saved.currentFlashcard);
+      if (Number.isInteger(saved.quizStep)) setQuizStep(saved.quizStep);
+      if (Number.isInteger(saved.quizScore)) setQuizScore(saved.quizScore);
+      if (Number.isInteger(saved.currentSlide)) setCurrentSlide(saved.currentSlide);
+      if (Number.isFinite(saved.deckMastery)) setDeckMastery(saved.deckMastery);
+      if (typeof saved.quizFinished === 'boolean') setQuizFinished(saved.quizFinished);
+    } catch {
+      // Ignore malformed local progress and start the kit fresh.
+    }
+  }, [selectedAsset?.id, user?.id, user?.email]);
+
   const handleLogout = () => {
     if (window.confirm('Are you sure you want to log out?')) {
       logout();
@@ -198,6 +216,21 @@ export default function Dashboard() {
   useEffect(() => {
     if (isAuthenticated) fetchUserAssets();
   }, [isAuthenticated, fetchUserAssets]);
+
+  useEffect(() => {
+    if (!selectedAsset?.id) return;
+    const progressKey = `reeky_progress_${user?.id || user?.email || 'current'}_${selectedAsset.id}`;
+    localStorage.setItem(progressKey, JSON.stringify({
+      activeAsset,
+      currentFlashcard,
+      quizStep,
+      quizScore,
+      quizFinished,
+      currentSlide,
+      deckMastery,
+      savedAt: new Date().toISOString()
+    }));
+  }, [selectedAsset?.id, user?.id, user?.email, activeAsset, currentFlashcard, quizStep, quizScore, quizFinished, currentSlide, deckMastery]);
 
   useEffect(() => {
     const markOnline = () => setIsOffline(false);
@@ -365,6 +398,8 @@ export default function Dashboard() {
     { id: 'infographic', label: 'Scan', ready: Boolean(activeData.infographic) }
   ] : [];
   const readyKitCount = kitRoute.filter(item => item.ready).length;
+  const quizProgress = activeData?.quiz.length ? Math.round((quizFinished ? 100 : (quizStep / activeData.quiz.length) * 100)) : 0;
+  const studyProgress = activeData ? Math.round((deckMastery + quizProgress) / (activeData.quiz.length ? 2 : 1)) : 0;
   const recommendedInstrument = kitRoute.find(item => item.ready && item.id !== activeAsset) || kitRoute.find(item => item.ready);
 
   const downloadReportPdf = () => {
@@ -725,6 +760,10 @@ export default function Dashboard() {
                       <span className="foundry-overline">KIT OVERVIEW / {String(readyKitCount).padStart(2, '0')} INSTRUMENTS READY</span>
                       <strong>{recommendedInstrument ? `Continue with ${recommendedInstrument.label.toLowerCase()}` : 'Your kit is taking shape'}</strong>
                       <span>{recommendedInstrument ? 'Follow the route from orientation to recall, then test what stayed with you.' : 'Your completed instruments will appear here when production finishes.'}</span>
+                      <div className="foundry-kit-progress" aria-label={`Study progress ${studyProgress}%`}>
+                        <div><span>Study progress</span><strong>{studyProgress}%</strong></div>
+                        <div className="foundry-kit-progress-track"><span style={{ width: `${studyProgress}%` }} /></div>
+                      </div>
                     </div>
                     {recommendedInstrument && (
                       <button className="btn btn-primary foundry-next-action" type="button" onClick={() => { setActiveAsset(recommendedInstrument.id); setAudioPlaying(false); }}>
