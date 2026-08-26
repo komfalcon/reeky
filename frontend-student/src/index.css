@@ -2646,3 +2646,10 @@ a {
 .foundry-tag-list button:hover, .foundry-tag-list button.active { border-color: var(--primary); background: var(--accent-glow); color: var(--primary); }
 .foundry-filter-empty { margin: 0.5rem 0; color: var(--text-muted); font-size: 0.7rem; line-height: 1.4; }
 @media (max-width: 840px) { .foundry-nav-link { display: none; } .foundry-theme-toggle { font-size: 0.6rem; } }
+
+
+.foundry-offline-media-button { display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; margin-top: 0.9rem; padding: 0.55rem 0.8rem; border: 1px solid var(--card-border); border-radius: 999px; background: var(--card-bg); color: var(--text-muted); cursor: pointer; font: inherit; font-size: 0.68rem; font-weight: 800; transition: border-color 160ms ease, color 160ms ease, transform 160ms ease; }
+.foundry-offline-media-button:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+.foundry-offline-media-button:active:not(:disabled) { transform: scale(0.97); }
+.foundry-offline-media-button:disabled { cursor: wait; opacity: 0.65; }
+@media (max-width: 640px) { .foundry-offline-media-button { width: 100%; } }

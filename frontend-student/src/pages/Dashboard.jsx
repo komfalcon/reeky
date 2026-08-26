@@ -123,6 +123,7 @@ export default function Dashboard() {
   const [fetchingAssets, setFetchingAssets] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [isOffline, setIsOffline] = useState(() => typeof navigator !== 'undefined' && !navigator.onLine);
+  const [mediaCacheState, setMediaCacheState] = useState({});
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('reeky_theme') !== 'light');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [assetSearch, setAssetSearch] = useState('');
@@ -439,6 +440,20 @@ export default function Dashboard() {
   };
 
   const activeData = selectedAsset ? buildActiveData(selectedAsset) : null;
+  useEffect(() => {
+    if (!activeData || !selectedAsset?.id) return;
+    const cacheKey = `reeky_text_instruments_${user?.id || user?.email || 'current'}_${selectedAsset.id}`;
+    localStorage.setItem(cacheKey, JSON.stringify({
+      title: activeData.title,
+      report: activeData.report,
+      flashcards: activeData.flashcards,
+      quiz: activeData.quiz,
+      mindmap: activeData.mindmapRaw,
+      slides: activeData.slides,
+      transcript: activeData.transcript,
+      cachedAt: new Date().toISOString()
+    }));
+  }, [activeData, selectedAsset?.id, user?.id, user?.email]);
   const kitRoute = activeData ? [
     { id: 'podcast', label: 'Listen', ready: Boolean(activeData.podcast_audio || activeData.transcript?.length) },
     { id: 'report', label: 'Read', ready: Boolean(activeData.report) },
@@ -454,6 +469,21 @@ export default function Dashboard() {
   const quizProgress = activeData?.quiz.length ? Math.round((quizFinished ? 100 : (quizStep / activeData.quiz.length) * 100)) : 0;
   const studyProgress = activeData ? Math.round((deckMastery + quizProgress) / (activeData.quiz.length ? 2 : 1)) : 0;
   const recommendedInstrument = kitRoute.find(item => item.ready && item.id !== activeAsset) || kitRoute.find(item => item.ready);
+
+  const saveMediaOffline = async (mediaKey, url) => {
+    if (!url || !('caches' in window)) return;
+    setMediaCacheState(prev => ({ ...prev, [mediaKey]: 'saving' }));
+    try {
+      const cache = await caches.open('reeky-foundry-media-v1');
+      const requestUrl = isGoogleDriveUrl(url) ? getCustomerFileUrl(url) : url;
+      const response = await fetch(requestUrl, { mode: 'no-cors' });
+      await cache.put(requestUrl, response.clone());
+      localStorage.setItem(`reeky_media_cached_${mediaKey}`, 'true');
+      setMediaCacheState(prev => ({ ...prev, [mediaKey]: 'saved' }));
+    } catch {
+      setMediaCacheState(prev => ({ ...prev, [mediaKey]: 'error' }));
+    }
+  };
 
   const saveStudyMemory = (overrides = {}) => {
     if (!studyMemoryKey) return;
@@ -941,6 +971,9 @@ export default function Dashboard() {
                           ) : (
                             <audio controls src={activeData.podcast_audio} style={{ width: '100%', outline: 'none' }} />
                           )}
+                          <button type="button" className="foundry-offline-media-button" onClick={() => saveMediaOffline('podcast', activeData.podcast_audio)} disabled={mediaCacheState.podcast === 'saving'}>
+                            <Download size={14} /> {mediaCacheState.podcast === 'saved' ? 'Saved for offline' : mediaCacheState.podcast === 'saving' ? 'Saving media...' : 'Save audio for offline'}
+                          </button>
                         </div>
                       ) : (
                         <>
@@ -1392,6 +1425,9 @@ export default function Dashboard() {
                         ) : (
                           <video controls src={activeData.video_overview} style={{ width: '100%', maxWidth: '800px', maxHeight: '600px', borderRadius: '16px', boxShadow: 'var(--card-shadow)' }} />
                         )}
+                        <button type="button" className="foundry-offline-media-button" onClick={() => saveMediaOffline('video', activeData.video_overview)} disabled={mediaCacheState.video === 'saving'}>
+                          <Download size={14} /> {mediaCacheState.video === 'saved' ? 'Saved for offline' : mediaCacheState.video === 'saving' ? 'Saving media...' : 'Save video for offline'}
+                        </button>
                       </div>
                     ) : (
                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
@@ -1448,6 +1484,9 @@ export default function Dashboard() {
                         ) : (
                           <img src={activeData.infographic} alt="Infographic" style={{ maxWidth: '100%', objectFit: 'contain', borderRadius: '16px', boxShadow: 'var(--card-shadow)' }} />
                         )}
+                        <button type="button" className="foundry-offline-media-button" onClick={() => saveMediaOffline('infographic', activeData.infographic)} disabled={mediaCacheState.infographic === 'saving'}>
+                          <Download size={14} /> {mediaCacheState.infographic === 'saved' ? 'Saved for offline' : mediaCacheState.infographic === 'saving' ? 'Saving media...' : 'Save image for offline'}
+                        </button>
                       </div>
                     ) : (
                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
