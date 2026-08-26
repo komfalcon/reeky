@@ -187,6 +187,23 @@ app.post('/api/user/preferences', authenticateToken, async (req, res) => {
     }
 });
 
+app.post('/api/user/study-sync', authenticateToken, async (req, res) => {
+    try {
+        const events = Array.isArray(req.body?.events) ? req.body.events.slice(-100) : [];
+        const [users] = await pool.execute('SELECT preferences FROM `User` WHERE id = ?', [req.user.userId]);
+        if (users.length === 0) return res.status(404).json({ error: "User not found" });
+        const preferences = safeParseJson(users[0].preferences) || {};
+        const existingEvents = Array.isArray(preferences.studySyncEvents) ? preferences.studySyncEvents : [];
+        const mergedEvents = [...existingEvents, ...events].slice(-200);
+        const nextPreferences = { ...preferences, studySyncEvents: mergedEvents };
+        await pool.execute('UPDATE `User` SET preferences = ? WHERE id = ?', [JSON.stringify(nextPreferences), req.user.userId]);
+        res.json({ success: true, synced: events.length });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Failed to sync study events" });
+    }
+});
+
 app.get('/api/user/profile', authenticateToken, async (req, res) => {
     try {
         const [users] = await pool.execute(

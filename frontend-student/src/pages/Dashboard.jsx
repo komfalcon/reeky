@@ -124,6 +124,7 @@ export default function Dashboard() {
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [isOffline, setIsOffline] = useState(() => typeof navigator !== 'undefined' && !navigator.onLine);
   const [mediaCacheState, setMediaCacheState] = useState({});
+  const [syncStatus, setSyncStatus] = useState('idle');
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('reeky_theme') !== 'light');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [assetSearch, setAssetSearch] = useState('');
@@ -170,6 +171,31 @@ export default function Dashboard() {
   const [studyNote, setStudyNote] = useState('');
   const [notesOpen, setNotesOpen] = useState(false);
   const studyMemoryKey = selectedAsset?.id ? `reeky_memory_${user?.id || user?.email || 'current'}_${selectedAsset.id}_${activeAsset}` : '';
+  const syncQueueKey = `reeky_sync_queue_${user?.id || user?.email || 'current'}`;
+
+  const flushSyncQueue = useCallback(async () => {
+    if (!token || !navigator.onLine) return;
+    let queue = [];
+    try { queue = JSON.parse(localStorage.getItem(syncQueueKey) || '[]'); } catch { queue = []; }
+    if (!Array.isArray(queue) || queue.length === 0) { setSyncStatus('idle'); return; }
+    setSyncStatus('syncing');
+    try {
+      await api.syncStudyEvents(queue, token);
+      localStorage.removeItem(syncQueueKey);
+      setSyncStatus('synced');
+    } catch {
+      setSyncStatus('pending');
+    }
+  }, [token, syncQueueKey]);
+
+  const enqueueSyncEvent = useCallback((event) => {
+    let queue = [];
+    try { queue = JSON.parse(localStorage.getItem(syncQueueKey) || '[]'); } catch { queue = []; }
+    const nextQueue = [...(Array.isArray(queue) ? queue : []), { ...event, id: crypto.randomUUID(), createdAt: new Date().toISOString() }].slice(-100);
+    localStorage.setItem(syncQueueKey, JSON.stringify(nextQueue));
+    setSyncStatus('pending');
+    if (navigator.onLine) flushSyncQueue();
+  }, [syncQueueKey, flushSyncQueue]);
 
   const activeLineRef = useRef(null);
   const timerRef = useRef(null);
@@ -277,7 +303,7 @@ export default function Dashboard() {
   }, [selectedAsset?.id, user?.id, user?.email, activeAsset, currentFlashcard, quizStep, quizScore, quizFinished, quizMissed, currentSlide, deckMastery]);
 
   useEffect(() => {
-    const markOnline = () => setIsOffline(false);
+    const markOnline = () => { setIsOffline(false); flushSyncQueue(); };
     const markOffline = () => setIsOffline(true);
     window.addEventListener('online', markOnline);
     window.addEventListener('offline', markOffline);
@@ -285,7 +311,7 @@ export default function Dashboard() {
       window.removeEventListener('online', markOnline);
       window.removeEventListener('offline', markOffline);
     };
-  }, []);
+  }, [flushSyncQueue]);
 
   // Handle Synced Audio Simulation
   useEffect(() => {
@@ -568,7 +594,7 @@ export default function Dashboard() {
         {isOffline && (
           <div className="foundry-offline-banner" role="status">
             <span className="foundry-offline-dot" />
-            <div><strong>Offline study mode</strong><span>Your saved learning kits remain available. New sources and production updates will sync when you reconnect.</span></div>
+            <div><strong>{syncStatus === 'syncing' ? 'Syncing study notes' : syncStatus === 'pending' ? 'Study changes waiting to sync' : 'Offline study mode'}</strong><span>{syncStatus === 'syncing' ? 'Your recent notes and quiz attempts are being sent securely.' : syncStatus === 'pending' ? 'Your notes and quiz attempts are saved on this device and will sync automatically when you reconnect.' : 'Your saved learning kits remain available. New sources and production updates will sync when you reconnect.'}</span></div>
           </div>
         )}
 
@@ -904,7 +930,10 @@ export default function Dashboard() {
                         className="foundry-note-editor"
                         value={studyNote}
                         onChange={event => setStudyNote(event.target.value)}
-                        onBlur={() => saveStudyMemory()}
+                        onBlur={() => {
+                          saveStudyMemory();
+                          if (selectedAsset?.id && studyNote.trim()) enqueueSyncEvent({ type: 'NOTE_SAVED', kitId: selectedAsset.id, instrument: activeAsset, note: studyNote.trim() });
+                        }}
                         placeholder="Capture a question, connection, or reminder..."
                         aria-label="Personal study note"
                         rows={2}
@@ -1331,6 +1360,7 @@ export default function Dashboard() {
                                     setSelectedQuizOption(null);
                                   } else {
                                     setQuizFinished(true);
+                                    if (selectedAsset?.id) enqueueSyncEvent({ type: 'QUIZ_ATTEMPT', kitId: selectedAsset.id, score: quizScore, total: activeData.quiz.length, missed: quizMissed });
                                   }
                                 }}
                               >

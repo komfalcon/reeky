@@ -2653,3 +2653,21 @@ a {
 .foundry-offline-media-button:active:not(:disabled) { transform: scale(0.97); }
 .foundry-offline-media-button:disabled { cursor: wait; opacity: 0.65; }
 @media (max-width: 640px) { .foundry-offline-media-button { width: 100%; } }
+
+
+.foundry-offline-library { margin: 1.4rem 0 2rem; padding: 1.2rem; border: 1px solid var(--card-border); border-radius: 16px; background: var(--card-bg); box-shadow: var(--card-shadow); }
+.foundry-offline-library-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.foundry-offline-library h2 { margin: 0.25rem 0 0.35rem; font-family: var(--font-heading); font-size: 1.25rem; }
+.foundry-offline-library p { max-width: 38rem; margin: 0; color: var(--text-muted); font-size: 0.75rem; line-height: 1.5; }
+.foundry-offline-library-meter { display: flex; align-items: center; gap: 0.65rem; margin-top: 1rem; padding: 0.7rem 0.8rem; border-radius: 11px; background: var(--bg); color: var(--primary); }
+.foundry-offline-library-meter strong { font-family: var(--font-heading); font-size: 0.92rem; }
+.foundry-offline-library-meter span { color: var(--text-muted); font-size: 0.68rem; }
+.foundry-offline-kit-list { display: grid; gap: 0.45rem; margin-top: 0.75rem; }
+.foundry-offline-kit { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; padding: 0.65rem 0.75rem; border: 1px solid var(--card-border); border-radius: 10px; }
+.foundry-offline-kit > div { display: grid; gap: 0.2rem; min-width: 0; }
+.foundry-offline-kit strong { overflow: hidden; color: var(--text-main); font-size: 0.74rem; text-overflow: ellipsis; white-space: nowrap; }
+.foundry-offline-kit span { color: var(--text-muted); font-size: 0.64rem; }
+.foundry-offline-kit button { display: grid; flex: 0 0 auto; place-items: center; width: 30px; height: 30px; border: 1px solid var(--card-border); border-radius: 8px; background: transparent; color: var(--text-muted); cursor: pointer; }
+.foundry-offline-kit button:hover { border-color: var(--error); color: var(--error); }
+.foundry-offline-library-empty { margin-top: 0.75rem; padding: 0.8rem; border: 1px dashed var(--card-border); border-radius: 10px; color: var(--text-muted); font-size: 0.7rem; line-height: 1.45; }
+@media (max-width: 640px) { .foundry-offline-library-head { flex-direction: column; } .foundry-offline-library-head .foundry-memory-button { width: 100%; justify-content: center; } .foundry-offline-library-meter { align-items: flex-start; flex-wrap: wrap; } }

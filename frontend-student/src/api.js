@@ -53,4 +53,11 @@ export const api = {
 
   getAssets: (token) =>
     request('/api/assets', { token }),
+
+  syncStudyEvents: (events, token) =>
+    request('/api/user/study-sync', {
+      method: 'POST',
+      body: { events },
+      token,
+    }),
 };

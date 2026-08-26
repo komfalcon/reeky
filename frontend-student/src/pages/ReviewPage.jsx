@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowUpRight, BookmarkCheck, ClipboardList, FileText, StickyNote } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, BookmarkCheck, ClipboardList, FileText, StickyNote, HardDrive, RefreshCw, Trash2 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { api } from '../api';
 
@@ -48,6 +48,8 @@ export default function ReviewPage() {
   const navigate = useNavigate();
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [storageBytes, setStorageBytes] = useState(0);
+  const [storageRefreshing, setStorageRefreshing] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -68,6 +70,35 @@ export default function ReviewPage() {
 
   const ownerKey = user?.id || user?.email || 'current';
   const entries = useMemo(() => getMemoryEntries(assets, ownerKey), [assets, ownerKey]);
+  const offlineKits = useMemo(() => assets.filter(asset => localStorage.getItem(`reeky_text_instruments_${ownerKey}_${asset.id}`)), [assets, ownerKey, storageBytes]);
+
+  const refreshStorage = async () => {
+    setStorageRefreshing(true);
+    let bytes = 0;
+    Object.keys(localStorage).forEach(key => {
+      if (key.includes(`reeky_${ownerKey}`) || key.startsWith('reeky_theme')) bytes += (localStorage.getItem(key) || '').length * 2;
+    });
+    if ('caches' in window) {
+      try {
+        const cache = await caches.open('reeky-foundry-media-v1');
+        const requests = await cache.keys();
+        for (const request of requests) {
+          const response = await cache.match(request);
+          bytes += Number(response?.headers.get('content-length') || 0);
+        }
+      } catch { /* Cache Storage may be unavailable in private browsing. */ }
+    }
+    setStorageBytes(bytes);
+    setStorageRefreshing(false);
+  };
+
+  const removeOfflineKit = async (assetId) => {
+    localStorage.removeItem(`reeky_text_instruments_${ownerKey}_${assetId}`);
+    localStorage.removeItem(`reeky_progress_${ownerKey}_${assetId}`);
+    Object.keys(localStorage).filter(key => key.startsWith(`reeky_memory_${ownerKey}_${assetId}_`)).forEach(key => localStorage.removeItem(key));
+    setStorageBytes(prev => Math.max(0, prev));
+    await refreshStorage();
+  };
 
   const handleLogout = () => {
     logout();
@@ -103,6 +134,12 @@ export default function ReviewPage() {
           <div><BookmarkCheck size={18} /><strong>{entries.filter(entry => entry.bookmarked).length}</strong><span>bookmarked instruments</span></div>
           <div><StickyNote size={18} /><strong>{entries.filter(entry => entry.note).length}</strong><span>personal notes</span></div>
           <div><ClipboardList size={18} /><strong>{assets.length}</strong><span>learning kits</span></div>
+        </section>
+
+        <section className="foundry-offline-library" aria-labelledby="offline-library-title">
+          <div className="foundry-offline-library-head"><div><span className="foundry-overline">PWA STORAGE / LOCAL SHELF</span><h2 id="offline-library-title">Offline Library</h2><p>Keep your text instruments close when the connection drops. Removing a kit here does not delete the original source.</p></div><button type="button" className="foundry-memory-button" onClick={refreshStorage} disabled={storageRefreshing}><RefreshCw size={14} /> {storageRefreshing ? 'Measuring...' : 'Refresh usage'}</button></div>
+          <div className="foundry-offline-library-meter"><HardDrive size={18} /><strong>{storageBytes < 1024 * 1024 ? `${Math.max(1, Math.round(storageBytes / 1024))} KB` : `${(storageBytes / (1024 * 1024)).toFixed(1)} MB`}</strong><span>estimated local storage · {offlineKits.length} cached kit{offlineKits.length === 1 ? '' : 's'}</span></div>
+          {offlineKits.length > 0 ? <div className="foundry-offline-kit-list">{offlineKits.map(asset => <div className="foundry-offline-kit" key={asset.id}><div><strong>{asset.title || 'Untitled learning kit'}</strong><span>Text instruments available offline</span></div><button type="button" aria-label={`Remove ${asset.title || 'kit'} from offline library`} onClick={() => removeOfflineKit(asset.id)}><Trash2 size={15} /></button></div>)}</div> : <div className="foundry-offline-library-empty">Open a kit while online to place its text instruments on this local shelf.</div>}
         </section>
 
         {loading ? <div className="foundry-review-empty">Gathering your saved knowledge...</div> : entries.length === 0 ? (
