@@ -123,6 +123,10 @@ export default function Dashboard() {
   const [fetchingAssets, setFetchingAssets] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [isOffline, setIsOffline] = useState(() => typeof navigator !== 'undefined' && !navigator.onLine);
+  const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('reeky_theme') !== 'light');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [assetSearch, setAssetSearch] = useState('');
+  const [activeTag, setActiveTag] = useState('All');
 
   // Selective Generation configurations
   const [customInstructions, setCustomInstructions] = useState('');
@@ -172,6 +176,11 @@ export default function Dashboard() {
   useEffect(() => {
     if (!isAuthenticated) navigate('/login');
   }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = isDarkMode ? 'dark' : 'light';
+    localStorage.setItem('reeky_theme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
 
   useEffect(() => {
     setTableEmbedError(false);
@@ -391,6 +400,16 @@ export default function Dashboard() {
 
   const completedAssets = userAssets.filter(a => a.status === 'COMPLETED');
   const pendingAssets = userAssets.filter(a => a.status !== 'COMPLETED');
+  const assetTags = ['All', ...new Set(completedAssets.flatMap(asset => {
+    const title = (asset.title || '').toLowerCase();
+    return [title.includes('physics') ? 'Physics' : null, title.includes('chem') ? 'Chemistry' : null, title.includes('biology') ? 'Biology' : null, title.includes('econom') ? 'Economics' : null, title.includes('history') ? 'History' : null].filter(Boolean);
+  }))];
+  const filteredCompletedAssets = completedAssets.filter(asset => {
+    const title = (asset.title || '').toLowerCase();
+    const queryMatches = !assetSearch.trim() || title.includes(assetSearch.trim().toLowerCase());
+    const tagMatches = activeTag === 'All' || title.includes(activeTag.toLowerCase().replace('chemistry', 'chem'));
+    return queryMatches && tagMatches;
+  });
   const getProductionStatus = (status) => {
     const normalized = String(status || '').toUpperCase();
     if (normalized.includes('FAIL')) return { label: 'Needs attention', detail: 'The Foundry could not finish this kit.', tone: 'error' };
@@ -504,6 +523,10 @@ export default function Dashboard() {
             <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary)' }}>
               Tutee: {user?.preferences?.name || user?.name}
             </span>
+            <Link to="/review" className="foundry-nav-link">Review Desk</Link>
+            <button className="foundry-theme-toggle" type="button" onClick={() => setIsDarkMode(prev => !prev)} aria-label="Toggle color theme">
+              {isDarkMode ? 'Light mode' : 'Dark mode'}
+            </button>
             <button className="btn btn-secondary" style={{ display: 'flex' }} onClick={handleLogout}>
               Log Out
             </button>
@@ -689,6 +712,22 @@ export default function Dashboard() {
                 Source Desk
               </h4>
 
+              <div className="foundry-sidebar-nav">
+                <Link to="/dashboard" className="foundry-sidebar-nav-item active">Kit Bench <span>⌂</span></Link>
+                <Link to="/review" className="foundry-sidebar-nav-item">Review Desk <span>↗</span></Link>
+                <button type="button" className="foundry-sidebar-nav-item" onClick={() => setSidebarOpen(prev => !prev)}>{sidebarOpen ? 'Close filters' : 'Find a kit'} <span>⌕</span></button>
+              </div>
+
+              {sidebarOpen && (
+                <div className="foundry-asset-filters">
+                  <label htmlFor="asset-search">Search the archive</label>
+                  <input id="asset-search" className="auth-input" value={assetSearch} onChange={event => setAssetSearch(event.target.value)} placeholder="Search kit titles..." />
+                  <div className="foundry-tag-list" aria-label="Filter kits by subject">
+                    {assetTags.map(tag => <button key={tag} type="button" className={activeTag === tag ? 'active' : ''} onClick={() => setActiveTag(tag)}>{tag}</button>)}
+                  </div>
+                </div>
+              )}
+
               {fetchingAssets && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading...</p>}
 
               {!fetchingAssets && userAssets.length === 0 && (
@@ -700,7 +739,7 @@ export default function Dashboard() {
               {completedAssets.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginBottom: '1.5rem' }}>
                   <p style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>DIGESTED</p>
-                  {completedAssets.map(asset => (
+                  {filteredCompletedAssets.map(asset => (
                     <button
                       key={asset.id}
                       className="sample-badge btn"
@@ -731,6 +770,7 @@ export default function Dashboard() {
                       📚 {asset.title.length > 22 ? asset.title.slice(0, 22) + '...' : asset.title}
                     </button>
                   ))}
+                  {filteredCompletedAssets.length === 0 && <p className="foundry-filter-empty">No kits match this search.</p>}
                 </div>
               )}
 
