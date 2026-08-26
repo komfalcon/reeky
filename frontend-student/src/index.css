@@ -2593,3 +2593,32 @@ a {
   .foundry-study-tools { align-items: stretch; }
   .foundry-memory-button { flex: 1 1 auto; justify-content: center; }
 }
+
+
+.foundry-review-main { padding-top: 2rem; padding-bottom: 5rem; }
+.foundry-back-link { display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 1.5rem; color: var(--text-muted); font-size: 0.72rem; font-weight: 800; text-decoration: none; }
+.foundry-back-link:hover { color: var(--primary); }
+.foundry-nav-actions { display: flex; align-items: center; gap: 0.8rem; }
+.foundry-user-label { color: var(--text-muted); font-size: 0.72rem; font-weight: 700; }
+.foundry-mark { display: inline-grid; place-items: center; width: 1.55rem; height: 1.55rem; border: 1px solid var(--primary); border-radius: 50%; color: var(--primary); font-size: 0.72rem; font-weight: 900; }
+.foundry-review-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.8rem; margin: 2rem 0 1.25rem; }
+.foundry-review-summary > div { display: grid; grid-template-columns: auto 1fr; column-gap: 0.6rem; padding: 1rem; border: 1px solid var(--card-border); border-radius: 14px; background: var(--card-bg); }
+.foundry-review-summary svg { grid-row: span 2; margin-top: 0.15rem; color: var(--primary); }
+.foundry-review-summary strong { font-family: var(--font-heading); font-size: 1.15rem; }
+.foundry-review-summary span { color: var(--text-muted); font-size: 0.65rem; font-weight: 700; }
+.foundry-review-list { display: grid; gap: 0.8rem; }
+.foundry-review-entry { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 1rem; padding: 1rem 1.1rem; border: 1px solid var(--card-border); border-radius: 14px; background: var(--card-bg); }
+.foundry-review-entry-icon { display: grid; place-items: center; width: 2.2rem; height: 2.2rem; border-radius: 10px; background: var(--accent-glow); color: var(--primary); }
+.foundry-review-entry-copy { min-width: 0; }
+.foundry-review-entry-copy h2 { margin: 0.25rem 0; overflow: hidden; font-family: var(--font-heading); font-size: 0.92rem; text-overflow: ellipsis; white-space: nowrap; }
+.foundry-review-entry-copy p { margin: 0; color: var(--text-muted); font-size: 0.76rem; line-height: 1.5; }
+.foundry-review-empty { display: grid; justify-items: center; gap: 0.55rem; margin-top: 2rem; padding: 4rem 1.5rem; border: 1px dashed var(--card-border); border-radius: 16px; color: var(--text-muted); text-align: center; }
+.foundry-review-empty strong { color: var(--text-main); font-family: var(--font-heading); }
+.foundry-review-empty .btn { margin-top: 0.7rem; }
+@media (max-width: 700px) {
+  .foundry-nav-actions { gap: 0.45rem; }
+  .foundry-user-label { display: none; }
+  .foundry-review-summary { grid-template-columns: 1fr; margin-top: 1.4rem; }
+  .foundry-review-entry { grid-template-columns: auto minmax(0, 1fr); }
+  .foundry-review-entry .foundry-memory-button { grid-column: 1 / -1; width: 100%; }
+}

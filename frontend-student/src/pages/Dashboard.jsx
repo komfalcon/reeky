@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { jsPDF } from 'jspdf';
 import { useAuth } from '../AuthContext';
 import { api } from '../api';
@@ -112,6 +112,7 @@ function NativeDriveTable({ url }) {
 export default function Dashboard() {
   const { user, token, logout, updatePreferences, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [uploadMode, setUploadMode] = useState('file');
   const [pdfUrl, setPdfUrl] = useState('');
@@ -237,6 +238,15 @@ export default function Dashboard() {
   useEffect(() => {
     if (isAuthenticated) fetchUserAssets();
   }, [isAuthenticated, fetchUserAssets]);
+
+  useEffect(() => {
+    const requestedKit = searchParams.get('kit');
+    const requestedInstrument = searchParams.get('instrument');
+    if (!requestedKit || !userAssets.length) return;
+    const matchingAsset = userAssets.find(asset => String(asset.id) === requestedKit);
+    if (matchingAsset && selectedAsset?.id !== matchingAsset.id) setSelectedAsset(matchingAsset);
+    if (requestedInstrument) setActiveAsset(requestedInstrument);
+  }, [searchParams, userAssets, selectedAsset?.id]);
 
   useEffect(() => {
     if (!selectedAsset?.id) return;
