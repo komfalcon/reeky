@@ -156,6 +156,7 @@ export default function Dashboard() {
   const [quizAnswered, setQuizAnswered] = useState(false);
   const [selectedQuizOption, setSelectedQuizOption] = useState(null);
   const [quizFinished, setQuizFinished] = useState(false);
+  const [quizMissed, setQuizMissed] = useState([]);
 
   // Slides States
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -203,6 +204,7 @@ export default function Dashboard() {
       if (Number.isInteger(saved.currentSlide)) setCurrentSlide(saved.currentSlide);
       if (Number.isFinite(saved.deckMastery)) setDeckMastery(saved.deckMastery);
       if (typeof saved.quizFinished === 'boolean') setQuizFinished(saved.quizFinished);
+      if (Array.isArray(saved.quizMissed)) setQuizMissed(saved.quizMissed);
     } catch {
       // Ignore malformed local progress and start the kit fresh.
     }
@@ -257,11 +259,12 @@ export default function Dashboard() {
       quizStep,
       quizScore,
       quizFinished,
+      quizMissed,
       currentSlide,
       deckMastery,
       savedAt: new Date().toISOString()
     }));
-  }, [selectedAsset?.id, user?.id, user?.email, activeAsset, currentFlashcard, quizStep, quizScore, quizFinished, currentSlide, deckMastery]);
+  }, [selectedAsset?.id, user?.id, user?.email, activeAsset, currentFlashcard, quizStep, quizScore, quizFinished, quizMissed, currentSlide, deckMastery]);
 
   useEffect(() => {
     const markOnline = () => setIsOffline(false);
@@ -716,6 +719,7 @@ export default function Dashboard() {
                         setQuizStep(0);
                         setQuizScore(0);
                         setQuizFinished(false);
+                        setQuizMissed([]);
                         setQuizAnswered(false);
                         setSelectedQuizOption(null);
                         setAudioPlaying(false);
@@ -1195,6 +1199,8 @@ export default function Dashboard() {
                                     setQuizAnswered(true);
                                     if (isCorrectOption) {
                                       setQuizScore(prev => prev + 1);
+                                    } else {
+                                      setQuizMissed(prev => prev.includes(quizStep) ? prev : [...prev, quizStep]);
                                     }
                                   }}
                                   style={{
@@ -1291,6 +1297,13 @@ export default function Dashboard() {
                             You scored {quizScore} out of {activeData.quiz.length} correctly.
                           </p>
 
+                          {quizMissed.length > 0 && (
+                            <div className="foundry-quiz-review">
+                              <div><strong>{quizMissed.length} question{quizMissed.length === 1 ? '' : 's'} to revisit</strong><span>Return to the first missed question and use the explanation to repair the gap.</span></div>
+                              <button className="foundry-memory-button" type="button" onClick={() => { setQuizStep(quizMissed[0]); setQuizFinished(false); setQuizAnswered(false); setSelectedQuizOption(null); }}>Review missed</button>
+                            </div>
+                          )}
+
                           <div style={{ background: 'var(--bg)', borderRadius: '16px', padding: '1rem', border: '1px solid var(--card-border)', fontSize: '0.8rem', color: 'var(--text-main)', marginBottom: '1.5rem', lineHeight: 1.4 }}>
                             {quizScore === activeData.quiz.length ? (
                               "🎉 Perfect score! Aris is extremely proud of you. Let's study the mindmap or try another chapter!"
@@ -1306,6 +1319,7 @@ export default function Dashboard() {
                               setQuizStep(0);
                               setQuizScore(0);
                               setQuizFinished(false);
+                              setQuizMissed([]);
                               setQuizAnswered(false);
                               setSelectedQuizOption(null);
                             }}

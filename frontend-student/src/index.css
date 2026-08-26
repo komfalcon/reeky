@@ -2622,3 +2622,10 @@ a {
   .foundry-review-entry { grid-template-columns: auto minmax(0, 1fr); }
   .foundry-review-entry .foundry-memory-button { grid-column: 1 / -1; width: 100%; }
 }
+
+
+.foundry-quiz-review { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; margin: 0 0 1.1rem; padding: 0.85rem 0.95rem; border: 1px solid rgba(198, 106, 61, 0.32); border-radius: 14px; background: rgba(198, 106, 61, 0.08); text-align: left; }
+.foundry-quiz-review > div { display: grid; gap: 0.2rem; }
+.foundry-quiz-review strong { font-family: var(--font-heading); font-size: 0.78rem; }
+.foundry-quiz-review span { color: var(--text-muted); font-size: 0.68rem; line-height: 1.4; }
+@media (max-width: 560px) { .foundry-quiz-review { align-items: stretch; flex-direction: column; } .foundry-quiz-review .foundry-memory-button { width: 100%; justify-content: center; } }
