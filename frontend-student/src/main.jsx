@@ -11,9 +11,11 @@ import { AuthProvider } from './AuthContext'
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {
-      // Offline enhancement is optional; the app remains fully usable online.
-    });
+    navigator.serviceWorker.register('/sw.js')
+      .then(registration => registration.update())
+      .catch(() => {
+        // Offline enhancement is optional; the app remains fully usable online.
+      });
   });
 }
 

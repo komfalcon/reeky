@@ -1,4 +1,5 @@
-const CACHE_NAME = 'reeky-foundry-shell-v2';
+const CACHE_NAME = 'reeky-foundry-shell-v3';
+const LEGACY_SHELL_CACHE_NAMES = ['reeky-foundry-shell-v2', 'reeky-foundry-shell-v1'];
 const MEDIA_CACHE_NAME = 'reeky-foundry-media-v3';
 const LEGACY_MEDIA_CACHE_NAMES = ['reeky-foundry-media-v2', 'reeky-foundry-media-v1'];
 const APP_SHELL = ['/', '/index.html', '/favicon.svg', '/manifest.webmanifest'];
@@ -102,12 +103,40 @@ async function handleMediaRequest(request) {
   }
 }
 
+async function cacheAppShell() {
+  const cache = await caches.open(CACHE_NAME);
+  const urls = new Set(APP_SHELL);
+
+  try {
+    const response = await fetch('/index.html', { cache: 'no-store' });
+    if (response.ok) {
+      const markup = await response.clone().text();
+      for (const match of markup.matchAll(/(?:src|href)=["']([^"']+)["']/gi)) {
+        try {
+          const assetUrl = new URL(match[1], self.location.origin);
+          if (assetUrl.origin === self.location.origin) urls.add(assetUrl.pathname + assetUrl.search);
+        } catch {
+          // Ignore malformed or external document references.
+        }
+      }
+      await cache.put('/index.html', response);
+    }
+  } catch {
+    // An existing worker/cache can continue serving the previous shell.
+  }
+
+  await Promise.all([...urls].map(async url => {
+    try {
+      const response = await fetch(url, { cache: 'no-store' });
+      if (response.ok) await cache.put(url, response);
+    } catch {
+      // A single optional asset must not abort Service Worker installation.
+    }
+  }));
+}
+
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(APP_SHELL))
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil(cacheAppShell().then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', event => {
@@ -115,7 +144,7 @@ self.addEventListener('activate', event => {
     caches.keys()
       .then(keys => Promise.all(
         keys
-          .filter(key => key !== CACHE_NAME && key !== MEDIA_CACHE_NAME && !LEGACY_MEDIA_CACHE_NAMES.includes(key))
+          .filter(key => key !== CACHE_NAME && key !== MEDIA_CACHE_NAME && !LEGACY_SHELL_CACHE_NAMES.includes(key) && !LEGACY_MEDIA_CACHE_NAMES.includes(key))
           .map(key => caches.delete(key))
       ))
       .then(() => self.clients.claim())
@@ -145,17 +174,21 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  event.respondWith(
-    fetch(request)
-      .then(response => {
-        if (response.ok) {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(request, copy)).catch(() => {});
-        }
-        return response;
-      })
-      .catch(async () => (await safeCacheMatch(request)) || Response.error())
-  );
+  event.respondWith((async () => {
+    const cached = await safeCacheMatch(request);
+    if (cached) return cached;
+
+    try {
+      const response = await fetch(request);
+      if (response.ok) {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(request, copy)).catch(() => {});
+      }
+      return response;
+    } catch {
+      return Response.error();
+    }
+  })());
 });
 
 self.addEventListener('message', event => {
