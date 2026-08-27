@@ -384,7 +384,7 @@ export default function Dashboard() {
     window.cloudinary.createUploadWidget(
       {
         cloudName: 'x9lbk1ea',
-        uploadPreset: 'Reeky Academic Hub',
+        uploadPreset: 'Reeky Foundry',
         sources: ['local', 'url', 'camera'],
         multiple: false,
         maxFileSize: 50000000,
@@ -572,7 +572,7 @@ export default function Dashboard() {
               <path d="M12 2L2 22H22L12 2Z" stroke="var(--primary)" fill="none" />
               <path d="M20 12L15 22H29L20 12Z" stroke="var(--secondary)" fill="none" />
             </svg>
-            Reeky Academic Hub
+            Reeky Foundry
           </Link>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -995,15 +995,11 @@ export default function Dashboard() {
                           <Music size={64} color="var(--primary)" style={{ marginBottom: '2rem' }} />
                           <h4 style={{ fontWeight: 800, fontSize: '1.2rem', marginBottom: '0.5rem' }}>Uploaded Podcast Audio</h4>
                           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '2rem' }}>Listen to the study material provided by your instructor.</p>
-                          {(isGoogleDriveUrl(activeData.podcast_audio)) ? (
-                            <iframe 
-                              src={getDrivePreviewUrl(activeData.podcast_audio)}
-                              style={{ width: '100%', height: '140px', border: 'none', borderRadius: '16px', background: 'transparent' }} 
-                              title="Podcast Player"
-                            />
-                          ) : (
-                            <audio controls src={activeData.podcast_audio} style={{ width: '100%', outline: 'none' }} />
-                          )}
+                          <audio
+                            controls
+                            src={isGoogleDriveUrl(activeData.podcast_audio) ? getCustomerFileUrl(activeData.podcast_audio) : activeData.podcast_audio}
+                            style={{ width: '100%', outline: 'none' }}
+                          />
                           <button type="button" className="foundry-offline-media-button" onClick={() => saveMediaOffline('podcast', activeData.podcast_audio)} disabled={mediaCacheState.podcast === 'saving'}>
                             <Download size={14} /> {mediaCacheState.podcast === 'saved' ? 'Saved for offline' : mediaCacheState.podcast === 'saving' ? 'Saving media...' : 'Save audio for offline'}
                           </button>
@@ -1449,16 +1445,11 @@ export default function Dashboard() {
                   {activeAsset === 'video' && (
                     activeData.video_overview ? (
                       <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                        {(isGoogleDriveUrl(activeData.video_overview)) ? (
-                          <iframe 
-                            src={getDrivePreviewUrl(activeData.video_overview)}
-                            style={{ width: '100%', height: '500px', maxWidth: '800px', border: 'none', borderRadius: '16px', boxShadow: 'var(--card-shadow)' }} 
-                            title="Video Player"
-                            allow="autoplay"
-                          />
-                        ) : (
-                          <video controls src={activeData.video_overview} style={{ width: '100%', maxWidth: '800px', maxHeight: '600px', borderRadius: '16px', boxShadow: 'var(--card-shadow)' }} />
-                        )}
+                        <video
+                          controls
+                          src={isGoogleDriveUrl(activeData.video_overview) ? getCustomerFileUrl(activeData.video_overview) : activeData.video_overview}
+                          style={{ width: '100%', maxWidth: '800px', maxHeight: '600px', borderRadius: '16px', boxShadow: 'var(--card-shadow)' }}
+                        />
                         <button type="button" className="foundry-offline-media-button" onClick={() => saveMediaOffline('video', activeData.video_overview)} disabled={mediaCacheState.video === 'saving'}>
                           <Download size={14} /> {mediaCacheState.video === 'saved' ? 'Saved for offline' : mediaCacheState.video === 'saving' ? 'Saving media...' : 'Save video for offline'}
                         </button>
@@ -1509,15 +1500,11 @@ export default function Dashboard() {
                   {activeAsset === 'infographic' && (
                     activeData.infographic ? (
                       <div style={{ flex: 1, display: 'flex', justifyContent: 'center', overflow: 'auto', padding: '1rem' }}>
-                        {(isGoogleDriveUrl(activeData.infographic)) ? (
-                          <iframe 
-                            src={getDrivePreviewUrl(activeData.infographic)}
-                            style={{ width: '100%', height: '600px', border: 'none', borderRadius: '16px', boxShadow: 'var(--card-shadow)' }} 
-                            title="Infographic"
-                          />
-                        ) : (
-                          <img src={activeData.infographic} alt="Infographic" style={{ maxWidth: '100%', objectFit: 'contain', borderRadius: '16px', boxShadow: 'var(--card-shadow)' }} />
-                        )}
+                        <img
+                          src={isGoogleDriveUrl(activeData.infographic) ? getCustomerFileUrl(activeData.infographic) : activeData.infographic}
+                          alt="Infographic"
+                          style={{ maxWidth: '100%', objectFit: 'contain', borderRadius: '16px', boxShadow: 'var(--card-shadow)' }}
+                        />
                         <button type="button" className="foundry-offline-media-button" onClick={() => saveMediaOffline('infographic', activeData.infographic)} disabled={mediaCacheState.infographic === 'saving'}>
                           <Download size={14} /> {mediaCacheState.infographic === 'saved' ? 'Saved for offline' : mediaCacheState.infographic === 'saving' ? 'Saving media...' : 'Save image for offline'}
                         </button>

@@ -2490,27 +2490,28 @@ a {
 
 .foundry-offline-banner {
   display: flex;
-  align-items: flex-start;
-  gap: 0.8rem;
-  margin-bottom: 1.25rem;
-  padding: 0.9rem 1rem;
-  border: 1px solid rgba(198, 106, 61, 0.35);
-  border-radius: 14px;
-  background: rgba(198, 106, 61, 0.08);
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--primary);
+  border-radius: 16px;
+  background: var(--accent-glow);
+  backdrop-filter: blur(10px);
   color: var(--text-main);
 }
 .foundry-offline-dot {
-  width: 0.65rem;
-  height: 0.65rem;
+  width: 10px;
+  height: 10px;
   flex: 0 0 auto;
-  margin-top: 0.3rem;
   border-radius: 50%;
-  background: #c66a3d;
-  box-shadow: 0 0 0 5px rgba(198, 106, 61, 0.12);
+  background: var(--primary);
+  box-shadow: 0 0 12px var(--primary);
+  animation: pulse 2s infinite;
 }
-.foundry-offline-banner div { display: grid; gap: 0.2rem; }
-.foundry-offline-banner strong { font-family: var(--font-heading); font-size: 0.82rem; }
-.foundry-offline-banner span:not(.foundry-offline-dot) { color: var(--text-muted); font-size: 0.72rem; line-height: 1.45; }
+.foundry-offline-banner div { display: grid; gap: 0.25rem; }
+.foundry-offline-banner strong { font-family: var(--font-heading); font-size: 0.95rem; font-weight: 800; }
+.foundry-offline-banner span:not(.foundry-offline-dot) { color: var(--text-muted); font-size: 0.8rem; line-height: 1.5; }
 @media (max-width: 640px) {
   .foundry-offline-banner { margin-bottom: 1rem; }
 }

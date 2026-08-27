@@ -39,7 +39,7 @@ export default function SignupPage() {
             <path d="M12 2L2 22H22L12 2Z" stroke="url(#logo-grad-s)" fill="none" />
             <path d="M20 12L15 22H29L20 12Z" stroke="url(#logo-grad-s)" fill="none" />
           </svg>
-          Reeky Academic Hub
+          Reeky Foundry
         </Link>
 
         <h2 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.5rem', marginBottom: '0.5rem' }}>
