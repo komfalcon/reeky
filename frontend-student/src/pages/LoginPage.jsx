@@ -80,6 +80,12 @@ export default function LoginPage() {
           </div>
         )}
 
+        {isOffline && hasOfflineSession && (
+          <button type="button" className="btn btn-primary foundry-offline-entry" onClick={openCachedWorkspace}>
+            Continue to saved workspace
+          </button>
+        )}
+
         <form onSubmit={handleSubmit} autoComplete="on" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
             <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>
