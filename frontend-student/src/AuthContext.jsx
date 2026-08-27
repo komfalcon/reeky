@@ -110,17 +110,14 @@ export function AuthProvider({ children }) {
     return true;
   }, []);
 
-  const loginWithGoogle = useCallback(async () => {
-    const mockUser = {
-      id: 'google-scholar-id',
-      name: 'Google Scholar',
-      email: 'scholar@google.com',
-      preferences: null
-    };
-    setToken('mock-google-token');
-    setUser(mockUser);
-    writeStoredToken('mock-google-token');
-    writeCachedUser(mockUser);
+  const loginWithGoogle = useCallback(async (credential) => {
+    if (!credential) throw new Error('Google did not return a sign-in credential.');
+    const data = await api.loginWithGoogle(credential);
+    setToken(data.token);
+    setUser(data.user);
+    writeStoredToken(data.token);
+    writeCachedUser(data.user);
+    return data;
   }, []);
 
   const updatePreferences = useCallback((newPreferences) => {

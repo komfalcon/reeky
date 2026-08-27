@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import mysql from 'mysql2/promise';
 import crypto from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
 import multer from 'multer';
 import { uploadFileToDrive, getFileStream } from './services/googleDriveService.js';
 
@@ -54,6 +55,9 @@ const pool = mysql.createPool({
         rejectUnauthorized: true
     }
 });
+
+const googleClientId = process.env.GOOGLE_CLIENT_ID || '';
+const googleTokenClient = googleClientId ? new OAuth2Client(googleClientId) : null;
 
 // Health Check Endpoint
 app.get('/api/health', async (req, res) => {
@@ -224,6 +228,58 @@ app.post('/api/auth/login', async (req, res) => {
     } catch (error) {
         console.error('Login request failed');
         res.status(500).json({ error: "Something went wrong" });
+    }
+});
+
+app.post('/api/auth/google', async (req, res) => {
+    try {
+        const credential = typeof req.body?.credential === 'string' ? req.body.credential.trim() : '';
+        if (!credential) return res.status(400).json({ error: 'Google credential is required' });
+        if (!googleTokenClient || !googleClientId) {
+            return res.status(503).json({ error: 'Google sign-in is not configured' });
+        }
+
+        const ticket = await googleTokenClient.verifyIdToken({
+            idToken: credential,
+            audience: googleClientId
+        });
+        const payload = ticket.getPayload();
+        if (!payload?.sub || !payload.email || payload.email_verified !== true) {
+            return res.status(401).json({ error: 'Google account could not be verified' });
+        }
+
+        const email = payload.email.trim().toLowerCase();
+        const displayName = String(payload.name || payload.given_name || email.split('@')[0]).trim();
+        const [users] = await pool.execute('SELECT * FROM `User` WHERE email = ?', [email]);
+        let user;
+
+        if (users.length > 0) {
+            user = users[0];
+        } else {
+            // Google accounts do not need a local password, but the legacy User
+            // table requires one, so store a random unreachable hash.
+            const generatedPasswordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
+            const id = crypto.randomUUID();
+            await pool.execute(
+                'INSERT INTO `User` (id, name, email, password) VALUES (?, ?, ?, ?)',
+                [id, displayName, email, generatedPasswordHash]
+            );
+            user = { id, name: displayName, email, preferences: null };
+        }
+
+        const token = jwt.sign({ userId: user.id, email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        res.json({
+            token,
+            user: {
+                id: user.id,
+                name: user.name || displayName,
+                email: user.email,
+                preferences: safeParseJson(user.preferences)
+            }
+        });
+    } catch (error) {
+        console.error('Google login request failed:', error.message);
+        res.status(401).json({ error: 'Google sign-in could not be completed' });
     }
 });
 

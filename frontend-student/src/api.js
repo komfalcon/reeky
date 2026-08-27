@@ -37,6 +37,12 @@ export const api = {
       body: { email, password },
     }),
 
+  loginWithGoogle: (credential) =>
+    request('/api/auth/google', {
+      method: 'POST',
+      body: { credential },
+    }),
+
   savePreferences: (preferences, token) =>
     request('/api/user/preferences', {
       method: 'POST',
