@@ -49,7 +49,7 @@ export default function SignupPage() {
           Start turning your PDFs into interactive study materials.
         </p>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <form onSubmit={handleSubmit} autoComplete="on" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
             <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>
               Full Name
@@ -57,6 +57,8 @@ export default function SignupPage() {
             <input
               className="auth-input"
               type="text"
+              name="name"
+              autoComplete="name"
               placeholder="e.g. Jane Doe"
               value={name}
               onChange={e => setName(e.target.value)}
@@ -70,6 +72,8 @@ export default function SignupPage() {
             <input
               className="auth-input"
               type="email"
+              name="email"
+              autoComplete="email"
               placeholder="student@university.edu"
               value={email}
               onChange={e => setEmail(e.target.value)}
@@ -83,6 +87,8 @@ export default function SignupPage() {
             <input
               className="auth-input"
               type="password"
+              name="password"
+              autoComplete="new-password"
               placeholder="••••••••"
               value={password}
               onChange={e => setPassword(e.target.value)}

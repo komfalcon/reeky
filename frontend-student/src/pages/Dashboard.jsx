@@ -172,7 +172,7 @@ function FoundryMediaPlayer({ type, src, originalUrl, title, onSave, cacheState,
         }
         if (active) setCacheReady(true);
       } catch (e) {
-        console.error('Cache check failed', e);
+        console.warn('Offline media cache check failed');
         if (active) {
           setCacheReady(true);
           onCacheState?.(mediaKey, 'idle');
@@ -616,7 +616,7 @@ export default function Dashboard() {
         if (error) {
           setIsUploading(false);
           setUploadProgress(null);
-          console.error('Upload error', error);
+          console.error('Upload request failed');
           return;
         }
         if (result.event === 'close') {
@@ -764,7 +764,7 @@ export default function Dashboard() {
       // mistaken for a valid offline file on the next reload.
       if (cache) await cache.delete(requestUrl).catch(() => {});
       localStorage.removeItem(`reeky_media_cached_${mediaKey}`);
-      console.error('Offline media save failed:', error);
+      console.error('Offline media save failed');
       setMediaCacheState(prev => ({ ...prev, [mediaKey]: 'error' }));
     }
   };

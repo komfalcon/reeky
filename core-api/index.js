@@ -195,7 +195,7 @@ app.post('/api/auth/signup', async (req, res) => {
         const token = jwt.sign({ userId: id, email }, process.env.JWT_SECRET, { expiresIn: '7d' });
         res.json({ token, user: { id, name, email, preferences: null } });
     } catch (error) {
-        console.error(error);
+        console.error('Signup request failed');
         res.status(500).json({ error: "Something went wrong" });
     }
 });
@@ -222,7 +222,7 @@ app.post('/api/auth/login', async (req, res) => {
             }
         });
     } catch (error) {
-        console.error(error);
+        console.error('Login request failed');
         res.status(500).json({ error: "Something went wrong" });
     }
 });

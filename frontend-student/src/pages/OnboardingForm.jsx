@@ -42,7 +42,7 @@ export default function OnboardingForm({ token, onComplete }) {
       await api.savePreferences(preferences, token);
       onComplete(preferences);
     } catch (err) {
-      console.error(err);
+      console.error('Preference save failed');
       setError(err.message || 'Failed to save your preferences. Please try again.');
     } finally {
       setSaving(false);
