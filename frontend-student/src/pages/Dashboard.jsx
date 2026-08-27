@@ -6,6 +6,7 @@ import { api } from '../api';
 import OnboardingForm from './OnboardingForm';
 import CollapsibleTree from '../components/CollapsibleTree';
 import { getOfflineMedia, saveOfflineMedia, removeOfflineMedia } from '../mediaStorage';
+import { loadCloudinaryUploadWidget } from '../cloudinaryUpload';
 import {
   FileText,
   Sparkles,
@@ -574,11 +575,22 @@ export default function Dashboard() {
     }
   }, [pdfUrl, token, assetsRequested, customInstructions, fetchUserAssets]);
 
-  const openUploadWidget = () => {
-    if (!window.cloudinary) return;
+  const openUploadWidget = async () => {
     setIsUploading(true);
+    setUploadProgress('Loading secure upload dialog...');
+
+    let cloudinary;
+    try {
+      cloudinary = await loadCloudinaryUploadWidget();
+    } catch {
+      setIsUploading(false);
+      setUploadProgress(null);
+      alert('The upload dialog could not load. Please check your connection and try again.');
+      return;
+    }
+
     setUploadProgress('Opening upload dialog...');
-    window.cloudinary.createUploadWidget(
+    cloudinary.createUploadWidget(
       {
         cloudName: 'x9lbk1ea',
         uploadPreset: 'Reeky Foundry',

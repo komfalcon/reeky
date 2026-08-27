@@ -1,8 +1,10 @@
-const CACHE_NAME = 'reeky-foundry-shell-v3';
-const LEGACY_SHELL_CACHE_NAMES = ['reeky-foundry-shell-v2', 'reeky-foundry-shell-v1'];
+const CACHE_NAME = 'reeky-foundry-shell-v4';
+const LEGACY_SHELL_CACHE_NAMES = ['reeky-foundry-shell-v3', 'reeky-foundry-shell-v2', 'reeky-foundry-shell-v1'];
 const MEDIA_CACHE_NAME = 'reeky-foundry-media-v3';
 const LEGACY_MEDIA_CACHE_NAMES = ['reeky-foundry-media-v2', 'reeky-foundry-media-v1'];
 const APP_SHELL = ['/', '/index.html', '/favicon.svg', '/manifest.webmanifest'];
+// Filled with the exact hashed build assets by vite.config.js after each build.
+const PRECACHE_URLS = [];
 
 const isMediaProxyRequest = request => {
   const url = new URL(request.url);
@@ -105,7 +107,7 @@ async function handleMediaRequest(request) {
 
 async function cacheAppShell() {
   const cache = await caches.open(CACHE_NAME);
-  const urls = new Set(APP_SHELL);
+  const urls = new Set([...APP_SHELL, ...PRECACHE_URLS]);
 
   try {
     const response = await fetch('/index.html', { cache: 'no-store' });
