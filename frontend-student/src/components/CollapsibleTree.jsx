@@ -167,6 +167,24 @@ const CollapsibleTree = ({ treeData }) => {
     setIsDragging(false);
   };
 
+  const handleTouchStart = (e) => {
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    setIsDragging(true);
+    setDragStart({ x: touch.clientX - transform.x, y: touch.clientY - transform.y });
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isDragging || e.touches.length !== 1) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    setTransform(prev => ({ ...prev, x: touch.clientX - dragStart.x, y: touch.clientY - dragStart.y }));
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+  };
+
   const handleWheel = (e) => {
     e.preventDefault();
     const scaleChange = e.deltaY > 0 ? 0.9 : 1.1;
@@ -204,12 +222,17 @@ const CollapsibleTree = ({ treeData }) => {
         background: '#1a1b1e', // Exact dark background match
         overflow: 'hidden',
         borderRadius: '16px',
-        cursor: isDragging ? 'grabbing' : 'grab'
+        cursor: isDragging ? 'grabbing' : 'grab',
+        touchAction: 'none'
       }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
       onWheel={handleWheel}
     >
       <svg 

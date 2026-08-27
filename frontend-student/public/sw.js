@@ -1,8 +1,8 @@
-const CACHE_NAME = 'reeky-foundry-shell-v4';
-const LEGACY_SHELL_CACHE_NAMES = ['reeky-foundry-shell-v3', 'reeky-foundry-shell-v2', 'reeky-foundry-shell-v1'];
+const CACHE_NAME = 'reeky-foundry-shell-v5';
+const LEGACY_SHELL_CACHE_NAMES = ['reeky-foundry-shell-v4', 'reeky-foundry-shell-v3', 'reeky-foundry-shell-v2', 'reeky-foundry-shell-v1'];
 const MEDIA_CACHE_NAME = 'reeky-foundry-media-v3';
 const LEGACY_MEDIA_CACHE_NAMES = ['reeky-foundry-media-v2', 'reeky-foundry-media-v1'];
-const APP_SHELL = ['/', '/index.html', '/favicon.svg', '/manifest.webmanifest'];
+const APP_SHELL = ['/', '/index.html', '/favicon.svg', '/apple-touch-icon.png', '/manifest.webmanifest'];
 // Filled with the exact hashed build assets by vite.config.js after each build.
 const PRECACHE_URLS = [];
 

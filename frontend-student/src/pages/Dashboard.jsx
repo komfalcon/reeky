@@ -801,7 +801,7 @@ export default function Dashboard() {
       {/* Mini Navbar */}
       <header className="navbar foundry-header" style={{ position: 'sticky' }}>
         <div className="container nav-container">
-            <Link to="/" className="logo" style={{ textDecoration: 'none' }}>
+            <Link to="/" className="logo foundry-logo" style={{ textDecoration: 'none' }}>
             <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
               <path d="M12 2L2 22H22L12 2Z" stroke="var(--primary)" fill="none" />
               <path d="M20 12L15 22H29L20 12Z" stroke="var(--secondary)" fill="none" />
@@ -809,7 +809,7 @@ export default function Dashboard() {
             Reeky Foundry
           </Link>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div className="foundry-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary)' }}>
               Tutee: {user?.preferences?.name || user?.name}
             </span>
@@ -886,7 +886,7 @@ export default function Dashboard() {
               <h4 style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '0.75rem', color: 'var(--primary)' }}>
                 Selective Formats (Uncheck what you don't need)
               </h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1.25rem' }}>
+              <div className="foundry-format-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1.25rem' }}>
                 {[
                   { id: 'podcast', label: 'Audio Podcast' },
                   { id: 'flashcards', label: 'Flashcards Decks' },
@@ -1162,7 +1162,7 @@ export default function Dashboard() {
 
                 {/* Foundry Workbench Header */}
                 <div className="foundry-workbench-header" style={{ padding: '2rem', background: 'var(--bg)', borderBottom: '1px solid var(--divider)' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem', alignItems: 'start' }}>
+                  <div className="foundry-kit-layout" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem', alignItems: 'start' }}>
                     <div className="foundry-kit-overview" style={{ margin: 0 }}>
                       <div className="foundry-kit-overview-copy">
                         <span className="foundry-overline">KIT OVERVIEW / {String(readyKitCount).padStart(2, '0')} INSTRUMENTS READY</span>
@@ -1213,7 +1213,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Workspace Renderer */}
-                <div style={{ padding: '2.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <div className="foundry-workspace-renderer" style={{ padding: '2.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
 
                   {/* 1. AUDITORY PODCAST VIEWER */}
                   {activeAsset === 'podcast' && (activeData.podcast_audio || activeData.transcript?.length > 0) && (
@@ -1425,7 +1425,7 @@ export default function Dashboard() {
 
                       {/* Confidence Rating Buttons */}
                       {flashcardFlipped ? (
-                        <div style={{ display: 'flex', gap: '0.75rem', width: '100%', maxWidth: '440px' }}>
+                          <div className="foundry-flashcard-actions" style={{ display: 'flex', gap: '0.75rem', width: '100%', maxWidth: '440px' }}>
                           <button
                             className="btn btn-secondary"
                             style={{ flex: 1, borderColor: 'var(--error)', color: 'var(--error)', background: 'var(--error-glow)' }}
@@ -1668,7 +1668,7 @@ export default function Dashboard() {
 
                   {/* 4. INTERACTIVE MINDMAP EXPLORER */}
                   {activeAsset === 'mindmap' && activeData.mindmapRaw && (
-                    <div style={{ flex: 1, border: '1px solid var(--card-border)', borderRadius: '16px', overflow: 'hidden' }}>
+                    <div className="foundry-mindmap-surface" style={{ flex: 1, border: '1px solid var(--card-border)', borderRadius: '16px', overflow: 'hidden' }}>
                       <CollapsibleTree treeData={activeData.mindmapRaw} title={activeData.title} />
                     </div>
                   )}
@@ -1676,7 +1676,7 @@ export default function Dashboard() {
                   {/* 4b. NEW TABS CONTENT */}
                   {activeAsset === 'video' && (
                     activeData.video_overview ? (
-                      <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                      <div className="foundry-video-surface" style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                         <FoundryMediaPlayer
                           type="video"
                           src={isGoogleDriveUrl(activeData.video_overview) ? getCustomerFileUrl(activeData.video_overview) : activeData.video_overview}
@@ -1700,7 +1700,7 @@ export default function Dashboard() {
                   {activeAsset === 'data_table' && (
                     activeData.data_table ? (
                       <div className="foundry-table-instrument" style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--divider)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
+                        <div className="foundry-instrument-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--divider)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
                           <div>
                             <h4 style={{ fontWeight: 800, margin: 0, fontSize: '1.1rem' }}>Dataset Viewer</h4>
                             <span className="foundry-table-caption">Read-only instrument · values preserved from the source</span>
@@ -1733,7 +1733,7 @@ export default function Dashboard() {
 
                   {activeAsset === 'infographic' && (
                     activeData.infographic ? (
-                      <div style={{ flex: 1, display: 'flex', justifyContent: 'center', overflow: 'auto', padding: '1rem' }}>
+                      <div className="foundry-infographic-surface" style={{ flex: 1, display: 'flex', justifyContent: 'center', overflow: 'auto', padding: '1rem' }}>
                         <img
                           src={isGoogleDriveUrl(activeData.infographic) ? getCustomerFileUrl(activeData.infographic) : activeData.infographic}
                           alt="Infographic"
@@ -1756,7 +1756,7 @@ export default function Dashboard() {
                   {activeAsset === 'slides' && (
                     typeof activeData.slides === 'string' ? (
                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--divider)', paddingBottom: '0.75rem', marginBottom: '1.5rem' }}>
+                        <div className="foundry-instrument-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--divider)', paddingBottom: '0.75rem', marginBottom: '1.5rem' }}>
                           <h4 style={{ fontWeight: 800, margin: 0, fontSize: '1.1rem' }}>Slide Deck Viewer</h4>
                           <a href={getCustomerFileUrl(activeData.slides)} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ padding: '0.5rem 1rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <FileText size={16} /> Open Full View
