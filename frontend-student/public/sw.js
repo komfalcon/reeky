@@ -1,6 +1,6 @@
 const CACHE_NAME = 'reeky-foundry-shell-v2';
-const MEDIA_CACHE_NAME = 'reeky-foundry-media-v2';
-const LEGACY_MEDIA_CACHE_NAME = 'reeky-foundry-media-v1';
+const MEDIA_CACHE_NAME = 'reeky-foundry-media-v3';
+const LEGACY_MEDIA_CACHE_NAMES = ['reeky-foundry-media-v2', 'reeky-foundry-media-v1'];
 const APP_SHELL = ['/', '/index.html', '/favicon.svg', '/manifest.webmanifest'];
 
 const isMediaProxyRequest = request => {
@@ -41,10 +41,21 @@ const parseByteRange = (rangeHeader, totalSize) => {
 };
 
 async function serveCachedMedia(request) {
-  const cache = await caches.open(MEDIA_CACHE_NAME);
   const cacheKey = new Request(request.url, { method: 'GET' });
-  const cached = await cache.match(cacheKey);
-  if (!cached || cached.status !== 200 || cached.headers.get('content-range')) return null;
+  let cached = null;
+
+  for (const cacheName of [MEDIA_CACHE_NAME, ...LEGACY_MEDIA_CACHE_NAMES]) {
+    try {
+      const cache = await caches.open(cacheName);
+      cached = await cache.match(cacheKey);
+      if (cached && cached.status === 200 && !cached.headers.get('content-range')) break;
+      cached = null;
+    } catch {
+      // Continue to the next cache namespace if storage access is blocked.
+    }
+  }
+
+  if (!cached) return null;
 
   const rangeHeader = request.headers.get('range');
   if (!rangeHeader) return cached;
@@ -104,7 +115,7 @@ self.addEventListener('activate', event => {
     caches.keys()
       .then(keys => Promise.all(
         keys
-          .filter(key => key !== CACHE_NAME && key !== MEDIA_CACHE_NAME && key !== LEGACY_MEDIA_CACHE_NAME)
+          .filter(key => key !== CACHE_NAME && key !== MEDIA_CACHE_NAME && !LEGACY_MEDIA_CACHE_NAMES.includes(key))
           .map(key => caches.delete(key))
       ))
       .then(() => self.clients.claim())
@@ -151,4 +162,4 @@ self.addEventListener('message', event => {
   if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
-/* v2: saved media is stored separately by the app; this worker only serves it offline. */
+/* v3: saved media is stored in IndexedDB first and Cache Storage as a fallback. */

@@ -5,6 +5,7 @@ import { useAuth } from '../AuthContext';
 import { api } from '../api';
 import OnboardingForm from './OnboardingForm';
 import CollapsibleTree from '../components/CollapsibleTree';
+import { getOfflineMedia, saveOfflineMedia, removeOfflineMedia } from '../mediaStorage';
 import {
   FileText,
   Sparkles,
@@ -33,9 +34,6 @@ import {
   BookmarkCheck,
   StickyNote
 } from 'lucide-react';
-
-const MEDIA_CACHE_NAME = 'reeky-foundry-media-v2';
-const LEGACY_MEDIA_CACHE_NAME = 'reeky-foundry-media-v1';
 
 const isGoogleDriveUrl = (value = '') => /(?:drive\.google\.com|docs\.google\.com)/i.test(value);
 const getDriveFileId = (value = '') => {
@@ -138,41 +136,18 @@ function FoundryMediaPlayer({ type, src, originalUrl, title, onSave, cacheState,
     setCacheReady(false);
 
     const checkCache = async () => {
-      if (!('caches' in window)) {
-        if (active) setCacheReady(true);
-        return;
-      }
       try {
-        const cache = await caches.open(MEDIA_CACHE_NAME);
-        let match = await cache.match(src);
-
-        // Migrate a complete file from v1 if it was saved before this release.
-        if (!match) {
-          const legacyCache = await caches.open(LEGACY_MEDIA_CACHE_NAME);
-          const legacyMatch = await legacyCache.match(src);
-          const legacyRange = legacyMatch?.headers.get('content-range');
-          const legacyIsComplete = legacyMatch && (legacyMatch.status === 200 || legacyMatch.type === 'opaque') && !legacyRange;
-          if (legacyIsComplete) {
-            await cache.put(new Request(src, { method: 'GET' }), legacyMatch.clone());
-            match = legacyMatch;
-          } else if (legacyMatch) {
-            await legacyCache.delete(src);
-          }
-        }
-
-        const contentRange = match?.headers.get('content-range');
-        const isCompleteResponse = match && (match.status === 200 || match.type === 'opaque') && !contentRange;
-        if (isCompleteResponse && active) {
-          const blob = await match.blob();
-          setLocalUrl(URL.createObjectURL(blob));
+        const savedMedia = await getOfflineMedia(src);
+        if (savedMedia?.blob?.size && active) {
+          setLocalUrl(URL.createObjectURL(savedMedia.blob));
           onCacheState?.(mediaKey, 'saved');
         } else if (active) {
           onCacheState?.(mediaKey, 'idle');
           if (mediaKey) localStorage.removeItem(`reeky_media_cached_${mediaKey}`);
         }
         if (active) setCacheReady(true);
-      } catch (e) {
-        console.warn('Offline media cache check failed');
+      } catch {
+        console.warn('Offline media storage check failed');
         if (active) {
           setCacheReady(true);
           onCacheState?.(mediaKey, 'idle');
@@ -723,46 +698,35 @@ export default function Dashboard() {
   }, []);
 
   const saveMediaOffline = async (mediaKey, url) => {
-    if (!url || !('caches' in window)) return;
+    if (!url) return;
     setMediaCacheState(prev => ({ ...prev, [mediaKey]: 'saving' }));
 
     const requestUrl = isGoogleDriveUrl(url) ? getCustomerFileUrl(url) : url;
     const bypassUrl = requestUrl.includes('/api/media/proxy/')
       ? `${requestUrl}${requestUrl.includes('?') ? '&' : '?'}reeky-offline-save=1`
       : requestUrl;
-    let cache;
 
     try {
-      cache = await caches.open(MEDIA_CACHE_NAME);
-      // This query flag tells our Service Worker to let the complete download
-      // pass through instead of treating the save as a range playback request.
+      // The save URL bypasses the Service Worker playback path. The helper then
+      // stores the complete Blob in first-party IndexedDB and Cache Storage.
       const response = await fetch(bypassUrl, { mode: 'cors', cache: 'no-store' });
       if (!response.ok || response.status !== 200 || response.headers.get('content-range')) {
         throw new Error(`Incomplete media response (${response.status})`);
       }
 
-      // Read the entire response before caching. This prevents a cancelled or
-      // partial stream from being recorded as a playable offline file.
       const contentLength = Number(response.headers.get('content-length'));
       const blob = await response.blob();
       if (!blob.size || (contentLength > 0 && blob.size !== contentLength)) {
         throw new Error(`Incomplete media body (${blob.size}/${contentLength || 'unknown'} bytes)`);
       }
 
-      const cachedHeaders = new Headers(response.headers);
-      cachedHeaders.delete('content-range');
-      cachedHeaders.set('content-length', String(blob.size));
-      cachedHeaders.set('accept-ranges', 'bytes');
-      await cache.put(
-        new Request(requestUrl, { method: 'GET' }),
-        new Response(blob, { status: 200, headers: cachedHeaders })
-      );
+      await saveOfflineMedia(requestUrl, blob);
       localStorage.setItem(`reeky_media_cached_${mediaKey}`, 'true');
       setMediaCacheState(prev => ({ ...prev, [mediaKey]: 'saved' }));
-    } catch (error) {
+    } catch {
       // Self-heal a failed attempt so a previously broken response cannot be
       // mistaken for a valid offline file on the next reload.
-      if (cache) await cache.delete(requestUrl).catch(() => {});
+      await removeOfflineMedia(requestUrl);
       localStorage.removeItem(`reeky_media_cached_${mediaKey}`);
       console.error('Offline media save failed');
       setMediaCacheState(prev => ({ ...prev, [mediaKey]: 'error' }));
