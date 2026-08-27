@@ -2520,13 +2520,14 @@ a {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 2rem;
   width: 100%;
-  margin-top: 1.2rem;
-  padding: 1rem 1.1rem;
-  border: 1px solid rgba(198, 106, 61, 0.28);
-  border-radius: 14px;
-  background: linear-gradient(110deg, rgba(198, 106, 61, 0.11), rgba(99, 102, 241, 0.08));
+  padding: 2rem;
+  border: 1px solid var(--divider);
+  border-radius: 20px;
+  background: var(--card-bg);
+  box-shadow: var(--card-shadow);
+  margin-bottom: 2rem;
 }
 .foundry-kit-overview-copy { display: grid; gap: 0.24rem; min-width: 0; }
 .foundry-overline { color: var(--primary); font-size: 0.59rem; font-weight: 900; letter-spacing: 0.14em; }

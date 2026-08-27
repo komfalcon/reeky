@@ -896,23 +896,6 @@ export default function Dashboard() {
                     </p>
                   </div>
 
-                  <div className="foundry-kit-overview">
-                    <div className="foundry-kit-overview-copy">
-                      <span className="foundry-overline">KIT OVERVIEW / {String(readyKitCount).padStart(2, '0')} INSTRUMENTS READY</span>
-                      <strong>{recommendedInstrument ? `Continue with ${recommendedInstrument.label.toLowerCase()}` : 'Your kit is taking shape'}</strong>
-                      <span>{recommendedInstrument ? 'Follow the route from orientation to recall, then test what stayed with you.' : 'Your completed instruments will appear here when production finishes.'}</span>
-                      <div className="foundry-kit-progress" aria-label={`Study progress ${studyProgress}%`}>
-                        <div><span>Study progress</span><strong>{studyProgress}%</strong></div>
-                        <div className="foundry-kit-progress-track"><span style={{ width: `${studyProgress}%` }} /></div>
-                      </div>
-                    </div>
-                    {recommendedInstrument && (
-                      <button className="btn btn-primary foundry-next-action" type="button" onClick={() => { setActiveAsset(recommendedInstrument.id); setAudioPlaying(false); }}>
-                        Start next <ChevronRight size={16} />
-                      </button>
-                    )}
-                  </div>
-
                   <div className="foundry-study-tools">
                     <button className={`foundry-memory-button ${isBookmarked ? 'saved' : ''}`} type="button" onClick={() => {
                       const nextValue = !isBookmarked;
@@ -940,36 +923,57 @@ export default function Dashboard() {
                       />
                     )}
                   </div>
+                </div>
 
-                  {/* Purpose-led instrument bench */}
-                  <div className="foundry-instrument-grid" aria-label="Learning instruments">
-                    {[
-                      { id: 'podcast', label: 'Listen', technical: 'Podcast', purpose: 'Absorb the source on the move', icon: <Music size={15} />, ready: Boolean(activeData.podcast_audio || activeData.transcript?.length) },
-                      { id: 'flashcards', label: 'Recall', technical: 'Flashcards', purpose: 'Retrieve the key ideas', icon: <Layers size={15} />, ready: activeData.flashcards.length > 0 },
-                      { id: 'quiz', label: 'Test', technical: 'Quiz', purpose: 'Expose what needs work', icon: <HelpCircle size={15} />, ready: activeData.quiz.length > 0 },
-                      { id: 'mindmap', label: 'Map', technical: 'Mindmap', purpose: 'See the relationships', icon: <Network size={15} />, ready: Boolean(activeData.mindmapRaw) },
-                      { id: 'slides', label: 'Present', technical: 'Slides', purpose: 'Turn ideas into a deck', icon: <Compass size={15} />, ready: activeData.slides.length > 0 || typeof activeData.slides === 'string' },
-                      { id: 'report', label: 'Read', technical: 'Summary', purpose: 'Follow the full explanation', icon: <FileText size={15} />, ready: Boolean(activeData.report) },
-                      { id: 'video', label: 'Watch', technical: 'Video', purpose: 'Follow a visual walkthrough', icon: <Video size={15} />, ready: Boolean(activeData.video_overview) },
-                      { id: 'infographic', label: 'Scan', technical: 'Infographic', purpose: 'See the fast visual brief', icon: <Image size={15} />, ready: Boolean(activeData.infographic) },
-                      { id: 'data_table', label: 'Compare', technical: 'Data table', purpose: 'Inspect facts side by side', icon: <Table size={15} />, ready: Boolean(activeData.data_table) }
-                    ].map(tab => (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        disabled={!tab.ready}
-                        className={`foundry-instrument ${activeAsset === tab.id ? 'active' : ''} ${tab.ready ? 'ready' : 'unavailable'}`}
-                        onClick={() => {
-                          if (!tab.ready) return;
-                          setActiveAsset(tab.id);
-                          setAudioPlaying(false);
-                        }}
-                      >
-                        <span className="foundry-instrument-icon">{tab.icon}</span>
-                        <span className="foundry-instrument-copy"><strong>{tab.label}</strong><small>{tab.purpose}</small></span>
-                        <span className="foundry-instrument-meta">{tab.ready ? tab.technical : 'Queued'}</span>
-                      </button>
-                    ))}
+                {/* Foundry Workbench Header */}
+                <div className="foundry-workbench-header" style={{ padding: '2rem', background: 'var(--bg)', borderBottom: '1px solid var(--divider)' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem', alignItems: 'start' }}>
+                    <div className="foundry-kit-overview" style={{ margin: 0 }}>
+                      <div className="foundry-kit-overview-copy">
+                        <span className="foundry-overline">KIT OVERVIEW / {String(readyKitCount).padStart(2, '0')} INSTRUMENTS READY</span>
+                        <strong>{recommendedInstrument ? `Continue with ${recommendedInstrument.label.toLowerCase()}` : 'Your kit is taking shape'}</strong>
+                        <span>{recommendedInstrument ? 'Follow the route from orientation to recall, then test what stayed with you.' : 'Your completed instruments will appear here when production finishes.'}</span>
+                        <div className="foundry-kit-progress" aria-label={`Study progress ${studyProgress}%`}>
+                          <div><span>Study progress</span><strong>{studyProgress}%</strong></div>
+                          <div className="foundry-kit-progress-track"><span style={{ width: `${studyProgress}%` }} /></div>
+                        </div>
+                      </div>
+                      {recommendedInstrument && (
+                        <button className="btn btn-primary foundry-next-action" type="button" onClick={() => { setActiveAsset(recommendedInstrument.id); setAudioPlaying(false); }}>
+                          Start next <ChevronRight size={16} />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="foundry-instrument-grid" style={{ marginTop: 0, padding: 0 }}>
+                      {[
+                        { id: 'podcast', label: 'Listen', technical: 'Podcast', purpose: 'Absorb the source', icon: <Music size={15} />, ready: Boolean(activeData.podcast_audio || activeData.transcript?.length) },
+                        { id: 'flashcards', label: 'Recall', technical: 'Flashcards', purpose: 'Retrieve ideas', icon: <Layers size={15} />, ready: activeData.flashcards.length > 0 },
+                        { id: 'quiz', label: 'Test', technical: 'Quiz', purpose: 'Expose gaps', icon: <HelpCircle size={15} />, ready: activeData.quiz.length > 0 },
+                        { id: 'mindmap', label: 'Map', technical: 'Mindmap', purpose: 'See relationships', icon: <Network size={15} />, ready: Boolean(activeData.mindmapRaw) },
+                        { id: 'slides', label: 'Present', technical: 'Slides', purpose: 'Turn into deck', icon: <Compass size={15} />, ready: activeData.slides.length > 0 || typeof activeData.slides === 'string' },
+                        { id: 'report', label: 'Read', technical: 'Summary', purpose: 'Full explanation', icon: <FileText size={15} />, ready: Boolean(activeData.report) },
+                        { id: 'video', label: 'Watch', technical: 'Video', purpose: 'Visual walkthrough', icon: <Video size={15} />, ready: Boolean(activeData.video_overview) },
+                        { id: 'infographic', label: 'Scan', technical: 'Infographic', purpose: 'Visual brief', icon: <Image size={15} />, ready: Boolean(activeData.infographic) },
+                        { id: 'data_table', label: 'Compare', technical: 'Data table', purpose: 'Inspect facts', icon: <Table size={15} />, ready: Boolean(activeData.data_table) }
+                      ].map(tab => (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          disabled={!tab.ready}
+                          className={`foundry-instrument ${activeAsset === tab.id ? 'active' : ''} ${tab.ready ? 'ready' : 'unavailable'}`}
+                          onClick={() => {
+                            if (!tab.ready) return;
+                            setActiveAsset(tab.id);
+                            setAudioPlaying(false);
+                          }}
+                        >
+                          <span className="foundry-instrument-icon">{tab.icon}</span>
+                          <span className="foundry-instrument-copy"><strong>{tab.label}</strong><small>{tab.purpose}</small></span>
+                          <span className="foundry-instrument-meta">{tab.ready ? tab.technical : 'Queued'}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
