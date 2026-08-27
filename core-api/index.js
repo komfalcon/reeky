@@ -6,7 +6,7 @@ import jwt from 'jsonwebtoken';
 import mysql from 'mysql2/promise';
 import crypto from 'crypto';
 import multer from 'multer';
-import { uploadFileToDrive } from './services/googleDriveService.js';
+import { uploadFileToDrive, getFileStream } from './services/googleDriveService.js';
 
 dotenv.config();
 
@@ -59,17 +59,17 @@ const pool = mysql.createPool({
 app.get('/api/health', async (req, res) => {
     try {
         const [rows] = await pool.execute('SELECT 1');
-        res.json({ 
-            status: "healthy", 
-            database: "connected", 
-            timestamp: new Date().toISOString() 
+        res.json({
+            status: "healthy",
+            database: "connected",
+            timestamp: new Date().toISOString()
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ 
-            status: "unhealthy", 
-            database: "failed", 
-            error: error.message 
+        res.status(500).json({
+            status: "unhealthy",
+            database: "failed",
+            error: error.message
         });
     }
 });
@@ -94,17 +94,33 @@ const authenticateToken = (req, res, next) => {
 // =======================
 // ADMIN UPLOAD ROUTE (Google Drive)
 // =======================
+app.get('/api/media/proxy/:fileId', async (req, res) => {
+    try {
+        const { fileId } = req.params;
+        const { stream, mimeType, size } = await getFileStream(fileId);
+
+        res.setHeader('Content-Type', mimeType);
+        if (size) res.setHeader('Content-Length', size);
+        res.setHeader('Cache-Control', 'public, max-age=31536000');
+
+        stream.pipe(res);
+    } catch (error) {
+        console.error('Media Proxy Error:', error);
+        res.status(500).json({ error: 'Failed to proxy media' });
+    }
+});
+
 app.post('/api/admin/upload-asset', upload.single('file'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'No file uploaded.' });
         }
-        
+
         // Ensure user is admin (optional, for now we just rely on authenticateToken)
         // If you have role checks, put them here
-        
+
         const uploadedFile = await uploadFileToDrive(req.file.buffer, req.file.mimetype, req.file.originalname);
-        
+
         res.json({
             message: 'Upload successful',
             url: uploadedFile.webViewLink,
@@ -120,7 +136,7 @@ app.post('/api/admin/upload-asset', upload.single('file'), async (req, res) => {
 app.post('/api/auth/signup', async (req, res) => {
     try {
         const { name, email, password } = req.body;
-        
+
         // Check if user exists
         const [existing] = await pool.execute('SELECT * FROM `User` WHERE email = ?', [email]);
         if (existing.length > 0) {
@@ -151,7 +167,7 @@ app.post('/api/auth/login', async (req, res) => {
 
         const [users] = await pool.execute('SELECT * FROM `User` WHERE email = ?', [email]);
         if (users.length === 0) return res.status(400).json({ error: "User not found" });
-        
+
         const user = users[0];
         const validPassword = await bcrypt.compare(password, user.password);
         if (!validPassword) return res.status(400).json({ error: "Invalid password" });
@@ -271,7 +287,7 @@ app.get('/api/admin/queue', async (req, res) => {
             'SELECT ab.*, u.name as userName, u.email as userEmail, u.preferences as userPreferences FROM `AssetBundle` ab JOIN `User` u ON ab.userId = u.id WHERE ab.status = ? OR ab.status = ? ORDER BY ab.createdAt ASC',
             ['PENDING', 'PROCESSING']
         );
-        
+
         // Parse JSON fields to objects
         const parsedQueue = queue.map(item => ({
             ...item,
@@ -302,9 +318,9 @@ app.get('/api/admin/queue/completed', async (req, res) => {
 app.post('/api/admin/submit-assets', async (req, res) => {
     try {
         const { assetId, artifact_urls, podcast_audio, video_overview, infographic, slide_deck, study_report, data_table } = req.body;
-        
+
         const staticAssets = { podcast_audio, video_overview, infographic, slide_deck, study_report, data_table };
-        
+
         // If there are no NotebookLM URLs to scrape, complete the task immediately!
         if (!artifact_urls || artifact_urls.length === 0) {
             await pool.execute(
@@ -313,7 +329,7 @@ app.post('/api/admin/submit-assets', async (req, res) => {
             );
             return res.json({ success: true, completedDirectly: true, message: "Asset bundle completed directly" });
         }
-        
+
         // Otherwise, set to PROCESSING and trigger the Python Scraper
         await pool.execute(
             'UPDATE `AssetBundle` SET status = ?, assets = ? WHERE id = ?',
@@ -335,7 +351,7 @@ app.post('/api/admin/submit-assets', async (req, res) => {
                 data_table: data_table
             })
         }).catch(err => console.error("Failed to trigger python engine:", err));
-        
+
         res.json({ success: true, completedDirectly: false, message: "Sent to processing" });
     } catch (error) {
         console.error(error);
@@ -347,12 +363,12 @@ app.get('/api/admin/task-status/:id', async (req, res) => {
     try {
         const taskId = req.params.id;
         const pythonEngineUrl = process.env.PYTHON_ENGINE_URL || 'http://127.0.0.1:8000';
-        
+
         const response = await fetch(`${pythonEngineUrl}/status/${taskId}`);
         if (!response.ok) {
             throw new Error(`Python engine status returned ${response.status}`);
         }
-        
+
         const data = await response.json();
         res.json(data);
     } catch (error) {
@@ -364,12 +380,12 @@ app.get('/api/admin/task-status/:id', async (req, res) => {
 app.post('/api/assets/webhook/complete', async (req, res) => {
     try {
         const { assetId, assets } = req.body;
-        
+
         await pool.execute(
             'UPDATE `AssetBundle` SET status = ?, assets = ? WHERE id = ?',
             ['COMPLETED', JSON.stringify(assets), assetId]
         );
-        
+
         res.json({ success: true });
     } catch (error) {
         console.error(error);

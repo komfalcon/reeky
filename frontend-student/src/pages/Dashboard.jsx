@@ -54,8 +54,9 @@ const getDrivePreviewUrl = (value = '', mode = 'preview') => {
 const getCustomerFileUrl = (value = '') => {
   if (!isGoogleDriveUrl(value)) return value;
   const fileId = getDriveFileId(value);
-  // Using docs.google.com/uc?id= is often more reliable for direct media streaming than drive.google.com/uc?export=download
-  return fileId ? `https://docs.google.com/uc?id=${fileId}` : value;
+  if (!fileId) return value;
+  // Use the Reeky Media Proxy to bypass Google Drive direct-stream restrictions
+  return `${api.baseUrl}/api/media/proxy/${fileId}`;
 };
 
 function NativeDriveTable({ url }) {
@@ -206,8 +207,8 @@ function FoundryMediaPlayer({ type, src, title, onSave, cacheState }) {
         {error && (
           <div className="foundry-media-overlay error">
             <HelpCircle size={32} />
-            <strong>Playback restricted</strong>
-            <p>Google Drive is limiting direct access. Download the {type} to play it locally.</p>
+            <strong>Playback Error</strong>
+            <p>The {type} instrument is temporarily unavailable. You can download it to play it locally.</p>
             <a href={src} target="_blank" rel="noreferrer" className="btn btn-primary"><Download size={14} /> Download {type}</a>
           </div>
         )}

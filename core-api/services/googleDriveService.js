@@ -64,3 +64,20 @@ export async function uploadFileToDrive(fileBuffer, mimeType, originalName) {
     throw err;
   }
 }
+
+export async function getFileStream(fileId) {
+  try {
+    const response = await drive.files.get(
+      { fileId: fileId, alt: 'media' },
+      { responseType: 'stream' }
+    );
+    return {
+      stream: response.data,
+      mimeType: response.headers['content-type'],
+      size: response.headers['content-length']
+    };
+  } catch (err) {
+    console.error('Error fetching file from Google Drive:', err);
+    throw err;
+  }
+}

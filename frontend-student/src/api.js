@@ -20,6 +20,7 @@ async function request(endpoint, options = {}) {
 }
 
 export const api = {
+  baseUrl: BASE_URL,
   health: () => request('/api/health'),
 
   signup: (name, email, password) =>
