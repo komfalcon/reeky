@@ -12,8 +12,10 @@ async function request(endpoint, options = {}) {
   });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || `Request failed (${res.status})`);
+    const payload = await res.json().catch(() => ({ error: res.statusText }));
+    const error = new Error(payload.error || `Request failed (${res.status})`);
+    error.status = res.status;
+    throw error;
   }
 
   return res.json();
