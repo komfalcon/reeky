@@ -8,6 +8,15 @@ const isMediaProxyRequest = request => {
   return request.method === 'GET' && url.pathname.startsWith('/api/media/proxy/');
 };
 
+const safeCacheMatch = async request => {
+  try {
+    return await caches.match(request);
+  } catch (error) {
+    console.warn('Cache Storage read unavailable:', error);
+    return null;
+  }
+};
+
 const parseByteRange = (rangeHeader, totalSize) => {
   const match = /^bytes=(\d*)-(\d*)$/i.exec(String(rangeHeader || '').trim());
   if (!match || !Number.isFinite(totalSize) || totalSize <= 0) return null;
@@ -73,7 +82,7 @@ async function handleMediaRequest(request) {
   try {
     return await fetch(request);
   } catch (error) {
-    const fallback = await caches.match(new Request(request.url, { method: 'GET' }));
+    const fallback = await safeCacheMatch(new Request(request.url, { method: 'GET' }));
     if (fallback) return fallback;
     // FetchEvent.respondWith must always receive a Response. Returning an
     // error response avoids the uncaught "Failed to convert value to Response"
@@ -120,7 +129,7 @@ self.addEventListener('fetch', event => {
 
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).catch(async () => (await caches.match('/index.html')) || Response.error())
+      fetch(request).catch(async () => (await safeCacheMatch('/index.html')) || Response.error())
     );
     return;
   }
@@ -134,7 +143,7 @@ self.addEventListener('fetch', event => {
         }
         return response;
       })
-      .catch(async () => (await caches.match(request)) || Response.error())
+      .catch(async () => (await safeCacheMatch(request)) || Response.error())
   );
 });
 

@@ -127,6 +127,7 @@ function FoundryMediaPlayer({ type, src, originalUrl, title, onSave, cacheState,
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [localUrl, setLocalUrl] = useState(null);
+  const [cacheReady, setCacheReady] = useState(false);
   const mediaRef = useRef(null);
 
   useEffect(() => {
@@ -134,9 +135,13 @@ function FoundryMediaPlayer({ type, src, originalUrl, title, onSave, cacheState,
     setLoading(true);
     setError(false);
     setLocalUrl(null);
+    setCacheReady(false);
 
     const checkCache = async () => {
-      if (!('caches' in window)) return;
+      if (!('caches' in window)) {
+        if (active) setCacheReady(true);
+        return;
+      }
       try {
         const cache = await caches.open(MEDIA_CACHE_NAME);
         let match = await cache.match(src);
@@ -165,9 +170,13 @@ function FoundryMediaPlayer({ type, src, originalUrl, title, onSave, cacheState,
           onCacheState?.(mediaKey, 'idle');
           if (mediaKey) localStorage.removeItem(`reeky_media_cached_${mediaKey}`);
         }
+        if (active) setCacheReady(true);
       } catch (e) {
         console.error('Cache check failed', e);
-        if (active) onCacheState?.(mediaKey, 'idle');
+        if (active) {
+          setCacheReady(true);
+          onCacheState?.(mediaKey, 'idle');
+        }
       }
     };
     checkCache();
@@ -211,7 +220,9 @@ function FoundryMediaPlayer({ type, src, originalUrl, title, onSave, cacheState,
     mediaRef.current.currentTime = clickedValue;
   };
 
-  const mediaSrc = localUrl || src;
+  // Wait for Cache Storage before attaching the network source. This prevents
+  // an offline reload from emitting a media error before a saved blob is found.
+  const mediaSrc = cacheReady ? (localUrl || src) : null;
 
   return (
     <div className={`foundry-media-player ${type}`}>
@@ -219,7 +230,7 @@ function FoundryMediaPlayer({ type, src, originalUrl, title, onSave, cacheState,
         {type === 'video' ? (
           <video
             ref={mediaRef}
-            src={mediaSrc}
+            src={mediaSrc || undefined}
             crossOrigin="anonymous"
             onTimeUpdate={handleTimeUpdate}
             onLoadedMetadata={handleLoadedMetadata}
@@ -231,7 +242,7 @@ function FoundryMediaPlayer({ type, src, originalUrl, title, onSave, cacheState,
         ) : (
           <audio
             ref={mediaRef}
-            src={mediaSrc}
+            src={mediaSrc || undefined}
             crossOrigin="anonymous"
             onTimeUpdate={handleTimeUpdate}
             onLoadedMetadata={handleLoadedMetadata}
@@ -278,7 +289,7 @@ function FoundryMediaPlayer({ type, src, originalUrl, title, onSave, cacheState,
 
         <div className="foundry-media-footer">
           <button className="foundry-offline-media-button" onClick={onSave} disabled={cacheState === 'saving'}>
-            <Download size={14} /> {cacheState === 'saved' ? 'Saved for offline' : cacheState === 'saving' ? 'Saving...' : `Save ${type} for offline`}
+            <Download size={14} /> {cacheState === 'saved' ? 'Saved for offline' : cacheState === 'saving' ? 'Saving...' : cacheState === 'error' ? `Retry saving ${type}` : `Save ${type} for offline`}
           </button>
         </div>
       </div>
@@ -729,7 +740,23 @@ export default function Dashboard() {
       if (!response.ok || response.status !== 200 || response.headers.get('content-range')) {
         throw new Error(`Incomplete media response (${response.status})`);
       }
-      await cache.put(new Request(requestUrl, { method: 'GET' }), response.clone());
+
+      // Read the entire response before caching. This prevents a cancelled or
+      // partial stream from being recorded as a playable offline file.
+      const contentLength = Number(response.headers.get('content-length'));
+      const blob = await response.blob();
+      if (!blob.size || (contentLength > 0 && blob.size !== contentLength)) {
+        throw new Error(`Incomplete media body (${blob.size}/${contentLength || 'unknown'} bytes)`);
+      }
+
+      const cachedHeaders = new Headers(response.headers);
+      cachedHeaders.delete('content-range');
+      cachedHeaders.set('content-length', String(blob.size));
+      cachedHeaders.set('accept-ranges', 'bytes');
+      await cache.put(
+        new Request(requestUrl, { method: 'GET' }),
+        new Response(blob, { status: 200, headers: cachedHeaders })
+      );
       localStorage.setItem(`reeky_media_cached_${mediaKey}`, 'true');
       setMediaCacheState(prev => ({ ...prev, [mediaKey]: 'saved' }));
     } catch (error) {
