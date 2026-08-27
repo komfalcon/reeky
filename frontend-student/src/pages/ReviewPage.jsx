@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowUpRight, BookmarkCheck, ClipboardList, FileText, StickyNote, HardDrive, RefreshCw, Trash2 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { api } from '../api';
+import FoundryLogo from '../components/FoundryLogo.jsx';
 
 const instrumentLabels = {
   podcast: 'Listen',
@@ -111,7 +112,7 @@ export default function ReviewPage() {
     <div className="foundry-dashboard foundry-review-page">
       <header className="navbar foundry-header" style={{ position: 'sticky' }}>
         <div className="container nav-container">
-          <Link to="/dashboard" className="logo" style={{ textDecoration: 'none' }}><span className="foundry-mark">R</span> Reeky Foundry</Link>
+          <Link to="/dashboard" className="foundry-sidebar-logo" style={{ textDecoration: 'none' }}><FoundryLogo /></Link>
           <div className="foundry-nav-actions">
             <span className="foundry-user-label">{user?.preferences?.name || user?.name}</span>
             <button className="btn btn-secondary" onClick={handleLogout}>Log out</button>

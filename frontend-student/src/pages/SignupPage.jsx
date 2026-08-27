@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import GoogleSignInButton from '../components/GoogleSignInButton';
+import FoundryLogo from '../components/FoundryLogo.jsx';
 
 export default function SignupPage() {
   const { signup, loginWithGoogle } = useAuth();
@@ -29,18 +30,8 @@ export default function SignupPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <Link to="/" className="logo" style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}>
-          <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
-            <defs>
-              <linearGradient id="logo-grad-s" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="var(--primary)" />
-                <stop offset="100%" stopColor="var(--secondary)" />
-              </linearGradient>
-            </defs>
-            <path d="M12 2L2 22H22L12 2Z" stroke="url(#logo-grad-s)" fill="none" />
-            <path d="M20 12L15 22H29L20 12Z" stroke="url(#logo-grad-s)" fill="none" />
-          </svg>
-          Reeky Foundry
+        <Link to="/" className="auth-brand" aria-label="Reeky Foundry home">
+          <FoundryLogo />
         </Link>
 
         <h2 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.5rem', marginBottom: '0.5rem' }}>

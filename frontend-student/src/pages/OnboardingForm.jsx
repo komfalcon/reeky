@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ArrowLeft, ArrowRight, BookOpen, Check, Compass, Layers3, Mic2, Sparkles, Volume2 } from 'lucide-react';
+import FoundryLogo from '../components/FoundryLogo.jsx';
 import { api } from '../api';
 
 const steps = [
@@ -88,7 +89,7 @@ export default function OnboardingForm({ token, onComplete }) {
       <div className="foundry-onboarding-orbit orbit-b" aria-hidden="true" />
       <section className="foundry-onboarding-shell" aria-labelledby="onboarding-title">
         <div className="foundry-onboarding-aside">
-          <div className="foundry-onboarding-brand"><span><Sparkles size={16} /></span> REEKY <em>FOUNDRY</em></div>
+          <div className="foundry-onboarding-brand"><FoundryLogo /></div>
           <div className="foundry-onboarding-aside-copy">
             <span className="foundry-onboarding-overline">YOUR BENCH / SETUP 001</span>
             <h1>Give your learning<br /><i>a useful shape.</i></h1>

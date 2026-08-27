@@ -14,13 +14,13 @@
   "categories": ["education", "productivity"],
   "icons": [
     {
-      "src": "/apple-touch-icon.png",
+      "src": "/reeky-foundry-mark.png",
       "sizes": "180x180",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
-      "src": "/favicon.svg",
+      "src": "/reeky-foundry-mark.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"

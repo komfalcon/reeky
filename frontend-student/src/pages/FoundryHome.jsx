@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, BookOpen, Check, ChevronRight, FileText, Layers3, Menu, Network, Play, Sparkles, X } from 'lucide-react';
+import { ArrowRight, BookOpen, Check, ChevronRight, Database, FileText, Layers3, Menu, Network, Play, Sparkles, X } from 'lucide-react';
+import FoundryLogo from '../components/FoundryLogo.jsx';
 import { Link } from 'react-router-dom';
 
 const instruments = [
@@ -36,8 +37,7 @@ export default function FoundryHome() {
       <div className="entryway-noise" aria-hidden="true" />
       <header className="entryway-header">
         <Link to="/" className="entryway-brand" aria-label="Reeky Foundry home">
-          <span className="entryway-brand-mark"><Sparkles size={17} /></span>
-          <span>REEKY <em>FOUNDRY</em></span>
+          <FoundryLogo />
         </Link>
         <nav className={`entryway-nav ${menuOpen ? 'is-open' : ''}`} aria-label="Main navigation">
           <a href="#instruments" onClick={() => setMenuOpen(false)}>Instruments</a>
@@ -131,7 +131,7 @@ export default function FoundryHome() {
         <Link to="/signup" className="entryway-arrow-link">Start with a source <ArrowRight size={18} /></Link>
       </section>
 
-      <footer className="entryway-footer"><Link to="/" className="entryway-brand"><span className="entryway-brand-mark"><Sparkles size={17} /></span><span>REEKY <em>FOUNDRY</em></span></Link><span>Personal learning kits, forged from the sources that matter.</span><span>© {new Date().getFullYear()} Reeky Foundry</span></footer>
+      <footer className="entryway-footer"><Link to="/" className="entryway-brand" aria-label="Reeky Foundry home"><FoundryLogo /></Link><span>Personal learning kits, forged from the sources that matter.</span><span>© {new Date().getFullYear()} Reeky Foundry</span></footer>
     </main>
   );
 }

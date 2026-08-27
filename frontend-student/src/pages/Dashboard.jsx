@@ -7,6 +7,7 @@ import OnboardingForm from './OnboardingForm';
 import CollapsibleTree from '../components/CollapsibleTree';
 import { getOfflineMedia, saveOfflineMedia, removeOfflineMedia } from '../mediaStorage';
 import { loadCloudinaryUploadWidget } from '../cloudinaryUpload';
+import FoundryLogo from '../components/FoundryLogo.jsx';
 import {
   FileText,
   Sparkles,
@@ -801,12 +802,8 @@ export default function Dashboard() {
       {/* Mini Navbar */}
       <header className="navbar foundry-header" style={{ position: 'sticky' }}>
         <div className="container nav-container">
-            <Link to="/" className="logo foundry-logo" style={{ textDecoration: 'none' }}>
-            <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
-              <path d="M12 2L2 22H22L12 2Z" stroke="var(--primary)" fill="none" />
-              <path d="M20 12L15 22H29L20 12Z" stroke="var(--secondary)" fill="none" />
-            </svg>
-            Reeky Foundry
+            <Link to="/" className="logo foundry-sidebar-logo" style={{ textDecoration: 'none' }}>
+              <FoundryLogo />
           </Link>
 
           <div className="foundry-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
