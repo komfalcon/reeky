@@ -119,7 +119,7 @@ function NativeDriveTable({ url }) {
   );
 }
 
-function FoundryMediaPlayer({ type, src, originalUrl, title, onSave, cacheState }) {
+function FoundryMediaPlayer({ type, src, originalUrl, title, onSave, cacheState, mediaKey, onCacheState }) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState('00:00');
@@ -145,12 +145,19 @@ function FoundryMediaPlayer({ type, src, originalUrl, title, onSave, cacheState 
         if (isCompleteResponse && active) {
           const blob = await match.blob();
           setLocalUrl(URL.createObjectURL(blob));
+          onCacheState?.(mediaKey, 'saved');
+        } else if (active) {
+          onCacheState?.(mediaKey, 'idle');
+          if (mediaKey) localStorage.removeItem(`reeky_media_cached_${mediaKey}`);
         }
-      } catch (e) { console.error('Cache check failed', e); }
+      } catch (e) {
+        console.error('Cache check failed', e);
+        if (active) onCacheState?.(mediaKey, 'idle');
+      }
     };
     checkCache();
     return () => { active = false; };
-  }, [src]);
+  }, [src, mediaKey, onCacheState]);
 
   useEffect(() => () => {
     if (localUrl) URL.revokeObjectURL(localUrl);
@@ -278,7 +285,13 @@ export default function Dashboard() {
   const [fetchingAssets, setFetchingAssets] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [isOffline, setIsOffline] = useState(() => typeof navigator !== 'undefined' && !navigator.onLine);
-  const [mediaCacheState, setMediaCacheState] = useState({});
+  const [mediaCacheState, setMediaCacheState] = useState(() => {
+    const state = {};
+    ['podcast', 'video', 'infographic'].forEach(mediaKey => {
+      if (localStorage.getItem(`reeky_media_cached_${mediaKey}`) === 'true') state[mediaKey] = 'saved';
+    });
+    return state;
+  });
   const [syncStatus, setSyncStatus] = useState('idle');
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('reeky_theme') !== 'light');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -684,6 +697,10 @@ export default function Dashboard() {
   const quizProgress = activeData?.quiz.length ? Math.round((quizFinished ? 100 : (quizStep / activeData.quiz.length) * 100)) : 0;
   const studyProgress = activeData ? Math.round((deckMastery + quizProgress) / (activeData.quiz.length ? 2 : 1)) : 0;
   const recommendedInstrument = kitRoute.find(item => item.ready && item.id !== activeAsset) || kitRoute.find(item => item.ready);
+
+  const updateMediaCacheState = useCallback((mediaKey, status) => {
+    setMediaCacheState(prev => ({ ...prev, [mediaKey]: status }));
+  }, []);
 
   const saveMediaOffline = async (mediaKey, url) => {
     if (!url || !('caches' in window)) return;
@@ -1190,9 +1207,11 @@ export default function Dashboard() {
                           type="audio"
                           src={isGoogleDriveUrl(activeData.podcast_audio) ? getCustomerFileUrl(activeData.podcast_audio) : activeData.podcast_audio}
                           originalUrl={activeData.podcast_audio}
-                          title="Uploaded Podcast Audio"
-                          onSave={() => saveMediaOffline('podcast', activeData.podcast_audio)}
-                          cacheState={mediaCacheState.podcast}
+                           title="Uploaded Podcast Audio"
+                           onSave={() => saveMediaOffline('podcast', activeData.podcast_audio)}
+                           cacheState={mediaCacheState.podcast}
+                           mediaKey="podcast"
+                           onCacheState={updateMediaCacheState}
                         />
                       ) : (
                         <>
@@ -1639,9 +1658,11 @@ export default function Dashboard() {
                           type="video"
                           src={isGoogleDriveUrl(activeData.video_overview) ? getCustomerFileUrl(activeData.video_overview) : activeData.video_overview}
                           originalUrl={activeData.video_overview}
-                          title="Video Overview"
-                          onSave={() => saveMediaOffline('video', activeData.video_overview)}
-                          cacheState={mediaCacheState.video}
+                           title="Video Overview"
+                           onSave={() => saveMediaOffline('video', activeData.video_overview)}
+                           cacheState={mediaCacheState.video}
+                           mediaKey="video"
+                           onCacheState={updateMediaCacheState}
                         />
                       </div>
                     ) : (
