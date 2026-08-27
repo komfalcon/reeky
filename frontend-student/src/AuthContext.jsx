@@ -3,6 +3,24 @@ import { api } from './api';
 
 const AuthContext = createContext(null);
 const USER_CACHE_KEY = 'reeky_user_cache_v1';
+const TOKEN_KEY = 'reeky_token';
+
+function readStoredToken() {
+  try {
+    return localStorage.getItem(TOKEN_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function writeStoredToken(value) {
+  try {
+    if (value) localStorage.setItem(TOKEN_KEY, value);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // Some private browsing contexts can deny persistent storage.
+  }
+}
 
 function readCachedUser() {
   try {
@@ -28,17 +46,17 @@ function isOfflineFailure(error) {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(readCachedUser);
-  const [token, setToken] = useState(() => localStorage.getItem('reeky_token'));
+  const [token, setToken] = useState(readStoredToken);
 
   useEffect(() => {
     if (!token) {
-      localStorage.removeItem('reeky_token');
+      writeStoredToken('');
       writeCachedUser(null);
       setUser(null);
       return;
     }
 
-    localStorage.setItem('reeky_token', token);
+    writeStoredToken(token);
 
     // Keep the cached identity immediately available while the profile request
     // is waiting or when the browser is offline.
@@ -79,7 +97,17 @@ export function AuthProvider({ children }) {
   const logout = useCallback(() => {
     setToken(null);
     setUser(null);
+    writeStoredToken('');
     writeCachedUser(null);
+  }, []);
+
+  const resumeOfflineSession = useCallback(() => {
+    const cachedToken = readStoredToken();
+    const cachedIdentity = readCachedUser();
+    if (!cachedToken || !cachedIdentity) return false;
+    setToken(cachedToken);
+    setUser(cachedIdentity);
+    return true;
   }, []);
 
   const loginWithGoogle = useCallback(async () => {
@@ -91,7 +119,7 @@ export function AuthProvider({ children }) {
     };
     setToken('mock-google-token');
     setUser(mockUser);
-    localStorage.setItem('reeky_token', 'mock-google-token');
+    writeStoredToken('mock-google-token');
     writeCachedUser(mockUser);
   }, []);
 
@@ -103,8 +131,10 @@ export function AuthProvider({ children }) {
     });
   }, []);
 
+  const hasOfflineSession = Boolean(token && user);
+
   return (
-    <AuthContext.Provider value={{ user, token, login, signup, logout, loginWithGoogle, updatePreferences, isAuthenticated: !!token }}>
+    <AuthContext.Provider value={{ user, token, login, signup, logout, loginWithGoogle, resumeOfflineSession, updatePreferences, hasOfflineSession, isAuthenticated: !!token }}>
       {children}
     </AuthContext.Provider>
   );

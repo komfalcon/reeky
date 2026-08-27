@@ -2932,3 +2932,26 @@ a {
   .foundry-media-info strong { font-size: 0.95rem; }
   .foundry-media-overlay { padding: 1rem; }
 }
+
+
+/* Offline identity notice */
+.foundry-login-offline-note {
+  display: grid;
+  gap: 0.25rem;
+  margin: -0.75rem 0 1rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--primary) 48%, transparent);
+  border-radius: 12px;
+  background: var(--accent-glow);
+  color: var(--text-main);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+.foundry-login-offline-note strong { color: var(--primary); font-size: 0.78rem; }
+.foundry-login-offline-note span { color: var(--text-muted); }
+@media (max-width: 640px) {
+  .auth-page { min-height: 100dvh; padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom)); }
+  .auth-card { width: min(100%, 28rem); padding: 1.25rem; }
+  .auth-card .auth-input,
+  .auth-card .btn { min-height: 46px; }
+}

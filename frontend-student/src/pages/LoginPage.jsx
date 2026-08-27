@@ -1,24 +1,49 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 
 export default function LoginPage() {
-  const { login, loginWithGoogle } = useAuth();
+  const { login, loginWithGoogle, resumeOfflineSession, hasOfflineSession } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isOffline, setIsOffline] = useState(() => typeof navigator !== 'undefined' && !navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const openCachedWorkspace = () => {
+    if (resumeOfflineSession()) {
+      navigate('/dashboard');
+      return true;
+    }
+    return false;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    if (isOffline) {
+      if (!openCachedWorkspace()) setError('You are offline. Sign in once while online on this iPhone, then you can reopen your saved kits without a connection.');
+      return;
+    }
     setLoading(true);
     try {
       await login(email, password);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.message);
+      if (!navigator.onLine && openCachedWorkspace()) return;
+      setError(err?.message || 'Unable to sign in. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -47,6 +72,13 @@ export default function LoginPage() {
         <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '2rem' }}>
           Log in to access your study materials.
         </p>
+
+        {isOffline && (
+          <div className="foundry-login-offline-note" role="status">
+            <strong>{hasOfflineSession ? 'Saved session found on this iPhone' : 'You are offline'}</strong>
+            <span>{hasOfflineSession ? 'You can continue to your cached learning workspace without signing in again.' : 'Online sign-in is required once on this device before offline access can be used.'}</span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} autoComplete="on" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
@@ -104,10 +136,14 @@ export default function LoginPage() {
             setError('');
             setLoading(true);
             try {
-              await loginWithGoogle();
-              navigate('/dashboard');
+              if (isOffline) {
+                if (!openCachedWorkspace()) setError('You are offline. Sign in once while online before using this option.');
+              } else {
+                await loginWithGoogle();
+                navigate('/dashboard');
+              }
             } catch (err) {
-              setError(err.message);
+              setError(err?.message || 'Unable to continue with Google. Please try again.');
             } finally {
               setLoading(false);
             }
