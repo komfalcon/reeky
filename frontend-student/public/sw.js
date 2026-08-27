@@ -1,5 +1,6 @@
 const CACHE_NAME = 'reeky-foundry-shell-v2';
 const MEDIA_CACHE_NAME = 'reeky-foundry-media-v2';
+const LEGACY_MEDIA_CACHE_NAME = 'reeky-foundry-media-v1';
 const APP_SHELL = ['/', '/index.html', '/favicon.svg', '/manifest.webmanifest'];
 
 const isMediaProxyRequest = request => {
@@ -91,7 +92,7 @@ self.addEventListener('activate', event => {
     caches.keys()
       .then(keys => Promise.all(
         keys
-          .filter(key => key !== CACHE_NAME && key !== MEDIA_CACHE_NAME)
+          .filter(key => key !== CACHE_NAME && key !== MEDIA_CACHE_NAME && key !== LEGACY_MEDIA_CACHE_NAME)
           .map(key => caches.delete(key))
       ))
       .then(() => self.clients.claim())
@@ -129,6 +130,7 @@ self.addEventListener('message', event => {
 
 /* v2: saved media is stored separately by the app; this worker only serves it offline. */
 void MEDIA_CACHE_NAME;
+void LEGACY_MEDIA_CACHE_NAME;
 void APP_SHELL;
 void CACHE_NAME;
 void parseByteRange;

@@ -139,7 +139,22 @@ function FoundryMediaPlayer({ type, src, originalUrl, title, onSave, cacheState,
       if (!('caches' in window)) return;
       try {
         const cache = await caches.open(MEDIA_CACHE_NAME);
-        const match = await cache.match(src);
+        let match = await cache.match(src);
+
+        // Migrate a complete file from v1 if it was saved before this release.
+        if (!match) {
+          const legacyCache = await caches.open(LEGACY_MEDIA_CACHE_NAME);
+          const legacyMatch = await legacyCache.match(src);
+          const legacyRange = legacyMatch?.headers.get('content-range');
+          const legacyIsComplete = legacyMatch && (legacyMatch.status === 200 || legacyMatch.type === 'opaque') && !legacyRange;
+          if (legacyIsComplete) {
+            await cache.put(new Request(src, { method: 'GET' }), legacyMatch.clone());
+            match = legacyMatch;
+          } else if (legacyMatch) {
+            await legacyCache.delete(src);
+          }
+        }
+
         const contentRange = match?.headers.get('content-range');
         const isCompleteResponse = match && (match.status === 200 || match.type === 'opaque') && !contentRange;
         if (isCompleteResponse && active) {
@@ -385,12 +400,6 @@ export default function Dashboard() {
     document.documentElement.dataset.theme = isDarkMode ? 'dark' : 'light';
     localStorage.setItem('reeky_theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
-
-  useEffect(() => {
-    if ('caches' in window) {
-      caches.delete(LEGACY_MEDIA_CACHE_NAME).catch(() => {});
-    }
-  }, []);
 
   useEffect(() => {
     setTableEmbedError(false);
