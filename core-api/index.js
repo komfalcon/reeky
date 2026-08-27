@@ -95,6 +95,16 @@ const authenticateToken = (req, res, next) => {
 // ADMIN UPLOAD ROUTE (Google Drive)
 // =======================
 app.get('/api/media/proxy/:fileId', async (req, res) => {
+    // Explicitly handle CORS for media streaming
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Content-Type');
+
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(204);
+    }
+
     try {
         const { fileId } = req.params;
         console.log(`Proxying media request for fileId: ${fileId}`);
@@ -104,6 +114,7 @@ app.get('/api/media/proxy/:fileId', async (req, res) => {
         res.setHeader('Content-Type', mimeType || 'application/octet-stream');
         if (size) res.setHeader('Content-Length', size);
         res.setHeader('Cache-Control', 'public, max-age=31536000');
+        res.setHeader('Accept-Ranges', 'bytes');
 
         stream.on('error', (err) => {
             console.error('Stream error during proxy:', err);

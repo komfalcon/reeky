@@ -188,6 +188,7 @@ function FoundryMediaPlayer({ type, src, originalUrl, title, onSave, cacheState 
           <video
             ref={mediaRef}
             src={mediaSrc}
+            crossOrigin="anonymous"
             onTimeUpdate={handleTimeUpdate}
             onLoadedMetadata={handleLoadedMetadata}
             onError={() => setError(true)}
@@ -199,6 +200,7 @@ function FoundryMediaPlayer({ type, src, originalUrl, title, onSave, cacheState 
           <audio
             ref={mediaRef}
             src={mediaSrc}
+            crossOrigin="anonymous"
             onTimeUpdate={handleTimeUpdate}
             onLoadedMetadata={handleLoadedMetadata}
             onError={() => setError(true)}
@@ -215,8 +217,8 @@ function FoundryMediaPlayer({ type, src, originalUrl, title, onSave, cacheState 
             <strong>Playback Error</strong>
             <p>The {type} instrument is temporarily unavailable. You can download it to play it locally.</p>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <a href={getDirectDownloadUrl(originalUrl)} target="_blank" rel="noreferrer" className="btn btn-primary"><Download size={14} /> Download {type}</a>
-              <a href={src} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ color: '#fff' }}><Compass size={14} /> Open Link</a>
+              <a href={getDirectDownloadUrl(originalUrl)} target="_blank" rel="noreferrer" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Download size={14} /> Download {type}</a>
+              <a href={src} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff' }}><Compass size={14} /> Open Link</a>
             </div>
           </div>
         )}
