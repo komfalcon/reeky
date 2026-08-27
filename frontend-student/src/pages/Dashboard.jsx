@@ -5,26 +5,26 @@ import { useAuth } from '../AuthContext';
 import { api } from '../api';
 import OnboardingForm from './OnboardingForm';
 import CollapsibleTree from '../components/CollapsibleTree';
-import { 
-  FileText, 
-  Sparkles, 
-  HelpCircle, 
-  TrendingUp, 
-  Play, 
-  Pause, 
-  Volume2, 
-  ArrowLeft, 
-  ArrowRight, 
-  UploadCloud, 
-  Check, 
-  RotateCw, 
-  BookOpen, 
-  VolumeX, 
-  Music, 
-  ChevronRight, 
-  Download, 
-  Compass, 
-  Layers, 
+import {
+  FileText,
+  Sparkles,
+  HelpCircle,
+  TrendingUp,
+  Play,
+  Pause,
+  Volume2,
+  ArrowLeft,
+  ArrowRight,
+  UploadCloud,
+  Check,
+  RotateCw,
+  BookOpen,
+  VolumeX,
+  Music,
+  ChevronRight,
+  Download,
+  Compass,
+  Layers,
   Network,
   Video,
   Image,
@@ -54,7 +54,8 @@ const getDrivePreviewUrl = (value = '', mode = 'preview') => {
 const getCustomerFileUrl = (value = '') => {
   if (!isGoogleDriveUrl(value)) return value;
   const fileId = getDriveFileId(value);
-  return fileId ? `https://drive.google.com/uc?export=download&id=${fileId}` : value;
+  // Using docs.google.com/uc?id= is often more reliable for direct media streaming than drive.google.com/uc?export=download
+  return fileId ? `https://docs.google.com/uc?id=${fileId}` : value;
 };
 
 function NativeDriveTable({ url }) {
@@ -109,6 +110,139 @@ function NativeDriveTable({ url }) {
   );
 }
 
+function FoundryMediaPlayer({ type, src, title, onSave, cacheState }) {
+  const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [currentTime, setCurrentTime] = useState('00:00');
+  const [duration, setDuration] = useState('00:00');
+  const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [localUrl, setLocalUrl] = useState(null);
+  const mediaRef = useRef(null);
+
+  useEffect(() => {
+    let active = true;
+    const checkCache = async () => {
+      if (!('caches' in window)) return;
+      try {
+        const cache = await caches.open('reeky-foundry-media-v1');
+        const match = await cache.match(src);
+        if (match && active) {
+          const blob = await match.blob();
+          setLocalUrl(URL.createObjectURL(blob));
+        }
+      } catch (e) { console.error('Cache check failed', e); }
+    };
+    checkCache();
+    return () => {
+      active = false;
+      if (localUrl) URL.revokeObjectURL(localUrl);
+    };
+  }, [src]);
+
+  const handleTimeUpdate = () => {
+    if (!mediaRef.current) return;
+    const p = (mediaRef.current.currentTime / mediaRef.current.duration) * 100;
+    setProgress(p);
+    const mins = Math.floor(mediaRef.current.currentTime / 60).toString().padStart(2, '0');
+    const secs = Math.floor(mediaRef.current.currentTime % 60).toString().padStart(2, '0');
+    setCurrentTime(`${mins}:${secs}`);
+  };
+
+  const handleLoadedMetadata = () => {
+    if (!mediaRef.current) return;
+    const mins = Math.floor(mediaRef.current.duration / 60).toString().padStart(2, '0');
+    const secs = Math.floor(mediaRef.current.duration % 60).toString().padStart(2, '0');
+    setDuration(`${mins}:${secs}`);
+    setLoading(false);
+    setError(false);
+  };
+
+  const togglePlay = () => {
+    if (!mediaRef.current) return;
+    if (playing) mediaRef.current.pause();
+    else mediaRef.current.play();
+    setPlaying(!playing);
+  };
+
+  const handleSeek = (e) => {
+    if (!mediaRef.current) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const clickedValue = (x / rect.width) * mediaRef.current.duration;
+    mediaRef.current.currentTime = clickedValue;
+  };
+
+  const mediaSrc = localUrl || src;
+
+  return (
+    <div className={`foundry-media-player ${type}`}>
+      <div className="foundry-media-content">
+        {type === 'video' ? (
+          <video
+            ref={mediaRef}
+            src={mediaSrc}
+            onTimeUpdate={handleTimeUpdate}
+            onLoadedMetadata={handleLoadedMetadata}
+            onError={() => setError(true)}
+            onPlay={() => setPlaying(true)}
+            onPause={() => setPlaying(false)}
+            onClick={togglePlay}
+          />
+        ) : (
+          <audio
+            ref={mediaRef}
+            src={mediaSrc}
+            onTimeUpdate={handleTimeUpdate}
+            onLoadedMetadata={handleLoadedMetadata}
+            onError={() => setError(true)}
+            onPlay={() => setPlaying(true)}
+            onPause={() => setPlaying(false)}
+          />
+        )}
+
+        {loading && !error && <div className="foundry-media-overlay"><div className="spinner" /></div>}
+
+        {error && (
+          <div className="foundry-media-overlay error">
+            <HelpCircle size={32} />
+            <strong>Playback restricted</strong>
+            <p>Google Drive is limiting direct access. Download the {type} to play it locally.</p>
+            <a href={src} target="_blank" rel="noreferrer" className="btn btn-primary"><Download size={14} /> Download {type}</a>
+          </div>
+        )}
+      </div>
+
+      <div className="foundry-media-controls">
+        <div className="foundry-media-info">
+          <strong>{title}</strong>
+          <span>{type.toUpperCase()} INSTRUMENT</span>
+        </div>
+
+        <div className="foundry-media-main-row">
+          <button className="foundry-media-play" onClick={togglePlay}>
+            {playing ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
+          </button>
+
+          <div className="foundry-media-timeline" onClick={handleSeek}>
+            <div className="foundry-media-progress" style={{ width: `${progress}%` }} />
+          </div>
+
+          <div className="foundry-media-time">
+            {currentTime} / {duration}
+          </div>
+        </div>
+
+        <div className="foundry-media-footer">
+          <button className="foundry-offline-media-button" onClick={onSave} disabled={cacheState === 'saving'}>
+            <Download size={14} /> {cacheState === 'saved' ? 'Saved for offline' : cacheState === 'saving' ? 'Saving...' : `Save ${type} for offline`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user, token, logout, updatePreferences, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -149,7 +283,16 @@ export default function Dashboard() {
   const [audioProgress, setAudioProgress] = useState(0);
   const [audioTime, setAudioTime] = useState('00:00');
   const [visHeights, setVisHeights] = useState([12, 28, 42, 21, 35, 49, 28, 14, 35, 42, 21, 30, 45, 15, 25]);
+  const [audioDuration, setAudioDuration] = useState('02:04');
   const [activeTranscriptIndex, setActiveTranscriptIndex] = useState(0);
+
+  // Video Player States
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const [videoProgress, setVideoProgress] = useState(0);
+  const [videoTime, setVideoTime] = useState('00:00');
+  const [videoDuration, setVideoDuration] = useState('00:00');
+  const videoRef = useRef(null);
+  const audioRef = useRef(null);
 
   // Flashcards States
   const [currentFlashcard, setCurrentFlashcard] = useState(0);
@@ -313,40 +456,59 @@ export default function Dashboard() {
     };
   }, [flushSyncQueue]);
 
-  // Handle Synced Audio Simulation
-  useEffect(() => {
-    if (audioPlaying) {
-      timerRef.current = setInterval(() => {
-        setAudioProgress(prev => {
-          if (prev >= 100) {
-            setAudioPlaying(false);
-            clearInterval(timerRef.current);
-            return 0;
-          }
-          const nextVal = prev + 1;
-          
-          // Animate visualizer bars
-          setVisHeights(prevBar => prevBar.map(() => Math.floor(Math.random() * 40) + 10));
+  // Unified Media Handlers
+  const formatTime = (seconds) => {
+    if (isNaN(seconds)) return '00:00';
+    const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const secs = Math.floor(seconds % 60).toString().padStart(2, '0');
+    return `${mins}:${secs}`;
+  };
 
-          // Set time format
-          const totalSeconds = Math.floor((nextVal / 100) * 124); // mock 2m 04s total
-          const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
-          const secs = (totalSeconds % 60).toString().padStart(2, '0');
-          setAudioTime(`${mins}:${secs}`);
+  const handleAudioTimeUpdate = () => {
+    if (!audioRef.current) return;
+    const progress = (audioRef.current.currentTime / audioRef.current.duration) * 100;
+    setAudioProgress(progress);
+    setAudioTime(formatTime(audioRef.current.currentTime));
 
-          // Transcript line offset mapper
-          const percentSegment = 100 / (activeData?.transcript?.length || 1);
-          const currentIdx = Math.floor(nextVal / percentSegment);
-          setActiveTranscriptIndex(Math.min(currentIdx, (activeData?.transcript?.length || 1) - 1));
-
-          return nextVal;
-        });
-      }, 1000);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
+    if (activeData?.transcript?.length) {
+      const segment = 100 / activeData.transcript.length;
+      setActiveTranscriptIndex(Math.min(Math.floor(progress / segment), activeData.transcript.length - 1));
     }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [audioPlaying]);
+
+    if (audioPlaying) {
+      setVisHeights(prev => prev.map(() => Math.floor(Math.random() * 40) + 10));
+    }
+  };
+
+  const handleVideoTimeUpdate = () => {
+    if (!videoRef.current) return;
+    setVideoProgress((videoRef.current.currentTime / videoRef.current.duration) * 100);
+    setVideoTime(formatTime(videoRef.current.currentTime));
+  };
+
+  const handleVideoLoaded = () => {
+    if (!videoRef.current) return;
+    setVideoDuration(formatTime(videoRef.current.duration));
+  };
+
+  const toggleAudio = () => {
+    if (!audioRef.current) return;
+    if (audioPlaying) audioRef.current.pause();
+    else audioRef.current.play();
+    setAudioPlaying(!audioPlaying);
+  };
+
+  const toggleVideo = () => {
+    if (!videoRef.current) return;
+    if (videoPlaying) videoRef.current.pause();
+    else videoRef.current.play();
+    setVideoPlaying(!videoPlaying);
+  };
+
+  useEffect(() => {
+    if (!audioRef.current) return;
+    audioRef.current.muted = audioMuted;
+  }, [audioMuted]);
 
   // Scroll transcript index into focus
   useEffect(() => {
@@ -591,6 +753,7 @@ export default function Dashboard() {
       </header>
 
       <div className="container foundry-main" style={{ paddingTop: '2.5rem', paddingBottom: '5rem' }}>
+
         {isOffline && (
           <div className="foundry-offline-banner" role="status">
             <span className="foundry-offline-dot" />
@@ -614,7 +777,7 @@ export default function Dashboard() {
           </h3>
           <p className="foundry-commission-copy">Begin with the source. We’ll shape it into a small set of instruments built for the way you want to study.</p>
 
-          <div className="foundry-source-switcher" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+          <div className="foundry-source-desk-commission" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
             <button
               className={uploadMode === 'file' ? 'btn btn-primary' : 'btn btn-secondary'}
               style={{ fontSize: '0.85rem', padding: '0.4rem 1.25rem' }}
@@ -760,7 +923,7 @@ export default function Dashboard() {
 
         {/* Assets Overview Grid */}
         <div className="foundry-workbench" style={{ display: 'grid', gridTemplateColumns: '1fr 3.2fr', gap: '2rem' }}>
-          
+
           {/* Sidebar selector */}
           <div>
             <div className="dashboard-card foundry-source-desk" style={{ padding: '1.25rem', minHeight: '400px' }}>
@@ -877,7 +1040,7 @@ export default function Dashboard() {
 
             {selectedAsset && activeData && (
               <div className="dashboard-card foundry-kit-bench" style={{ padding: '0', overflow: 'hidden', minHeight: '520px', display: 'flex', flexDirection: 'column' }}>
-                
+
                 {/* Header Sandbox Bar */}
                 <div style={{
                   padding: '1.25rem 2rem',
@@ -979,36 +1142,30 @@ export default function Dashboard() {
 
                 {/* Workspace Renderer */}
                 <div style={{ padding: '2.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                  
+
                   {/* 1. AUDITORY PODCAST VIEWER */}
                   {activeAsset === 'podcast' && (activeData.podcast_audio || activeData.transcript?.length > 0) && (
-                    <div className="podcast-layout" style={{ 
-                      display: 'grid', 
-                      gridTemplateColumns: activeData.podcast_audio ? '1fr' : '1.2fr 2fr', 
-                      gap: '2.5rem', 
+                    <div className="podcast-layout" style={{
+                      display: 'grid',
+                      gridTemplateColumns: activeData.podcast_audio ? '1fr' : '1.2fr 2fr',
+                      gap: '2.5rem',
                       width: '100%',
                       justifyItems: activeData.podcast_audio ? 'center' : 'stretch'
                     }}>
-                      
+
                       {activeData.podcast_audio ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', width: '100%', maxWidth: '600px', marginTop: '2rem' }}>
-                          <Music size={64} color="var(--primary)" style={{ marginBottom: '2rem' }} />
-                          <h4 style={{ fontWeight: 800, fontSize: '1.2rem', marginBottom: '0.5rem' }}>Uploaded Podcast Audio</h4>
-                          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '2rem' }}>Listen to the study material provided by your instructor.</p>
-                          <audio
-                            controls
-                            src={isGoogleDriveUrl(activeData.podcast_audio) ? getCustomerFileUrl(activeData.podcast_audio) : activeData.podcast_audio}
-                            style={{ width: '100%', outline: 'none' }}
-                          />
-                          <button type="button" className="foundry-offline-media-button" onClick={() => saveMediaOffline('podcast', activeData.podcast_audio)} disabled={mediaCacheState.podcast === 'saving'}>
-                            <Download size={14} /> {mediaCacheState.podcast === 'saved' ? 'Saved for offline' : mediaCacheState.podcast === 'saving' ? 'Saving media...' : 'Save audio for offline'}
-                          </button>
-                        </div>
+                        <FoundryMediaPlayer
+                          type="audio"
+                          src={isGoogleDriveUrl(activeData.podcast_audio) ? getCustomerFileUrl(activeData.podcast_audio) : activeData.podcast_audio}
+                          title="Uploaded Podcast Audio"
+                          onSave={() => saveMediaOffline('podcast', activeData.podcast_audio)}
+                          cacheState={mediaCacheState.podcast}
+                        />
                       ) : (
                         <>
                           {/* Audio Disk Controller */}
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                            <div 
+                            <div
                               className={`podcast-disc ${audioPlaying ? 'playing' : ''}`}
                               style={{
                                 width: '130px',
@@ -1031,15 +1188,15 @@ export default function Dashboard() {
                             {/* Audio Waveform Bars */}
                             <div className="podcast-visualizer" style={{ display: 'flex', gap: '4px', height: '60px', alignItems: 'flex-end', marginBottom: '1.5rem' }}>
                               {visHeights.map((h, i) => (
-                                <div 
-                                  key={i} 
-                                  style={{ 
-                                    width: '4px', 
-                                    height: audioPlaying ? `${h}px` : '8px', 
+                                <div
+                                  key={i}
+                                  style={{
+                                    width: '4px',
+                                    height: audioPlaying ? `${h}px` : '8px',
                                     background: i % 2 === 0 ? 'var(--primary)' : 'var(--secondary)',
                                     borderRadius: '10px',
                                     transition: 'height 0.15s ease'
-                                  }} 
+                                  }}
                                 />
                               ))}
                             </div>
@@ -1057,8 +1214,8 @@ export default function Dashboard() {
                                 <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setAudioMuted(!audioMuted)}>
                                   {audioMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
                                 </button>
-                                <button 
-                                  className="btn btn-primary" 
+                                <button
+                                  className="btn btn-primary"
                                   style={{ width: '42px', height: '42px', padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justify: 'center' }}
                                   onClick={() => setAudioPlaying(!audioPlaying)}
                                 >
@@ -1081,7 +1238,7 @@ export default function Dashboard() {
                             background: 'var(--bg)'
                           }}>
                             {activeData.transcript.map((line, idx) => (
-                              <div 
+                              <div
                                 key={idx}
                                 ref={idx === activeTranscriptIndex ? activeLineRef : null}
                                 style={{
@@ -1110,7 +1267,7 @@ export default function Dashboard() {
                   {/* 2. ACTIVE RECALL 3D FLASHCARD FLIPPER */}
                   {activeAsset === 'flashcards' && activeData.flashcards.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-                      
+
                       {/* Mastery Ring Indicator bar */}
                       <div style={{ display: 'flex', alignItems: 'center', width: '100%', maxWidth: '440px', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
                         <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>
@@ -1123,7 +1280,7 @@ export default function Dashboard() {
 
                       {/* 3D Card Stage */}
                       <div className="card-stage" style={{ width: '100%', maxWidth: '440px', height: '260px', position: 'relative', marginBottom: '2rem' }}>
-                        <div 
+                        <div
                           className={`card-inner ${flashcardFlipped ? 'is-flipped' : ''}`}
                           onClick={() => setFlashcardFlipped(!flashcardFlipped)}
                           style={{
@@ -1275,9 +1432,9 @@ export default function Dashboard() {
                               let optionBg = 'var(--card-bg)';
                               let optionBorder = 'var(--card-border)';
                               let optionColor = 'var(--text-main)';
-                              
-                              const isCorrectOption = activeData.quiz[quizStep].answerOptions ? 
-                                activeData.quiz[quizStep].answerOptions[idx].isCorrect : 
+
+                              const isCorrectOption = activeData.quiz[quizStep].answerOptions ?
+                                activeData.quiz[quizStep].answerOptions[idx].isCorrect :
                                 (idx === activeData.quiz[quizStep].correct);
 
                               if (quizAnswered) {
@@ -1375,13 +1532,13 @@ export default function Dashboard() {
                           <div style={{ position: 'relative', width: '100px', height: '100px', margin: '0 auto 1.5rem' }}>
                             <svg width="100" height="100" viewBox="0 0 100 100">
                               <circle cx="50" cy="50" r="42" fill="none" stroke="var(--divider)" strokeWidth="6" />
-                              <circle 
-                                cx="50" 
-                                cy="50" 
-                                r="42" 
-                                fill="none" 
-                                stroke="var(--secondary)" 
-                                strokeWidth="6" 
+                              <circle
+                                cx="50"
+                                cy="50"
+                                r="42"
+                                fill="none"
+                                stroke="var(--secondary)"
+                                strokeWidth="6"
                                 strokeDasharray="264"
                                 strokeDashoffset={264 - (264 * (quizScore / activeData.quiz.length))}
                                 strokeLinecap="round"
@@ -1445,14 +1602,13 @@ export default function Dashboard() {
                   {activeAsset === 'video' && (
                     activeData.video_overview ? (
                       <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                        <video
-                          controls
+                        <FoundryMediaPlayer
+                          type="video"
                           src={isGoogleDriveUrl(activeData.video_overview) ? getCustomerFileUrl(activeData.video_overview) : activeData.video_overview}
-                          style={{ width: '100%', maxWidth: '800px', maxHeight: '600px', borderRadius: '16px', boxShadow: 'var(--card-shadow)' }}
+                          title="Video Overview"
+                          onSave={() => saveMediaOffline('video', activeData.video_overview)}
+                          cacheState={mediaCacheState.video}
                         />
-                        <button type="button" className="foundry-offline-media-button" onClick={() => saveMediaOffline('video', activeData.video_overview)} disabled={mediaCacheState.video === 'saving'}>
-                          <Download size={14} /> {mediaCacheState.video === 'saved' ? 'Saved for offline' : mediaCacheState.video === 'saving' ? 'Saving media...' : 'Save video for offline'}
-                        </button>
                       </div>
                     ) : (
                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
@@ -1529,9 +1685,9 @@ export default function Dashboard() {
                           </a>
                         </div>
                         {(isGoogleDriveUrl(activeData.slides)) ? (
-                          <iframe 
+                          <iframe
                             src={getDrivePreviewUrl(activeData.slides, 'slides')}
-                            style={{ width: '100%', flex: 1, minHeight: '600px', border: 'none', borderRadius: '12px', background: '#000' }} 
+                            style={{ width: '100%', flex: 1, minHeight: '600px', border: 'none', borderRadius: '12px', background: '#000' }}
                             title="Slide Deck"
                           />
                         ) : (
@@ -1566,15 +1722,15 @@ export default function Dashboard() {
                         </div>
 
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <button 
-                            className="btn btn-secondary" 
+                          <button
+                            className="btn btn-secondary"
                             disabled={currentSlide === 0}
                             onClick={() => setCurrentSlide(prev => prev - 1)}
                           >
                             Previous
                           </button>
-                          <button 
-                            className="btn btn-primary" 
+                          <button
+                            className="btn btn-primary"
                             disabled={currentSlide === activeData.slides.length - 1}
                             onClick={() => setCurrentSlide(prev => prev + 1)}
                           >
@@ -1606,11 +1762,11 @@ export default function Dashboard() {
                           </button>
                         )}
                       </div>
-                      
+
                       {activeData.report.startsWith('http') ? (
-                        <iframe 
+                        <iframe
                           src={isGoogleDriveUrl(activeData.report) ? getDrivePreviewUrl(activeData.report) : activeData.report}
-                          style={{ width: '100%', flex: 1, minHeight: '500px', border: 'none', borderRadius: '16px', background: '#fff' }} 
+                          style={{ width: '100%', flex: 1, minHeight: '500px', border: 'none', borderRadius: '16px', background: '#fff' }}
                           title="Document Viewer"
                         />
                       ) : (
