@@ -58,6 +58,11 @@ const getCustomerFileUrl = (value = '') => {
   // Use the Reeky Media Proxy to bypass Google Drive direct-stream restrictions
   return `${api.baseUrl}/api/media/proxy/${fileId}`;
 };
+const getDirectDownloadUrl = (value = '') => {
+  if (!isGoogleDriveUrl(value)) return value;
+  const fileId = getDriveFileId(value);
+  return fileId ? `https://drive.google.com/uc?export=download&id=${fileId}` : value;
+};
 
 function NativeDriveTable({ url }) {
   const [tableState, setTableState] = useState({ status: 'loading', headers: [], rows: [] });
@@ -111,7 +116,7 @@ function NativeDriveTable({ url }) {
   );
 }
 
-function FoundryMediaPlayer({ type, src, title, onSave, cacheState }) {
+function FoundryMediaPlayer({ type, src, originalUrl, title, onSave, cacheState }) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState('00:00');
@@ -209,7 +214,10 @@ function FoundryMediaPlayer({ type, src, title, onSave, cacheState }) {
             <HelpCircle size={32} />
             <strong>Playback Error</strong>
             <p>The {type} instrument is temporarily unavailable. You can download it to play it locally.</p>
-            <a href={src} target="_blank" rel="noreferrer" className="btn btn-primary"><Download size={14} /> Download {type}</a>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <a href={getDirectDownloadUrl(originalUrl)} target="_blank" rel="noreferrer" className="btn btn-primary"><Download size={14} /> Download {type}</a>
+              <a href={src} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ color: '#fff' }}><Compass size={14} /> Open Link</a>
+            </div>
           </div>
         )}
       </div>
@@ -1158,6 +1166,7 @@ export default function Dashboard() {
                         <FoundryMediaPlayer
                           type="audio"
                           src={isGoogleDriveUrl(activeData.podcast_audio) ? getCustomerFileUrl(activeData.podcast_audio) : activeData.podcast_audio}
+                          originalUrl={activeData.podcast_audio}
                           title="Uploaded Podcast Audio"
                           onSave={() => saveMediaOffline('podcast', activeData.podcast_audio)}
                           cacheState={mediaCacheState.podcast}
@@ -1606,6 +1615,7 @@ export default function Dashboard() {
                         <FoundryMediaPlayer
                           type="video"
                           src={isGoogleDriveUrl(activeData.video_overview) ? getCustomerFileUrl(activeData.video_overview) : activeData.video_overview}
+                          originalUrl={activeData.video_overview}
                           title="Video Overview"
                           onSave={() => saveMediaOffline('video', activeData.video_overview)}
                           cacheState={mediaCacheState.video}

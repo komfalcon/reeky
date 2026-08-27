@@ -97,16 +97,34 @@ const authenticateToken = (req, res, next) => {
 app.get('/api/media/proxy/:fileId', async (req, res) => {
     try {
         const { fileId } = req.params;
+        console.log(`Proxying media request for fileId: ${fileId}`);
+
         const { stream, mimeType, size } = await getFileStream(fileId);
 
-        res.setHeader('Content-Type', mimeType);
+        res.setHeader('Content-Type', mimeType || 'application/octet-stream');
         if (size) res.setHeader('Content-Length', size);
         res.setHeader('Cache-Control', 'public, max-age=31536000');
+
+        stream.on('error', (err) => {
+            console.error('Stream error during proxy:', err);
+            if (!res.headersSent) {
+                res.status(500).json({ error: 'Stream error during proxy' });
+            }
+        });
 
         stream.pipe(res);
     } catch (error) {
         console.error('Media Proxy Error:', error);
-        res.status(500).json({ error: 'Failed to proxy media' });
+        // Provide more descriptive error to help debugging
+        const errorMessage = error.message || 'Unknown error';
+        const isNotFound = errorMessage.includes('404') || errorMessage.toLowerCase().includes('not found');
+        const isAuthError = errorMessage.includes('403') || errorMessage.includes('401') || errorMessage.toLowerCase().includes('invalid_grant');
+
+        res.status(isNotFound ? 404 : isAuthError ? 403 : 500).json({
+            error: 'Failed to proxy media',
+            details: isNotFound ? 'File not found' :
+                     isAuthError ? 'Google Drive access denied or token expired' : errorMessage
+        });
     }
 });
 
