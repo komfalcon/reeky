@@ -80,7 +80,7 @@ export default function ReviewPage() {
     });
     if ('caches' in window) {
       try {
-        const cache = await caches.open('reeky-foundry-media-v1');
+        const cache = await caches.open('reeky-foundry-media-v2');
         const requests = await cache.keys();
         for (const request of requests) {
           const response = await cache.match(request);

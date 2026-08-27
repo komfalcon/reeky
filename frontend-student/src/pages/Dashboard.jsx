@@ -34,6 +34,9 @@ import {
   StickyNote
 } from 'lucide-react';
 
+const MEDIA_CACHE_NAME = 'reeky-foundry-media-v2';
+const LEGACY_MEDIA_CACHE_NAME = 'reeky-foundry-media-v1';
+
 const isGoogleDriveUrl = (value = '') => /(?:drive\.google\.com|docs\.google\.com)/i.test(value);
 const getDriveFileId = (value = '') => {
   const match = value.match(/(?:\/d\/|[?&]id=)([-\w]{10,})/i);
@@ -128,23 +131,30 @@ function FoundryMediaPlayer({ type, src, originalUrl, title, onSave, cacheState 
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
+    setError(false);
+    setLocalUrl(null);
+
     const checkCache = async () => {
       if (!('caches' in window)) return;
       try {
-        const cache = await caches.open('reeky-foundry-media-v1');
+        const cache = await caches.open(MEDIA_CACHE_NAME);
         const match = await cache.match(src);
-        if (match && active) {
+        const contentRange = match?.headers.get('content-range');
+        const isCompleteResponse = match && (match.status === 200 || match.type === 'opaque') && !contentRange;
+        if (isCompleteResponse && active) {
           const blob = await match.blob();
           setLocalUrl(URL.createObjectURL(blob));
         }
       } catch (e) { console.error('Cache check failed', e); }
     };
     checkCache();
-    return () => {
-      active = false;
-      if (localUrl) URL.revokeObjectURL(localUrl);
-    };
+    return () => { active = false; };
   }, [src]);
+
+  useEffect(() => () => {
+    if (localUrl) URL.revokeObjectURL(localUrl);
+  }, [localUrl]);
 
   const handleTimeUpdate = () => {
     if (!mediaRef.current) return;
@@ -362,6 +372,12 @@ export default function Dashboard() {
     document.documentElement.dataset.theme = isDarkMode ? 'dark' : 'light';
     localStorage.setItem('reeky_theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
+
+  useEffect(() => {
+    if ('caches' in window) {
+      caches.delete(LEGACY_MEDIA_CACHE_NAME).catch(() => {});
+    }
+  }, []);
 
   useEffect(() => {
     setTableEmbedError(false);
@@ -673,10 +689,15 @@ export default function Dashboard() {
     if (!url || !('caches' in window)) return;
     setMediaCacheState(prev => ({ ...prev, [mediaKey]: 'saving' }));
     try {
-      const cache = await caches.open('reeky-foundry-media-v1');
+      const cache = await caches.open(MEDIA_CACHE_NAME);
       const requestUrl = isGoogleDriveUrl(url) ? getCustomerFileUrl(url) : url;
-      const response = await fetch(requestUrl, { mode: 'no-cors' });
-      await cache.put(requestUrl, response.clone());
+      // Never cache an opaque response or a 206 partial response as an offline master.
+      // The media player needs a complete file when it switches to a blob URL offline.
+      const response = await fetch(requestUrl, { mode: 'cors', cache: 'no-store' });
+      if (!response.ok || response.status !== 200 || response.headers.get('content-range')) {
+        throw new Error(`Incomplete media response (${response.status})`);
+      }
+      await cache.put(new Request(requestUrl, { method: 'GET' }), response.clone());
       localStorage.setItem(`reeky_media_cached_${mediaKey}`, 'true');
       setMediaCacheState(prev => ({ ...prev, [mediaKey]: 'saved' }));
     } catch {

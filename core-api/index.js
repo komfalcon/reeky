@@ -107,13 +107,17 @@ app.get('/api/media/proxy/:fileId', async (req, res) => {
 
     try {
         const { fileId } = req.params;
-        console.log(`Proxying media request for fileId: ${fileId}`);
+        const rangeHeader = req.headers.range || '';
+        console.log(`Proxying media request for fileId: ${fileId}${rangeHeader ? ` (${rangeHeader})` : ''}`);
 
-        const { stream, mimeType, size } = await getFileStream(fileId);
+        const { stream, mimeType, size, contentLength, statusCode, contentRange } = await getFileStream(fileId, rangeHeader);
 
+        res.status(statusCode || (rangeHeader ? 206 : 200));
         res.setHeader('Content-Type', mimeType || 'application/octet-stream');
-        if (size) res.setHeader('Content-Length', size);
-        res.setHeader('Cache-Control', 'public, max-age=31536000');
+        if (contentRange) res.setHeader('Content-Range', contentRange);
+        if (contentLength || size) res.setHeader('Content-Length', String(contentLength || size));
+        res.setHeader('Cache-Control', 'private, no-store, max-age=0');
+        res.setHeader('Vary', 'Range');
         res.setHeader('Accept-Ranges', 'bytes');
 
         stream.on('error', (err) => {
@@ -126,6 +130,12 @@ app.get('/api/media/proxy/:fileId', async (req, res) => {
         stream.pipe(res);
     } catch (error) {
         console.error('Media Proxy Error:', error);
+        // A media element expects 416 plus Content-Range when its requested range is invalid.
+        if (error.code === 'RANGE_NOT_SATISFIABLE') {
+            if (error.totalSize) res.setHeader('Content-Range', `bytes */${error.totalSize}`);
+            return res.status(416).json({ error: 'Requested media range is not satisfiable' });
+        }
+
         // Provide more descriptive error to help debugging
         const errorMessage = error.message || 'Unknown error';
         const isNotFound = errorMessage.includes('404') || errorMessage.toLowerCase().includes('not found');
