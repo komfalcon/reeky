@@ -75,7 +75,10 @@ async function handleMediaRequest(request) {
   } catch (error) {
     const fallback = await caches.match(new Request(request.url, { method: 'GET' }));
     if (fallback) return fallback;
-    throw error;
+    // FetchEvent.respondWith must always receive a Response. Returning an
+    // error response avoids the uncaught "Failed to convert value to Response"
+    // error when the network and cache are both unavailable.
+    return Response.error();
   }
 }
 
@@ -103,6 +106,11 @@ self.addEventListener('fetch', event => {
   const request = event.request;
   const url = new URL(request.url);
 
+  // The dashboard uses this one-shot query flag to download a complete file
+  // for offline storage without the Service Worker turning it into a range
+  // response first. The normal media URL remains the cache key.
+  if (url.searchParams.has('reeky-offline-save')) return;
+
   if (isMediaProxyRequest(request)) {
     event.respondWith(handleMediaRequest(request));
     return;
@@ -111,17 +119,23 @@ self.addEventListener('fetch', event => {
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
 
   if (request.mode === 'navigate') {
-    event.respondWith(fetch(request).catch(() => caches.match('/index.html')));
+    event.respondWith(
+      fetch(request).catch(async () => (await caches.match('/index.html')) || Response.error())
+    );
     return;
   }
 
-  event.respondWith(fetch(request).then(response => {
-    if (response.ok) {
-      const copy = response.clone();
-      caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
-    }
-    return response;
-  }).catch(() => caches.match(request)));
+  event.respondWith(
+    fetch(request)
+      .then(response => {
+        if (response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(request, copy)).catch(() => {});
+        }
+        return response;
+      })
+      .catch(async () => (await caches.match(request)) || Response.error())
+  );
 });
 
 self.addEventListener('message', event => {
@@ -129,11 +143,3 @@ self.addEventListener('message', event => {
 });
 
 /* v2: saved media is stored separately by the app; this worker only serves it offline. */
-void MEDIA_CACHE_NAME;
-void LEGACY_MEDIA_CACHE_NAME;
-void APP_SHELL;
-void CACHE_NAME;
-void parseByteRange;
-void serveCachedMedia;
-void handleMediaRequest;
-void isMediaProxyRequest;

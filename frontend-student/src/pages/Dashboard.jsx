@@ -714,19 +714,30 @@ export default function Dashboard() {
   const saveMediaOffline = async (mediaKey, url) => {
     if (!url || !('caches' in window)) return;
     setMediaCacheState(prev => ({ ...prev, [mediaKey]: 'saving' }));
+
+    const requestUrl = isGoogleDriveUrl(url) ? getCustomerFileUrl(url) : url;
+    const bypassUrl = requestUrl.includes('/api/media/proxy/')
+      ? `${requestUrl}${requestUrl.includes('?') ? '&' : '?'}reeky-offline-save=1`
+      : requestUrl;
+    let cache;
+
     try {
-      const cache = await caches.open(MEDIA_CACHE_NAME);
-      const requestUrl = isGoogleDriveUrl(url) ? getCustomerFileUrl(url) : url;
-      // Never cache an opaque response or a 206 partial response as an offline master.
-      // The media player needs a complete file when it switches to a blob URL offline.
-      const response = await fetch(requestUrl, { mode: 'cors', cache: 'no-store' });
+      cache = await caches.open(MEDIA_CACHE_NAME);
+      // This query flag tells our Service Worker to let the complete download
+      // pass through instead of treating the save as a range playback request.
+      const response = await fetch(bypassUrl, { mode: 'cors', cache: 'no-store' });
       if (!response.ok || response.status !== 200 || response.headers.get('content-range')) {
         throw new Error(`Incomplete media response (${response.status})`);
       }
       await cache.put(new Request(requestUrl, { method: 'GET' }), response.clone());
       localStorage.setItem(`reeky_media_cached_${mediaKey}`, 'true');
       setMediaCacheState(prev => ({ ...prev, [mediaKey]: 'saved' }));
-    } catch {
+    } catch (error) {
+      // Self-heal a failed attempt so a previously broken response cannot be
+      // mistaken for a valid offline file on the next reload.
+      if (cache) await cache.delete(requestUrl).catch(() => {});
+      localStorage.removeItem(`reeky_media_cached_${mediaKey}`);
+      console.error('Offline media save failed:', error);
       setMediaCacheState(prev => ({ ...prev, [mediaKey]: 'error' }));
     }
   };
