@@ -199,8 +199,8 @@ app.post('/api/auth/signup', async (req, res) => {
         const token = jwt.sign({ userId: id, email }, process.env.JWT_SECRET, { expiresIn: '7d' });
         res.json({ token, user: { id, name, email, preferences: null } });
     } catch (error) {
-        console.error('Signup request failed');
-        res.status(500).json({ error: "Something went wrong" });
+        console.error('Signup request failed:', error.message, error.stack);
+        res.status(500).json({ error: "Server Error: " + error.message });
     }
 });
 
