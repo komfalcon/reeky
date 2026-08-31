@@ -3048,7 +3048,7 @@ a {
   padding: 6rem 0 7rem;
 }
 .entryway-hero-copy { max-width: 570px; }
-.entryway-kicker { display: inline-flex; align-items: center; gap: 0.55rem; color: #a89cfb; font-size: 0.64rem; font-weight: 800; letter-spacing: 0.16em; }
+.entryway-kicker { display: inline-flex; align-items: center; gap: 0.55rem; color: #a89cfb; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.12em; }
 .entryway-kicker span { width: 22px; height: 1px; background: #a89cfb; }
 .entryway-hero h1 { margin: 1.3rem 0 1.4rem; color: #f4f7fc; font-family: var(--font-heading, Georgia, serif); font-size: clamp(3.8rem, 7.2vw, 7.2rem); font-weight: 500; letter-spacing: -0.075em; line-height: 0.91; }
 .entryway-hero h1 i,
@@ -3144,11 +3144,11 @@ a {
 .schematic-node { position: absolute; padding: 0.5rem; border: 1px solid rgba(171, 146, 255, 0.35); color: #9d8ae9; background: #12233b; font-size: 0.53rem; font-weight: 800; letter-spacing: 0.1em; }
 .node-a { top: 7px; left: 0; }.node-b { top: 7px; right: 0; }.node-c { bottom: 0; left: 107px;}
 .entryway-offline { display: grid; grid-template-columns: 0.55fr 1.35fr 1fr auto; gap: 2rem; align-items: end; width: min(100% - 4rem, 1240px); margin: 0 auto 8rem; padding: 2.2rem 0; border-top: 1px solid var(--entry-line); border-bottom: 1px solid var(--entry-line); }
-.offline-index { align-self: start; color: #5d6d85; font-size: 0.58rem; font-weight: 800; letter-spacing: 0.14em; }
+.offline-index { align-self: start; color: #5d6d85; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.1em; }
 .entryway-offline h2 { margin: 0.8rem 0 0; color: #f1f4fa; font-family: Georgia, serif; font-size: clamp(1.8rem, 3vw, 3.2rem); font-weight: 500; letter-spacing: -0.06em; line-height: 0.96; }
-.entryway-offline p { margin: 0; color: var(--entry-muted); font-size: 0.78rem; line-height: 1.65; }
-.entryway-arrow-link { justify-self: end; color: #c7b9ff !important; font-size: 0.72rem; font-weight: 800; white-space: nowrap; }
-.entryway-footer { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; width: min(100% - 4rem, 1240px); margin: 0 auto; padding: 1.5rem 0 2rem; color: #718198; font-size: 0.62rem; }
+.entryway-offline p { margin: 0; color: var(--entry-muted); font-size: 1.1rem; line-height: 1.65; }
+.entryway-arrow-link { justify-self: end; color: #c7b9ff !important; font-size: 0.9rem; font-weight: 700; white-space: nowrap; }
+.entryway-footer { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; width: min(100% - 4rem, 1240px); margin: 0 auto; padding: 1.5rem 0 2rem; color: #718198; font-size: 0.85rem; }
 .entryway-footer .entryway-brand { color: #e9eef7; }
 
 @media (max-width: 900px) {
