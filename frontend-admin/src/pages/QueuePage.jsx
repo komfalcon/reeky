@@ -104,7 +104,11 @@ export default function QueuePage() {
 
   useEffect(() => {
     fetchQueue();
-    const interval = setInterval(fetchQueue, 5000);
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchQueue();
+      }
+    }, 10000); // Also reduced frequency to 10 seconds to save quota
     return () => clearInterval(interval);
   }, [fetchQueue]);
 
@@ -149,7 +153,11 @@ export default function QueuePage() {
     setTaskResult(null);
     setTaskError(null);
     if (pollingRef.current) clearInterval(pollingRef.current);
-    pollingRef.current = setInterval(() => pollTaskStatus(id), 3000);
+    pollingRef.current = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        pollTaskStatus(id);
+      }
+    }, 5000);
     pollTaskStatus(id);
   };
 
