@@ -7,7 +7,8 @@ import mysql from 'mysql2/promise';
 import crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 import multer from 'multer';
-import { uploadFileToDrive, getFileStream } from './services/googleDriveService.js';
+import { uploadFileToAzure } from './services/azureStorageService.js';
+// (Old Google Drive service import removed)
 
 dotenv.config();
 
@@ -162,7 +163,7 @@ app.post('/api/admin/upload-asset', upload.single('file'), async (req, res) => {
         // Ensure user is admin (optional, for now we just rely on authenticateToken)
         // If you have role checks, put them here
 
-        const uploadedFile = await uploadFileToDrive(req.file.buffer, req.file.mimetype, req.file.originalname);
+        const uploadedFile = await uploadFileToAzure(req.file.buffer, req.file.mimetype, req.file.originalname);
 
         res.json({
             message: 'Upload successful',
@@ -171,8 +172,8 @@ app.post('/api/admin/upload-asset', upload.single('file'), async (req, res) => {
             id: uploadedFile.id
         });
     } catch (error) {
-        console.error('Drive Upload Error:', error);
-        res.status(500).json({ error: 'Failed to upload to Google Drive' });
+        console.error('Azure Upload Error:', error);
+        res.status(500).json({ error: 'Failed to upload to Azure Storage' });
     }
 });
 
