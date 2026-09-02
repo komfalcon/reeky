@@ -5,491 +5,811 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import mysql from 'mysql2/promise';
 import crypto from 'crypto';
-import { OAuth2Client } from 'google-auth-library';
-import multer from 'multer';
-import { uploadFileToAzure } from './services/azureStorageService.js';
-// (Old Google Drive service import removed)
+import rateLimit from 'express-rate-limit';
+import { z } from 'zod';
+import axios from 'axios';
 
 dotenv.config();
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
 
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+// =======================
+// VALIDATION: Startup checks
+// =======================
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const REQUIRED_ENV_VARS = [
+  { key: 'DATABASE_URL', name: 'Database URL' },
+  { key: 'JWT_SECRET', name: 'JWT Secret' },
+];
 
-const upload = multer({ storage: multer.memoryStorage() });
-
-// Ensure local uploads directory exists for testing
-const UPLOADS_DIR = process.env.VERCEL ? '/tmp/uploads' : path.join(__dirname, 'uploads');
-try {
-    if (!fs.existsSync(UPLOADS_DIR)) {
-        fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-    }
-} catch (err) {
-    console.warn("Skipping local uploads dir creation (expected on serverless):", err.message);
-}
-app.use('/uploads', express.static(UPLOADS_DIR));
-
-function safeParseJson(val) {
-    if (!val) return null;
-    if (typeof val === 'object') return val;
-    if (val === '[object Object]') return null;
-    try {
-        return JSON.parse(val);
-    } catch (e) {
-        console.error("JSON parse error:", e, "for value:", val);
-        return null;
-    }
+for (const { key, name } of REQUIRED_ENV_VARS) {
+  if (!process.env[key]) {
+    console.error(`FATAL: ${name} (${key}) is not set.`);
+    process.exit(1);
+  }
 }
 
-// Set up MySQL connection pool
+if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
+  console.error('FATAL: JWT_SECRET must be at least 32 characters long for security.');
+  process.exit(1);
+}
+
+const JWT_SECRET = process.env.JWT_SECRET;
+
+// =======================
+// VALIDATION: Schemas
+// =======================
+
+const signupSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100),
+  email: z.string().email('Invalid email address'),
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number'),
+});
+
+const loginSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(1, 'Password is required'),
+});
+
+const generateAssetsSchema = z.object({
+  title: z.string().min(1, 'Title is required').max(500),
+  originalFileUrl: z.string().url('Must be a valid URL').max(2000),
+  customInstructions: z.string().max(2000).optional().nullable(),
+  assetsRequested: z.array(z.string()).optional(),
+});
+
+const submitAssetsSchema = z.object({
+  assetId: z.string().min(1, 'assetId is required'),
+  artifact_urls: z.array(z.string()).optional().default([]),
+  podcast_audio: z.string().max(2000).optional().nullable(),
+  video_overview: z.string().max(2000).optional().nullable(),
+  infographic: z.string().max(2000).optional().nullable(),
+  slide_deck: z.string().max(2000).optional().nullable(),
+  study_report: z.string().max(2000).optional().nullable(),
+  data_table: z.string().max(2000).optional().nullable(),
+});
+
+const preferencesSchema = z.object({
+  explanationDepth: z.enum(['simple', 'executive', 'detailed']).optional().nullable(),
+  learningStyle: z.enum(['visual', 'auditory', 'textual']).optional().nullable(),
+  tone: z.enum(['academic', 'conversational', 'elif5']).optional().nullable(),
+  examPacing: z.enum(['fast', 'deep-dive']).optional().nullable(),
+});
+
+// =======================
+// RATE LIMITING
+// =======================
+
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again later.' },
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 attempts per 15 min
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts. Please try again later.' },
+});
+
+const assetLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 50, // 50 generation requests per hour
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Asset generation limit reached. Please wait and try again.' },
+});
+
+app.use('/api', globalLimiter);
+
+// =======================
+// DATABASE POOL
+// =======================
+
 const dbUrl = process.env.DATABASE_URL;
 const pool = mysql.createPool({
-    uri: dbUrl,
-    ssl: {
-        rejectUnauthorized: true
-    }
+  uri: dbUrl,
+  ssl: dbUrl && !dbUrl.includes('localhost')
+    ? { rejectUnauthorized: true }
+    : undefined,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0,
 });
 
-const googleClientId = process.env.GOOGLE_CLIENT_ID || '';
-const googleTokenClient = googleClientId ? new OAuth2Client(googleClientId) : null;
+const PYTHON_ENGINE_URL = process.env.PYTHON_ENGINE_URL || '';
+const ADMIN_API_KEY = process.env.ADMIN_API_KEY || '';
 
-// Health Check Endpoint
-app.get('/api/health', async (req, res) => {
+// =======================
+// UTILITY FUNCTIONS
+// =======================
+
+function parseJsonField(value) {
+  if (value == null) return null;
+  if (typeof value === 'object') return value;
+  if (typeof value !== 'string') return null;
+  try {
+    const parsed = JSON.parse(value);
+    if (typeof parsed === 'string') {
+      try {
+        return JSON.parse(parsed);
+      } catch {
+        return parsed;
+      }
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function parseJsonArray(value) {
+  const parsed = parseJsonField(value);
+  return Array.isArray(parsed) ? parsed : [];
+}
+
+function mergeAssetPayload(existing, incoming) {
+  const base = parseJsonField(existing) || {};
+  const next = incoming && typeof incoming === 'object' ? incoming : {};
+  const { _celeryTaskId, ...cleanNext } = next;
+  return {
+    ...base,
+    ...cleanNext,
+    ...(_celeryTaskId ? { _celeryTaskId } : {}),
+  };
+}
+
+// Asset bundle status constants
+const STATUS = Object.freeze({
+  PENDING: 'PENDING',
+  PROCESSING: 'PROCESSING',
+  COMPLETED: 'COMPLETED',
+});
+
+// =======================
+// SCHEMA MIGRATION
+// =======================
+
+async function ensureSchema() {
+  const migrations = [
+    `ALTER TABLE \`User\` ADD COLUMN IF NOT EXISTS \`preferences\` JSON NULL`,
+    `ALTER TABLE \`AssetBundle\` MODIFY COLUMN \`originalFileUrl\` TEXT NOT NULL`,
+    `ALTER TABLE \`AssetBundle\` ADD COLUMN IF NOT EXISTS \`customInstructions\` TEXT NULL`,
+    `ALTER TABLE \`AssetBundle\` ADD COLUMN IF NOT EXISTS \`assetsRequested\` JSON NULL`,
+  ];
+
+  for (const sql of migrations) {
     try {
-        const [rows] = await pool.execute('SELECT 1');
-        res.json({
-            status: "healthy",
-            database: "connected",
-            timestamp: new Date().toISOString()
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({
-            status: "unhealthy",
-            database: "failed",
-            error: error.message
-        });
+      await pool.execute(sql);
+    } catch (_) {
+      // Column likely already exists — safe to ignore
     }
-});
+  }
 
-// Authentication Middleware
+  try {
+    const [tables] = await pool.execute("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = (SELECT DATABASE())");
+    const tableNames = tables.map(t => t.TABLE_NAME);
+    if (!tableNames.includes('User') || !tableNames.includes('AssetBundle')) {
+      console.error('Required tables (User, AssetBundle) are missing. Run setup_db.js first.');
+    }
+  } catch (err) {
+    console.error('Failed to verify schema:', err.message);
+  }
+}
+
+ensureSchema().catch((err) => console.error('Schema ensure failed:', err.message));
+
+// =======================
+// AUTHENTICATION MIDDLEWARE
+// =======================
+
 const authenticateToken = (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-    if (token == null) return res.sendStatus(401);
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (token == null) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
 
-    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-        if (err) return res.sendStatus(403);
-        req.user = user;
-        next();
-    });
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      if (err.name === 'TokenExpiredError') {
+        return res.status(401).json({ error: 'Session expired. Please log in again.' });
+      }
+      return res.status(403).json({ error: 'Invalid or expired token' });
+    }
+    req.user = user;
+    next();
+  });
 };
+
+const authenticateAdmin = (req, res, next) => {
+  if (!ADMIN_API_KEY) {
+    console.warn('ADMIN_API_KEY is not set — admin routes are open');
+    return next();
+  }
+  const key = req.headers['x-admin-key'];
+  if (!key) {
+    return res.status(401).json({ error: 'Admin API key is required (x-admin-key header)' });
+  }
+  if (key !== ADMIN_API_KEY) {
+    return res.status(401).json({ error: 'Unauthorized admin access' });
+  }
+  next();
+};
+
+const validate = (schema) => (req, res, next) => {
+  const result = schema.safeParse(req.body);
+  if (!result.success) {
+    const errors = result.error.issues.map((issue) => ({
+      field: issue.path.join('.'),
+      message: issue.message,
+    }));
+    return res.status(400).json({ error: 'Validation failed', details: errors });
+  }
+  req.validatedBody = result.data;
+  next();
+};
+
+// =======================
+// HEALTH CHECK
+// =======================
+
+app.get('/api/health', async (req, res) => {
+  const checks = {
+    database: false,
+    pythonEngine: false,
+  };
+  const errors = {};
+
+  try {
+    await pool.execute('SELECT 1');
+    checks.database = true;
+  } catch (error) {
+    errors.database = error.message;
+  }
+
+  if (PYTHON_ENGINE_URL) {
+    try {
+      const response = await fetch(`${PYTHON_ENGINE_URL}/health`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      checks.pythonEngine = response.ok;
+    } catch (error) {
+      errors.pythonEngine = error.message;
+    }
+  } else {
+    checks.pythonEngine = null; // Not configured
+  }
+
+  const allHealthy = Object.values(checks).every((v) => v === true || v === null);
+
+  res.status(allHealthy ? 200 : 503).json({
+    status: allHealthy ? 'healthy' : 'degraded',
+    timestamp: new Date().toISOString(),
+    checks,
+    ...(Object.keys(errors).length > 0 && { errors }),
+  });
+});
 
 // =======================
 // AUTHENTICATION ROUTES
 // =======================
 
+app.post('/api/auth/signup', authLimiter, validate(signupSchema), async (req, res) => {
+  try {
+    const { name, email, password } = req.validatedBody;
+
+    const [existing] = await pool.execute('SELECT id FROM `User` WHERE email = ?', [email]);
+    if (existing.length > 0) {
+      return res.status(409).json({ error: 'An account with this email already exists' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+    const id = crypto.randomUUID();
+
+    await pool.execute(
+      'INSERT INTO `User` (id, name, email, password) VALUES (?, ?, ?, ?)',
+      [id, name, email, hashedPassword]
+    );
+
+    const token = jwt.sign({ userId: id, email }, JWT_SECRET, { expiresIn: '7d' });
+    res.status(201).json({ token, user: { id, name, email } });
+  } catch (error) {
+    console.error('Signup error:', error);
+    res.status(500).json({ error: 'Failed to create account. Please try again.' });
+  }
+});
+
+app.post('/api/auth/login', authLimiter, validate(loginSchema), async (req, res) => {
+  try {
+    const { email, password } = req.validatedBody;
+
+    const [users] = await pool.execute('SELECT * FROM `User` WHERE email = ?', [email]);
+    if (users.length === 0) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    const user = users[0];
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    const token = jwt.sign({ userId: user.id, email }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        preferences: parseJsonField(user.preferences),
+      },
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Failed to authenticate. Please try again.' });
+  }
+});
+
 // =======================
-// ADMIN UPLOAD ROUTE (Google Drive)
+// USER PROFILE / PREFS
 // =======================
-app.get('/api/media/proxy/:fileId', async (req, res) => {
-    // Explicitly handle CORS for media streaming
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type');
-    res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Content-Type');
-
-    if (req.method === 'OPTIONS') {
-        return res.sendStatus(204);
-    }
-
-    try {
-        const { fileId } = req.params;
-        const rangeHeader = req.headers.range || '';
-        console.log(`Proxying media request for fileId: ${fileId}${rangeHeader ? ` (${rangeHeader})` : ''}`);
-
-        const { stream, mimeType, size, contentLength, statusCode, contentRange } = await getFileStream(fileId, rangeHeader);
-
-        res.status(statusCode || (rangeHeader ? 206 : 200));
-        res.setHeader('Content-Type', mimeType || 'application/octet-stream');
-        if (contentRange) res.setHeader('Content-Range', contentRange);
-        if (contentLength || size) res.setHeader('Content-Length', String(contentLength || size));
-        res.setHeader('Cache-Control', 'private, no-store, max-age=0');
-        res.setHeader('Vary', 'Range');
-        res.setHeader('Accept-Ranges', 'bytes');
-
-        stream.on('error', (err) => {
-            console.error('Stream error during proxy:', err);
-            if (!res.headersSent) {
-                res.status(500).json({ error: 'Stream error during proxy' });
-            }
-        });
-
-        stream.pipe(res);
-    } catch (error) {
-        console.error('Media Proxy Error:', error);
-        // A media element expects 416 plus Content-Range when its requested range is invalid.
-        if (error.code === 'RANGE_NOT_SATISFIABLE') {
-            if (error.totalSize) res.setHeader('Content-Range', `bytes */${error.totalSize}`);
-            return res.status(416).json({ error: 'Requested media range is not satisfiable' });
-        }
-
-        // Provide more descriptive error to help debugging
-        const errorMessage = error.message || 'Unknown error';
-        const isNotFound = errorMessage.includes('404') || errorMessage.toLowerCase().includes('not found');
-        const isAuthError = errorMessage.includes('403') || errorMessage.includes('401') || errorMessage.toLowerCase().includes('invalid_grant');
-
-        res.status(isNotFound ? 404 : isAuthError ? 403 : 500).json({
-            error: 'Failed to proxy media',
-            details: isNotFound ? 'File not found' :
-                     isAuthError ? 'Google Drive access denied or token expired' : errorMessage
-        });
-    }
-});
-
-app.post('/api/admin/upload-asset', upload.single('file'), async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ error: 'No file uploaded.' });
-        }
-
-        // Ensure user is admin (optional, for now we just rely on authenticateToken)
-        // If you have role checks, put them here
-
-        const uploadedFile = await uploadFileToAzure(req.file.buffer, req.file.mimetype, req.file.originalname);
-
-        res.json({
-            message: 'Upload successful',
-            url: uploadedFile.webViewLink,
-            downloadUrl: uploadedFile.webContentLink,
-            id: uploadedFile.id
-        });
-    } catch (error) {
-        console.error('Azure Upload Error:', error);
-        res.status(500).json({ error: 'Failed to upload to Azure Storage' });
-    }
-});
-
-app.post('/api/auth/signup', async (req, res) => {
-    try {
-        const { name, email, password } = req.body;
-
-        // Check if user exists
-        const [existing] = await pool.execute('SELECT * FROM `User` WHERE email = ?', [email]);
-        if (existing.length > 0) {
-            return res.status(400).json({ error: "User already exists" });
-        }
-
-        // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const id = crypto.randomUUID();
-
-        // Create user
-        await pool.execute(
-            'INSERT INTO `User` (id, name, email, password) VALUES (?, ?, ?, ?)',
-            [id, name, email, hashedPassword]
-        );
-
-        const token = jwt.sign({ userId: id, email }, process.env.JWT_SECRET, { expiresIn: '7d' });
-        res.json({ token, user: { id, name, email, preferences: null } });
-    } catch (error) {
-        console.error('Signup request failed:', error.message, error.stack);
-        res.status(500).json({ error: "Server Error: " + error.message });
-    }
-});
-
-app.post('/api/auth/login', async (req, res) => {
-    try {
-        const { email, password } = req.body;
-
-        const [users] = await pool.execute('SELECT * FROM `User` WHERE email = ?', [email]);
-        if (users.length === 0) return res.status(400).json({ error: "User not found" });
-
-        const user = users[0];
-        const validPassword = await bcrypt.compare(password, user.password);
-        if (!validPassword) return res.status(400).json({ error: "Invalid password" });
-
-        const token = jwt.sign({ userId: user.id, email }, process.env.JWT_SECRET, { expiresIn: '7d' });
-        res.json({
-            token,
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                preferences: safeParseJson(user.preferences)
-            }
-        });
-    } catch (error) {
-        console.error('Login request failed');
-        res.status(500).json({ error: "Something went wrong" });
-    }
-});
-
-app.post('/api/auth/google', async (req, res) => {
-    try {
-        const credential = typeof req.body?.credential === 'string' ? req.body.credential.trim() : '';
-        if (!credential) return res.status(400).json({ error: 'Google credential is required' });
-        if (!googleTokenClient || !googleClientId) {
-            return res.status(503).json({ error: 'Google sign-in is not configured' });
-        }
-
-        const ticket = await googleTokenClient.verifyIdToken({
-            idToken: credential,
-            audience: googleClientId
-        });
-        const payload = ticket.getPayload();
-        if (!payload?.sub || !payload.email || payload.email_verified !== true) {
-            return res.status(401).json({ error: 'Google account could not be verified' });
-        }
-
-        const email = payload.email.trim().toLowerCase();
-        const displayName = String(payload.name || payload.given_name || email.split('@')[0]).trim();
-        const [users] = await pool.execute('SELECT * FROM `User` WHERE email = ?', [email]);
-        let user;
-
-        if (users.length > 0) {
-            user = users[0];
-        } else {
-            // Google accounts do not need a local password, but the legacy User
-            // table requires one, so store a random unreachable hash.
-            const generatedPasswordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
-            const id = crypto.randomUUID();
-            await pool.execute(
-                'INSERT INTO `User` (id, name, email, password) VALUES (?, ?, ?, ?)',
-                [id, displayName, email, generatedPasswordHash]
-            );
-            user = { id, name: displayName, email, preferences: null };
-        }
-
-        const token = jwt.sign({ userId: user.id, email }, process.env.JWT_SECRET, { expiresIn: '7d' });
-        res.json({
-            token,
-            user: {
-                id: user.id,
-                name: user.name || displayName,
-                email: user.email,
-                preferences: safeParseJson(user.preferences)
-            }
-        });
-    } catch (error) {
-        console.error('Google login request failed:', error.message);
-        res.status(401).json({ error: 'Google sign-in could not be completed' });
-    }
-});
-
-// User Preferences and Profile Routes
-app.post('/api/user/preferences', authenticateToken, async (req, res) => {
-    try {
-        const { preferences } = req.body;
-        await pool.execute(
-            'UPDATE `User` SET preferences = ? WHERE id = ?',
-            [JSON.stringify(preferences), req.user.userId]
-        );
-        res.json({ success: true, preferences });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Failed to save preferences" });
-    }
-});
-
-app.post('/api/user/study-sync', authenticateToken, async (req, res) => {
-    try {
-        const events = Array.isArray(req.body?.events) ? req.body.events.slice(-100) : [];
-        const [users] = await pool.execute('SELECT preferences FROM `User` WHERE id = ?', [req.user.userId]);
-        if (users.length === 0) return res.status(404).json({ error: "User not found" });
-        const preferences = safeParseJson(users[0].preferences) || {};
-        const existingEvents = Array.isArray(preferences.studySyncEvents) ? preferences.studySyncEvents : [];
-        const mergedEvents = [...existingEvents, ...events].slice(-200);
-        const nextPreferences = { ...preferences, studySyncEvents: mergedEvents };
-        await pool.execute('UPDATE `User` SET preferences = ? WHERE id = ?', [JSON.stringify(nextPreferences), req.user.userId]);
-        res.json({ success: true, synced: events.length });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Failed to sync study events" });
-    }
-});
 
 app.get('/api/user/profile', authenticateToken, async (req, res) => {
-    try {
-        const [users] = await pool.execute(
-            'SELECT id, name, email, preferences FROM `User` WHERE id = ?',
-            [req.user.userId]
-        );
-        if (users.length === 0) return res.status(404).json({ error: "User not found" });
-        const user = users[0];
-        res.json({
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            preferences: safeParseJson(user.preferences)
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Failed to fetch profile" });
+  try {
+    const [rows] = await pool.execute(
+      'SELECT id, name, email, preferences, createdAt FROM `User` WHERE id = ?',
+      [req.user.userId]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
     }
+    const u = rows[0];
+    res.json({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      preferences: parseJsonField(u.preferences),
+      createdAt: u.createdAt,
+    });
+  } catch (error) {
+    console.error('Profile fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch profile' });
+  }
+});
+
+app.post('/api/user/preferences', authenticateToken, validate(preferencesSchema), async (req, res) => {
+  try {
+    const preferences = req.validatedBody;
+    await pool.execute(
+      'UPDATE `User` SET preferences = ? WHERE id = ?',
+      [JSON.stringify(preferences), req.user.userId]
+    );
+    res.json({ success: true, preferences });
+  } catch (error) {
+    console.error('Preferences save error:', error);
+    res.status(500).json({ error: 'Failed to save preferences' });
+  }
+});
+
+// =======================
+// VIDEO PROCESSING  (NotebookLM video URL → trimmed S3 URL)
+// =======================
+
+app.post('/api/video/process', authenticateToken, async (req, res) => {
+  try {
+    const { videoUrl, assetId } = req.validatedBody || req.body;
+
+    if (!videoUrl || !assetId) {
+      return res.status(400).json({ error: 'videoUrl and assetId are required' });
+    }
+
+    // Forward to Python engine for processing
+    const engineHeaders = { 'Content-Type': 'application/json' };
+    if (ADMIN_API_KEY) engineHeaders['x-admin-key'] = ADMIN_API_KEY;
+
+    const engineRes = await axios.post(
+      `${PYTHON_ENGINE_URL}/video/process`,
+      { video_url: videoUrl, asset_id: assetId },
+      { headers: engineHeaders, timeout: 600000 } // 10 min timeout for video processing
+    );
+
+    res.json(engineRes.data);
+  } catch (error) {
+    console.error('Video processing error:', error);
+    res.status(500).json({ error: 'Video processing failed', details: error.message });
+  }
 });
 
 // =======================
 // ASSET GENERATION ROUTES
 // =======================
 
-app.post('/api/assets/generate', authenticateToken, async (req, res) => {
+app.post('/api/assets/generate', authenticateToken, assetLimiter, validate(generateAssetsSchema), async (req, res) => {
+  try {
+    const { title, originalFileUrl, customInstructions, assetsRequested } = req.validatedBody;
+    const id = crypto.randomUUID();
+
+    await pool.execute(
+      `INSERT INTO \`AssetBundle\`
+        (id, title, originalFileUrl, status, userId, customInstructions, assetsRequested)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        title,
+        originalFileUrl,
+        STATUS.PENDING,
+        req.user.userId,
+        customInstructions || null,
+        assetsRequested ? JSON.stringify(assetsRequested) : null,
+      ]
+    );
+
+    res.status(201).json({ message: 'Asset generation queued successfully', id });
+  } catch (error) {
+    console.error('Asset generation error:', error);
     try {
-        const { title, originalFileUrl, customInstructions, assetsRequested } = req.body;
-        const id = crypto.randomUUID();
-
-        // Save requested assets formats as metadata inside assets JSON column initially
-        const assetsJson = assetsRequested ? JSON.stringify({ requested: assetsRequested }) : null;
-
-        await pool.execute(
-            'INSERT INTO `AssetBundle` (id, title, originalFileUrl, status, userId, customInstructions, assets) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [id, title, originalFileUrl, 'PENDING', req.user.userId, customInstructions || null, assetsJson]
-        );
-
-        res.json({ message: "Asset generation queued successfully", id });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Failed to queue generation" });
+      const { title, originalFileUrl } = req.body;
+      const id = crypto.randomUUID();
+      await pool.execute(
+        'INSERT INTO `AssetBundle` (id, title, originalFileUrl, status, userId) VALUES (?, ?, ?, ?, ?)',
+        [id, title, originalFileUrl, STATUS.PENDING, req.user.userId]
+      );
+      return res.status(201).json({ message: 'Asset generation queued successfully', id });
+    } catch (fallbackErr) {
+      console.error('Fallback error:', fallbackErr);
+      res.status(500).json({ error: 'Failed to queue generation' });
     }
+  }
 });
 
 app.get('/api/assets', authenticateToken, async (req, res) => {
-    try {
-        const [assets] = await pool.execute(
-            'SELECT * FROM `AssetBundle` WHERE userId = ? ORDER BY createdAt DESC',
-            [req.user.userId]
-        );
-        res.json(assets);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Failed to fetch assets" });
-    }
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
+
+    const [[{ total }], assets] = await Promise.all([
+      pool.execute('SELECT COUNT(*) as total FROM `AssetBundle` WHERE userId = ?', [req.user.userId]),
+      pool.execute(
+        'SELECT * FROM `AssetBundle` WHERE userId = ? ORDER BY createdAt DESC LIMIT ? OFFSET ?',
+        [req.user.userId, limit, offset]
+      ),
+    ]);
+
+    res.json({
+      assets: assets.map((row) => ({
+        ...row,
+        assets: parseJsonField(row.assets),
+        assetsRequested: parseJsonArray(row.assetsRequested),
+      })),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
+  } catch (error) {
+    console.error('Assets fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch assets', assets: [] });
+  }
 });
 
 // =======================
 // ADMIN ROUTES
 // =======================
 
-app.get('/api/admin/queue', async (req, res) => {
-    try {
-        const [queue] = await pool.execute(
-            'SELECT ab.*, u.name as userName, u.email as userEmail, u.preferences as userPreferences FROM `AssetBundle` ab JOIN `User` u ON ab.userId = u.id WHERE ab.status = ? OR ab.status = ? ORDER BY ab.createdAt ASC',
-            ['PENDING', 'PROCESSING']
-        );
-
-        // Parse JSON fields to objects
-        const parsedQueue = queue.map(item => ({
-            ...item,
-            assets: safeParseJson(item.assets),
-            userPreferences: safeParseJson(item.userPreferences)
-        }));
-
-        res.json({ queue: parsedQueue });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Failed to fetch queue" });
-    }
+app.get('/api/admin/queue', authenticateAdmin, async (req, res) => {
+  try {
+    const [queue] = await pool.execute(
+      `SELECT
+          ab.*,
+          u.name AS studentName,
+          u.email AS studentEmail,
+          u.preferences AS studentPreferences
+       FROM \`AssetBundle\` ab
+       LEFT JOIN \`User\` u ON u.id = ab.userId
+       WHERE ab.status = ? OR ab.status = ?
+       ORDER BY ab.createdAt ASC`,
+      [STATUS.PENDING, STATUS.PROCESSING]
+    );
+    res.json({
+      queue: queue.map((row) => ({
+        ...row,
+        assets: parseJsonField(row.assets),
+        studentPreferences: parseJsonField(row.studentPreferences),
+        assetsRequested: parseJsonArray(row.assetsRequested),
+      })),
+    });
+  } catch (error) {
+    console.error('Admin queue fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch queue' });
+  }
 });
 
-app.get('/api/admin/queue/completed', async (req, res) => {
-    try {
-        const [queue] = await pool.execute(
-            'SELECT * FROM `AssetBundle` WHERE status = ? ORDER BY createdAt DESC',
-            ['COMPLETED']
-        );
-        res.json({ queue });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Failed to fetch completed queue" });
-    }
+app.get('/api/admin/queue/completed', authenticateAdmin, async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
+
+    const [[{ total }], queue] = await Promise.all([
+      pool.execute("SELECT COUNT(*) as total FROM `AssetBundle` WHERE status = ?", [STATUS.COMPLETED]),
+      pool.execute(
+        `SELECT
+            ab.*,
+            u.name AS studentName,
+            u.email AS studentEmail,
+            u.preferences AS studentPreferences
+         FROM \`AssetBundle\` ab
+         LEFT JOIN \`User\` u ON u.id = ab.userId
+         WHERE ab.status = ?
+         ORDER BY ab.createdAt DESC
+         LIMIT ? OFFSET ?`,
+        [STATUS.COMPLETED, limit, offset]
+      ),
+    ]);
+
+    res.json({
+      queue: queue.map((row) => ({
+        ...row,
+        assets: parseJsonField(row.assets),
+        studentPreferences: parseJsonField(row.studentPreferences),
+        assetsRequested: parseJsonArray(row.assetsRequested),
+      })),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
+  } catch (error) {
+    console.error('Admin completed queue fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch completed queue' });
+  }
 });
 
-app.post('/api/admin/submit-assets', async (req, res) => {
-    try {
-        const { assetId, artifact_urls, podcast_audio, video_overview, infographic, slide_deck, study_report, data_table } = req.body;
+app.post('/api/admin/submit-assets', authenticateAdmin, validate(submitAssetsSchema), async (req, res) => {
+  try {
+    const {
+      assetId,
+      artifact_urls,
+      podcast_audio,
+      video_overview,
+      infographic,
+      slide_deck,
+      study_report,
+      data_table,
+    } = req.validatedBody;
 
-        const staticAssets = { podcast_audio, video_overview, infographic, slide_deck, study_report, data_table };
+    const staticAssets = {
+      podcast_audio: podcast_audio || null,
+      video_overview: video_overview || null,
+      infographic: infographic || null,
+      slide_deck: slide_deck || null,
+      study_report: study_report || null,
+      data_table: data_table || null,
+    };
 
-        // If there are no NotebookLM URLs to scrape, complete the task immediately!
-        if (!artifact_urls || artifact_urls.length === 0) {
-            await pool.execute(
-                'UPDATE `AssetBundle` SET status = ?, assets = ? WHERE id = ?',
-                ['COMPLETED', JSON.stringify(staticAssets), assetId]
-            );
-            return res.json({ success: true, completedDirectly: true, message: "Asset bundle completed directly" });
+    const cleanUrls = (artifact_urls || []).filter(
+      (url) => typeof url === 'string' && url.trim().startsWith('http')
+    );
+
+    if (cleanUrls.length === 0 && !video_overview) {
+      await pool.execute(
+        'UPDATE `AssetBundle` SET status = ?, assets = ? WHERE id = ?',
+        [STATUS.COMPLETED, JSON.stringify(staticAssets), assetId]
+      );
+      return res.json({
+        success: true,
+        completedDirectly: true,
+        message: 'Asset bundle completed directly',
+      });
+    }
+
+    await pool.execute(
+      'UPDATE `AssetBundle` SET status = ?, assets = ? WHERE id = ?',
+      [STATUS.PROCESSING, JSON.stringify(staticAssets), assetId]
+    );
+
+    let taskId = null;
+
+    // If video_overview is a NotebookLM artifact URL, trigger video processing
+    if (video_overview && (video_overview.includes('notebooklm.google.com/notebook') || video_overview.includes('artifact'))) {
+      try {
+        const engineHeaders = { 'Content-Type': 'application/json' };
+        if (ADMIN_API_KEY) engineHeaders['x-admin-key'] = ADMIN_API_KEY;
+
+        const videoRes = await fetch(`${PYTHON_ENGINE_URL}/video/process`, {
+          method: 'POST',
+          headers: engineHeaders,
+          body: JSON.stringify({ video_url: video_overview, asset_id: assetId }),
+          signal: AbortSignal.timeout(600000),
+        });
+
+        if (videoRes.ok) {
+          const videoData = await videoRes.json();
+          taskId = videoData.task_id || null;
+        } else {
+          console.error('Video processing initiation failed:', videoRes.status);
         }
-
-        // Otherwise, set to PROCESSING and trigger the Python Scraper
-        await pool.execute(
-            'UPDATE `AssetBundle` SET status = ?, assets = ? WHERE id = ?',
-            ['PROCESSING', JSON.stringify(staticAssets), assetId]
-        );
-
-        const pythonEngineUrl = process.env.PYTHON_ENGINE_URL || 'http://127.0.0.1:8000';
-        fetch(`${pythonEngineUrl}/admin/submit-assets`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                user_id: assetId, // Fix: Use user_id to match Python FastAPI AdminSubmissionRequest schema!
-                artifact_urls: artifact_urls,
-                podcast_audio: podcast_audio,
-                video_overview: video_overview,
-                infographic: infographic,
-                slide_deck: slide_deck,
-                study_report: study_report,
-                data_table: data_table
-            })
-        }).catch(err => console.error("Failed to trigger python engine:", err));
-
-        res.json({ success: true, completedDirectly: false, message: "Sent to processing" });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Failed to submit assets" });
+      } catch (err) {
+        console.error('Failed to initiate video processing:', err);
+      }
     }
-});
 
-app.get('/api/admin/task-status/:id', async (req, res) => {
-    try {
-        const taskId = req.params.id;
-        const pythonEngineUrl = process.env.PYTHON_ENGINE_URL || 'http://127.0.0.1:8000';
+    // Submit to scraper if there are NotebookLM URLs
+    if (cleanUrls.length > 0) {
+      try {
+        const engineHeaders = { 'Content-Type': 'application/json' };
+        if (ADMIN_API_KEY) engineHeaders['x-admin-key'] = ADMIN_API_KEY;
 
-        const response = await fetch(`${pythonEngineUrl}/status/${taskId}`);
-        if (!response.ok) {
-            throw new Error(`Python engine status returned ${response.status}`);
+        const engineRes = await fetch(`${PYTHON_ENGINE_URL}/admin/submit-assets`, {
+          method: 'POST',
+          headers: engineHeaders,
+          body: JSON.stringify({
+            user_id: assetId,
+            artifact_urls: cleanUrls,
+            ...staticAssets,
+          }),
+          signal: AbortSignal.timeout(30000),
+        });
+
+        if (engineRes.ok) {
+          const engineData = await engineRes.json();
+          if (!taskId) taskId = engineData.task_id || null;
+        } else {
+          const errText = await engineRes.text().catch(() => '');
+          console.error('Python engine submit failed:', engineRes.status, errText);
+          await pool.execute(
+            'UPDATE `AssetBundle` SET status = ?, assets = ? WHERE id = ?',
+            [STATUS.PENDING, JSON.stringify(staticAssets), assetId]
+          );
+          return res.status(502).json({
+            error: `Asset engine rejected submit (${engineRes.status})`,
+          });
         }
-
-        const data = await response.json();
-        res.json(data);
-    } catch (error) {
-        console.error("Error proxying task status:", error);
-        res.status(500).json({ error: "Failed to fetch task status from engine" });
+      } catch (err) {
+        console.error('Failed to trigger python engine:', err);
+        await pool.execute(
+          'UPDATE `AssetBundle` SET status = ?, assets = ? WHERE id = ?',
+          [STATUS.PENDING, JSON.stringify(staticAssets), assetId]
+        );
+        return res.status(502).json({ error: 'Failed to reach asset engine' });
+      }
     }
+
+    if (!taskId) {
+      await pool.execute(
+        'UPDATE `AssetBundle` SET status = ?, assets = ? WHERE id = ?',
+        [STATUS.COMPLETED, JSON.stringify(staticAssets), assetId]
+      );
+      return res.json({
+        success: true,
+        completedDirectly: true,
+        message: 'Asset bundle completed (no scraping needed)',
+      });
+    }
+
+    res.json({
+      success: true,
+      completedDirectly: false,
+      taskId,
+      message: 'Sent to processing',
+    });
+  } catch (error) {
+    console.error('Submit assets error:', error);
+    res.status(500).json({ error: 'Failed to submit assets' });
+  }
 });
 
-app.post('/api/assets/webhook/complete', async (req, res) => {
-    try {
-        const { assetId, assets } = req.body;
+app.get('/api/admin/task-status/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const taskId = req.params.id;
+    const assetId = req.query.assetId || null;
+
+    const statusHeaders = {};
+    if (ADMIN_API_KEY) statusHeaders['x-admin-key'] = ADMIN_API_KEY;
+
+    const response = await fetch(`${PYTHON_ENGINE_URL}/status/${taskId}`, {
+      headers: statusHeaders,
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok) {
+      throw new Error(`Python engine status returned ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (data.task_status === 'SUCCESS' && assetId) {
+      const [rows] = await pool.execute(
+        'SELECT assets, status FROM `AssetBundle` WHERE id = ?',
+        [assetId]
+      );
+      if (rows.length > 0 && rows[0].status !== STATUS.COMPLETED) {
+        const existing = parseJsonField(rows[0].assets) || {};
+        const interactive = data.interactive_assets || {};
+        const downloadable = data.downloadable_files || {};
+        const merged = {
+          ...existing,
+          flashcards: interactive.flashcards || existing.flashcards || [],
+          quizzes: interactive.quizzes || existing.quizzes || [],
+          mindmap: interactive.mindmap ?? existing.mindmap ?? null,
+          podcast_audio: downloadable.podcast_audio || existing.podcast_audio || null,
+          video_overview: downloadable.video_overview || existing.video_overview || null,
+          infographic: downloadable.infographic || existing.infographic || null,
+          slide_deck: downloadable.slide_deck || existing.slide_deck || null,
+          study_report: downloadable.study_report || existing.study_report || null,
+          data_table: downloadable.data_table || existing.data_table || null,
+        };
+        delete merged._celeryTaskId;
 
         await pool.execute(
-            'UPDATE `AssetBundle` SET status = ?, assets = ? WHERE id = ?',
-            ['COMPLETED', JSON.stringify(assets), assetId]
+          'UPDATE `AssetBundle` SET status = ?, assets = ? WHERE id = ?',
+          [STATUS.COMPLETED, JSON.stringify(merged), assetId]
         );
-
-        res.json({ success: true });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Webhook failed" });
+        data.autoCompleted = true;
+      }
     }
+
+    res.json(data);
+  } catch (error) {
+    console.error('Error proxying task status:', error);
+    res.status(500).json({ error: 'Failed to fetch task status from engine' });
+  }
 });
+
+app.post('/api/assets/webhook/complete', authenticateAdmin, async (req, res) => {
+  try {
+    const { assetId, assets } = req.body;
+    if (!assetId) {
+      return res.status(400).json({ error: 'assetId is required' });
+    }
+
+    const [rows] = await pool.execute(
+      'SELECT assets FROM `AssetBundle` WHERE id = ?',
+      [assetId]
+    );
+    const existing = rows[0]?.assets;
+    const merged = mergeAssetPayload(existing, assets || {});
+    delete merged._celeryTaskId;
+
+    await pool.execute(
+      'UPDATE `AssetBundle` SET status = ?, assets = ? WHERE id = ?',
+      [STATUS.COMPLETED, JSON.stringify(merged), assetId]
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Webhook error:', error);
+    res.status(500).json({ error: 'Webhook failed' });
+  }
+});
+
+// =======================
+// GLOBAL ERROR HANDLER
+// =======================
+
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: 'An unexpected error occurred' });
+});
+
+// =======================
+// SERVER START
+// =======================
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
     console.log(`Core API listening on port ${PORT}`);
-});
+  });
+}
+
+export default app;

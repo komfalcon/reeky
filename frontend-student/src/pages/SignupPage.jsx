@@ -1,11 +1,9 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
-import GoogleSignInButton from '../components/GoogleSignInButton';
-import FoundryLogo from '../components/FoundryLogo.jsx';
 
 export default function SignupPage() {
-  const { signup, loginWithGoogle } = useAuth();
+  const { signup } = useAuth();
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -30,8 +28,18 @@ export default function SignupPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <Link to="/" className="auth-brand" aria-label="Reeky Foundry home">
-          <FoundryLogo />
+        <Link to="/" className="logo" style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}>
+          <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
+            <defs>
+              <linearGradient id="logo-grad-s" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="var(--primary)" />
+                <stop offset="100%" stopColor="var(--secondary)" />
+              </linearGradient>
+            </defs>
+            <path d="M12 2L2 22H22L12 2Z" stroke="url(#logo-grad-s)" fill="none" />
+            <path d="M20 12L15 22H29L20 12Z" stroke="url(#logo-grad-s)" fill="none" />
+          </svg>
+          Reeky Academic Hub
         </Link>
 
         <h2 style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.5rem', marginBottom: '0.5rem' }}>
@@ -41,7 +49,7 @@ export default function SignupPage() {
           Start turning your PDFs into interactive study materials.
         </p>
 
-        <form onSubmit={handleSubmit} autoComplete="on" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
             <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>
               Full Name
@@ -49,12 +57,11 @@ export default function SignupPage() {
             <input
               className="auth-input"
               type="text"
-              name="name"
-              autoComplete="name"
               placeholder="e.g. Jane Doe"
               value={name}
               onChange={e => setName(e.target.value)}
               required
+              minLength={2}
             />
           </div>
           <div>
@@ -64,8 +71,6 @@ export default function SignupPage() {
             <input
               className="auth-input"
               type="email"
-              name="email"
-              autoComplete="email"
               placeholder="student@university.edu"
               value={email}
               onChange={e => setEmail(e.target.value)}
@@ -79,14 +84,17 @@ export default function SignupPage() {
             <input
               className="auth-input"
               type="password"
-              name="password"
-              autoComplete="new-password"
-              placeholder="••••••••"
+              placeholder="Min. 8 characters with uppercase & number"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
-              minLength={6}
+              minLength={8}
+              pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$"
+              title="Password must be at least 8 characters with at least one uppercase letter, one lowercase letter, and one number"
             />
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
+              Must be 8+ characters with at least one uppercase letter, one lowercase letter, and one number
+            </p>
           </div>
 
           {error && (
@@ -99,28 +107,6 @@ export default function SignupPage() {
             {loading ? 'Creating account...' : 'Create Account'}
           </button>
         </form>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '1.5rem 0' }}>
-          <div style={{ flex: 1, height: '1px', background: 'var(--divider)' }} />
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>or</span>
-          <div style={{ flex: 1, height: '1px', background: 'var(--divider)' }} />
-        </div>
-
-        <GoogleSignInButton
-          disabled={loading}
-          onCredential={async credential => {
-            setError('');
-            setLoading(true);
-            try {
-              await loginWithGoogle(credential);
-              navigate('/dashboard');
-            } catch (err) {
-              setError(err?.message || 'Unable to continue with Google. Please try again.');
-            } finally {
-              setLoading(false);
-            }
-          }}
-        />
 
         <p style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
           Already have an account?{' '}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from './AuthContext';
 import { jsPDF } from 'jspdf';
 import { 
   FileText, 
@@ -32,7 +33,9 @@ import {
   Search,
   Command,
   CornerDownLeft,
-  Users
+  Users,
+  Circle,
+  Award
 } from 'lucide-react';
 
 // Sample Mock Data
@@ -242,6 +245,7 @@ export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { isAuthenticated } = useAuth();
   
 
 
@@ -712,7 +716,7 @@ export default function App() {
   };
 
   return (
-    <div className="foundry-public" style={{ position: 'relative', minHeight: '100vh' }}>
+    <div style={{ position: 'relative', minHeight: '100vh' }}>
       {/* CANVAS NEURAL PARTICLES BACKDROP */}
       <canvas ref={canvasRef} className="canvas-backdrop" />
 
@@ -774,7 +778,7 @@ export default function App() {
               <path d="M12 2L2 22H22L12 2Z" />
               <path d="M20 12L15 22H29L20 12Z" />
             </svg>
-            Reeky Academic Hub
+            REEKY / FORGE
           </div>
 
           <ul className="nav-menu">
@@ -788,9 +792,15 @@ export default function App() {
             <button className="btn-icon" onClick={toggleTheme} aria-label="Toggle theme">
               {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
             </button>
-            <Link to="/login" className="btn btn-secondary" style={{ display: 'flex', textDecoration: 'none' }}>
-              Student Log In
-            </Link>
+            {isAuthenticated ? (
+              <Link to="/dashboard" className="btn btn-secondary" style={{ display: 'flex', textDecoration: 'none' }}>
+                Dashboard
+              </Link>
+            ) : (
+              <Link to="/login" className="btn btn-secondary" style={{ display: 'flex', textDecoration: 'none' }}>
+                Student Log In
+              </Link>
+            )}
             <button className="btn-icon menu-toggle" onClick={() => setMobileMenuOpen(true)}>
               <Menu size={24} />
             </button>
@@ -811,11 +821,19 @@ export default function App() {
           <li><a href="#comparison" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Before & After</a></li>
           <li><a href="#demo" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Interactive Demo</a></li>
           <li><a href="#pipeline" className="nav-link" onClick={() => setMobileMenuOpen(false)}>How It Works</a></li>
-          <li style={{ marginTop: '2rem' }}>
-            <Link to="/signup" className="btn btn-primary" style={{ width: '100%', textDecoration: 'none' }} onClick={() => setMobileMenuOpen(false)}>
-              Sign Up
-            </Link>
-          </li>
+          {isAuthenticated ? (
+            <li style={{ marginTop: '2rem' }}>
+              <Link to="/dashboard" className="btn btn-primary" style={{ width: '100%', textDecoration: 'none' }} onClick={() => setMobileMenuOpen(false)}>
+                Dashboard
+              </Link>
+            </li>
+          ) : (
+            <li style={{ marginTop: '2rem' }}>
+              <Link to="/signup" className="btn btn-primary" style={{ width: '100%', textDecoration: 'none' }} onClick={() => setMobileMenuOpen(false)}>
+                Sign Up
+              </Link>
+            </li>
+          )}
         </ul>
       </div>
 
@@ -840,18 +858,18 @@ export default function App() {
             </div>
 
             <div className="badge">
-              <span></span> A learning kit, forged from your source
+              <span></span> A learning system, forged from your source
             </div>
             <h1 className="hero-title">
               Turn one source into <br />
               <span>your way to learn</span>
             </h1>
             <p className="hero-subtitle">
-              Bring a textbook chapter, lecture note, or research paper. Reeky shapes it into the exact instruments you need to understand, practise, and remember the material.
+              Drop in a textbook chapter, lecture note, or research paper. Reeky forges it into the exact instruments you need to understand, practise, and remember the material.
             </p>
             <div className="hero-buttons">
               <a href="#demo" className="btn btn-primary">
-                Enter the Foundry <Sparkles size={18} />
+                Enter the Forge <Sparkles size={18} />
               </a>
               <button className="btn btn-secondary" onClick={() => { document.getElementById('comparison').scrollIntoView({ behavior: 'smooth'}); }}>
                 How It Works <ChevronRight size={18} />
@@ -1242,7 +1260,7 @@ export default function App() {
                     <button 
                       className="sidebar-btn" 
                       style={{ marginTop: 'auto', borderTop: '1px solid var(--divider)', color: 'var(--primary)' }}
-                      onClick={() => { setSelectedFile(null); setSelectedAssetId(null); setAudioPlaying(false); setAutoPlay(false); }}
+                      onClick={() => { setSelectedFile(null); setAudioPlaying(false); setAutoPlay(false); }}
                     >
                       <ArrowLeft size={16} /> Reset Sandbox
                     </button>
@@ -1297,13 +1315,13 @@ export default function App() {
                         {flashcardFlipped ? (
                           <div className="swipe-btn-group" style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
                             <button className="btn btn-secondary" style={{ borderColor: '#ff5f56', color: '#ff5f56', background: 'rgba(255,95,86,0.05)' }} onClick={() => handleSpacedRepetition('hard')}>
-                              🔴 Hard (+5%)
+                              <Circle size={12} fill="#ff5f56" color="#ff5f56" /> Hard (+5%)
                             </button>
                             <button className="btn btn-secondary" style={{ borderColor: '#ffbd2e', color: '#ffbd2e', background: 'rgba(255,189,46,0.05)' }} onClick={() => handleSpacedRepetition('medium')}>
-                              🟡 Medium (+15%)
+                              <Circle size={12} fill="#ffbd2e" color="#ffbd2e" /> Medium (+15%)
                             </button>
                             <button className="btn btn-primary" style={{ background: '#27c93f', borderColor: '#27c93f', boxShadow: 'none' }} onClick={() => handleSpacedRepetition('easy')}>
-                              🟢 Easy (+25%)
+                              <Circle size={12} fill="#27c93f" color="#27c93f" /> Easy (+25%)
                             </button>
                           </div>
                         ) : (
@@ -1436,9 +1454,9 @@ export default function App() {
 
                             <div style={{ background: 'var(--bg)', borderRadius: '16px', padding: '1rem', border: '1px solid var(--card-border)', fontSize: '0.85rem', color: 'var(--text-main)', marginBottom: '1.5rem' }}>
                               {quizScore === activeData.quiz.length ? (
-                                "🎉 Outstanding! You have mastered this chapter. We recommend exporting the Slide Deck to review with peers."
+                                <><Award size={16} style={{marginRight: 6, verticalAlign: 'middle'}} /> Outstanding! You have mastered this chapter. We recommend exporting the Slide Deck to review with peers.</>
                               ) : (
-                                "📚 Solid effort. We recommend focusing on the second section of the generated Study Report to patch up your gaps."
+                                <><BookOpen size={16} style={{marginRight: 6, verticalAlign: 'middle'}} /> Solid effort. We recommend focusing on the second section of the generated Study Report to patch up your gaps.</>
                               )}
                             </div>
 
@@ -1797,21 +1815,21 @@ export default function App() {
               <div className="pipeline-step">
                 <div className="step-num">1</div>
                 <div className="step-content">
-                  <h3>Submit your source</h3>
+                  <h3>Document Upload</h3>
                   <p>Drop your lecture notes, textbook chapters, or academic papers into the platform. We support standard formats including PDF, DOCX, and plain text.</p>
                 </div>
               </div>
               <div className="pipeline-step">
                 <div className="step-num">2</div>
                 <div className="step-content">
-                  <h3>Shape your kit</h3>
+                  <h3>Tailored Generation</h3>
                   <p>Set custom learning preferences (e.g. "Focus on equations", "Explain in simple terms"). The engine parses headings, extracts context, and generates 8 study assets.</p>
                 </div>
               </div>
               <div className="pipeline-step">
                 <div className="step-num">3</div>
                 <div className="step-content">
-                  <h3>Open your instruments</h3>
+                  <h3>Interactive Portal</h3>
                   <p>Access your personal learning ecosystem. Flip flashcards, take quizzes, print slides, or listen to the AI-generated study podcast on your mobile device.</p>
                 </div>
               </div>
@@ -1838,7 +1856,7 @@ export default function App() {
         <div className="container">
           <div className="footer-grid">
             <div className="footer-col footer-about">
-              <div className="logo" style={{ marginBottom: '1rem' }}>Reeky Academic Hub</div>
+              <div className="logo" style={{ marginBottom: '1rem' }}>REEKY / FORGE</div>
               <p>An AI-driven educational tool designed to transform static study materials into interactive, auditory, and visual media ecosystems.</p>
             </div>
             <div className="footer-col">
@@ -1860,7 +1878,7 @@ export default function App() {
           </div>
 
           <div className="footer-bottom">
-            <p>&copy; {new Date().getFullYear()} Reeky Academic Hub. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} REEKY / FORGE. All rights reserved.</p>
             <p style={{ display: 'flex', gap: '1rem' }}>
               <span>Made for students</span>
             </p>

@@ -12,17 +12,29 @@ async function request(endpoint, options = {}) {
   });
 
   if (!res.ok) {
-    const payload = await res.json().catch(() => ({ error: res.statusText }));
-    const error = new Error(payload.error || `Request failed (${res.status})`);
-    error.status = res.status;
-    throw error;
+    const err = await res.json().catch(() => ({}));
+    const message =
+      err.error ||
+      err.message ||
+      (res.status === 401
+        ? 'Authentication required'
+        : res.status === 403
+          ? 'Invalid or expired session'
+          : res.statusText || `Request failed (${res.status})`);
+    throw new Error(message);
   }
 
-  return res.json();
+  // Some endpoints may return an empty body
+  const text = await res.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
 }
 
 export const api = {
-  baseUrl: BASE_URL,
   health: () => request('/api/health'),
 
   signup: (name, email, password) =>
@@ -37,36 +49,25 @@ export const api = {
       body: { email, password },
     }),
 
-  loginWithGoogle: (credential) =>
-    request('/api/auth/google', {
-      method: 'POST',
-      body: { credential },
-    }),
-
-  savePreferences: (preferences, token) =>
-    request('/api/user/preferences', {
-      method: 'POST',
-      body: { preferences },
-      token,
-    }),
-
-  getProfile: (token) =>
-    request('/api/user/profile', { token }),
-
-  generateAssets: (title, originalFileUrl, customInstructions, assetsRequested, token) =>
+  generateAssets: (title, originalFileUrl, token, customInstructions, assetsRequested) =>
     request('/api/assets/generate', {
       method: 'POST',
       body: { title, originalFileUrl, customInstructions, assetsRequested },
       token,
     }),
 
-  getAssets: (token) =>
-    request('/api/assets', { token }),
+  getAssets: async (token) => {
+    const data = await request('/api/assets', { token });
+    return Array.isArray(data) ? data : [];
+  },
 
-  syncStudyEvents: (events, token) =>
-    request('/api/user/study-sync', {
+  savePreferences: (token, preferences) =>
+    request('/api/user/preferences', {
       method: 'POST',
-      body: { events },
+      body: preferences,
       token,
     }),
+
+  getProfile: (token) =>
+    request('/api/user/profile', { token }),
 };
