@@ -1,0 +1,70 @@
+{
+  "cookies": [
+    {
+      "domain": "notebook.google.com",
+      "expirationDate": 1819421868.354609,
+      "hostOnly": true,
+      "httpOnly": true,
+      "name": "OSID",
+      "path": "/",
+      "sameSite": "Lax",
+      "secure": true,
+      "session": false,
+      "storeId": "0",
+      "value": "g.a000Awl9YbnD_3Nt3loGmL7bnbLNX8rLmx4LmkUzFOCasu4C5570zh2Hq3x6rg85jIkOjxXDIwACgYKAb4SARISFQHGX2MiaW6mGz6FeQMoHkj8oNNlmhoVAUF8yKre3b3WC2lUzPEKmmgCKOrq0076"
+    },
+    {
+      "domain": "notebook.google.com",
+      "expirationDate": 1819421868.354814,
+      "hostOnly": true,
+      "httpOnly": true,
+      "name": "__Secure-OSID",
+      "path": "/",
+      "sameSite": "Lax",
+      "secure": true,
+      "session": false,
+      "storeId": "0",
+      "value": "g.a000Awl9YbnD_3Nt3loGmL7bnbLNX8rLmx4LmkUzFOCasu4C557080ejnkfQztNvdamFfIg4HwACgYKAfASARISFQHGX2MiuQCY0GkVZ1BWN3ZMM_YIahoVAUF8yKo8e73MyCsXEHyBeXLCCTe-0076"
+    },
+    {
+      "domain": ".notebook.google.com",
+      "expirationDate": 1819660995.948104,
+      "hostOnly": false,
+      "httpOnly": false,
+      "name": "_ga",
+      "path": "/",
+      "sameSite": "Lax",
+      "secure": false,
+      "session": false,
+      "storeId": "0",
+      "value": "GA1.1.2086736181.1784861869"
+    },
+    {
+      "domain": ".notebook.google.com",
+      "expirationDate": 1792637929,
+      "hostOnly": false,
+      "httpOnly": false,
+      "name": "_gcl_au",
+      "path": "/",
+      "sameSite": "Lax",
+      "secure": false,
+      "session": false,
+      "storeId": "0",
+      "value": "1.1.359889693.1784861929"
+    },
+    {
+      "domain": ".notebook.google.com",
+      "expirationDate": 1819660996.706916,
+      "hostOnly": false,
+      "httpOnly": false,
+      "name": "_ga_W0LDH41ZCB",
+      "path": "/",
+      "sameSite": "Lax",
+      "secure": false,
+      "session": false,
+      "storeId": "0",
+      "value": "GS2.1.s1785099701$o4$g1$t1785100996$j59$l0$h0"
+    }
+  ],
+  "origins": []
+}

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Reeky Foundry mark</title>
+  <desc id="desc">A forged copper lightning spark inside a geometric frame.</desc>
+  <defs>
+    <linearGradient id="copper" x1="12" y1="8" x2="55" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f1c17f"/>
+      <stop offset=".42" stop-color="#b97148"/>
+      <stop offset="1" stop-color="#70402f"/>
+    </linearGradient>
+    <linearGradient id="spark" x1="25" y1="15" x2="43" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff4cf"/>
+      <stop offset=".5" stop-color="#ffd477"/>
+      <stop offset="1" stop-color="#e8894e"/>
+    </linearGradient>
+  </defs>
+  <path d="M32 2.75 61.25 19.5v25L32 61.25 2.75 44.5v-25L32 2.75Z" fill="#0a1628" stroke="#c8d8ed" stroke-opacity=".25" stroke-width="1.5"/>
+  <path d="m37.2 8.4-22.3 28.5h14.7l-3.2 18.7 22.7-29.4H34.5L37.2 8.4Z" fill="url(#copper)" stroke="#f7d08d" stroke-opacity=".7" stroke-width="1" stroke-linejoin="round"/>
+  <path d="m36.4 17.5-11 15.3h9.2l-2 10.8 9.5-13.1h-8.6l2.9-13Z" fill="url(#spark)" opacity=".94"/>
+</svg>

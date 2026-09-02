@@ -25,7 +25,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
       - run: npm install
       - run: npm run lint || echo "No lint errors or lint not configured"
 
@@ -60,7 +59,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
       - run: npm install
       - run: npm run build
       - name: Upload build artifacts
