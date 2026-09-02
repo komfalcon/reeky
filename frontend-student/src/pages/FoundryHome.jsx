@@ -11,9 +11,9 @@ const instruments = [
 ];
 
 const pipeline = [
-  { eyebrow: '01 / BRING THE SOURCE', title: 'Start with the material already in your world.', body: 'A lecture note, a chapter, a research paper, or the document you keep reopening. Reeky begins with what you already need to understand.', mark: 'SOURCE DESK' },
-  { eyebrow: '02 / SHAPE THE KIT', title: 'Choose the depth, tone, and instruments that fit you.', body: 'Your kit is not a generic summary. It is a personal set of explanations, recall tools, maps, and practice surfaces shaped around your study rhythm.', mark: 'KIT BENCH' },
-  { eyebrow: '03 / STUDY ANYWHERE', title: 'Leave with something you can use, not just something you read.', body: 'Move from orientation to active recall, then return to the places that still feel uncertain. Your instruments stay ready, even when the connection does not.', mark: 'REVIEW DESK' },
+  { eyebrow: '01 / BRING THE SOURCE', title: 'Start with the material already in your world.', body: 'A lecture note, a chapter, a research paper, or the document you keep reopening. Reeky begins with what you already need to understand.', mark: 'SOURCE DESK', icon: Database },
+  { eyebrow: '02 / SHAPE THE KIT', title: 'Choose the depth, tone, and instruments that fit you.', body: 'Your kit is not a generic summary. It is a personal set of explanations, recall tools, maps, and practice surfaces shaped around your study rhythm.', mark: 'KIT BENCH', icon: Sparkles },
+  { eyebrow: '03 / STUDY ANYWHERE', title: 'Leave with something you can use, not just something you read.', body: 'Move from orientation to active recall, then return to the places that still feel uncertain. Your instruments stay ready, even when the connection does not.', mark: 'REVIEW DESK', icon: Network },
 ];
 
 export default function FoundryHome() {
@@ -30,8 +30,8 @@ export default function FoundryHome() {
 
   const currentInstrument = instruments[activeInstrument];
   const CurrentIcon = currentInstrument.icon;
-  const currentStage = pipeline[activePipeline];
-
+    const currentStage = pipeline[activePipeline];
+  const CurrentStageIcon = currentStage.icon;
   return (
     <main className="foundry-entryway">
       <div className="entryway-noise" aria-hidden="true" />
@@ -88,7 +88,11 @@ export default function FoundryHome() {
         </div>
       </section>
 
-      <div className="entryway-marquee" aria-hidden="true"><span>SOURCE DESK</span><i>✦</i><span>KIT BENCH</span><i>✦</i><span>REVIEW DESK</span><i>✦</i><span>LEARN IN YOUR OWN SHAPE</span><i>✦</i><span>SOURCE DESK</span></div>
+      <div className="entryway-marquee" aria-hidden="true">
+        <div className="entryway-marquee-track">
+          {[0, 1].map(copy => <div className="entryway-marquee-group" key={copy}><span>SOURCE DESK</span><i>✦</i><span>KIT BENCH</span><i>✦</i><span>REVIEW DESK</span><i>✦</i><span>LEARN IN YOUR OWN SHAPE</span><i>✦</i></div>)}
+        </div>
+      </div>
 
       <section className="entryway-instruments" id="instruments">
         <div className="entryway-section-heading"><div><span className="entryway-kicker">A SMALL SET OF SERIOUS TOOLS</span><h2>One source.<br /><i>Many ways in.</i></h2></div><p>Good learning is not a single format. Reeky gives the same material more than one doorway, so you can move from first understanding to durable memory.</p></div>
@@ -96,13 +100,17 @@ export default function FoundryHome() {
           <div className="instrument-list">
             {instruments.map((instrument, index) => {
               const Icon = instrument.icon;
-              return <button type="button" key={instrument.name} className={`instrument-list-item ${index === activeInstrument ? 'is-active' : ''}`} onClick={() => setActiveInstrument(index)}><span className="instrument-number">0{index + 1}</span><Icon size={18} /><span>{instrument.name}</span><ChevronRight size={15} /></button>;
+              return <button type="button" key={instrument.name} className={`instrument-list-item ${index === activeInstrument ? 'is-active' : ''}`} onClick={() => setActiveInstrument(index)} aria-label={`Show ${instrument.name}: ${instrument.label}`}><span className="instrument-number">0{index + 1}</span><Icon size={18} /><span className="instrument-list-copy"><strong>{instrument.name}</strong><small>{instrument.label}</small></span><ChevronRight size={15} /></button>;
             })}
           </div>
           <div className="instrument-card" key={currentInstrument.name}>
             <div className="instrument-card-grid" aria-hidden="true" />
             <div className="instrument-card-index">INSTRUMENT / 0{activeInstrument + 1}</div>
             <CurrentIcon size={28} className="instrument-card-icon" />
+            {currentInstrument.name === 'Map' ? <div className="map-network" aria-label="A concept map linking source ideas to study instruments">
+              <svg viewBox="0 0 520 280" role="img" aria-hidden="true"><path d="M94 76 C170 28 204 84 260 132 S355 210 430 172" /><path d="M94 76 C166 122 184 202 260 132 S359 66 430 172" /><path d="M260 132 C300 98 338 88 378 54" /><path d="M260 132 C306 168 334 204 378 226" /></svg>
+              <span className="map-node map-node-source"><b>SOURCE</b><small>cell membrane</small></span><span className="map-node map-node-core"><b>ATP</b><small>energy transfer</small></span><span className="map-node map-node-shape"><b>SHAPE</b><small>key concept</small></span><span className="map-node map-node-recall"><b>RECALL</b><small>active test</small></span><span className="map-node map-node-link"><b>LINK</b><small>new route</small></span>
+            </div> : <div className="instrument-signal" aria-hidden="true"><span /><span /><span /><span /><span /><span /></div>}
             <span className="instrument-card-label">{currentInstrument.name}</span>
             <h3>{currentInstrument.label}</h3>
             <div className="instrument-card-annotation"><span>START WITH THE IDEA</span><span>THEN TEST THE MEMORY</span></div>
@@ -114,12 +122,18 @@ export default function FoundryHome() {
         <div className="entryway-section-heading method-heading"><div><span className="entryway-kicker">THE FOUNDRY METHOD</span><h2>From heavy source<br /><i>to usable knowledge.</i></h2></div><p>There is no black box between your document and your understanding. The Foundry makes the journey visible.</p></div>
         <div className="method-layout">
           <div className="method-tabs" role="tablist" aria-label="Foundry method steps">
-            {pipeline.map((stage, index) => <button type="button" role="tab" aria-selected={index === activePipeline} key={stage.mark} className={index === activePipeline ? 'is-active' : ''} onClick={() => setActivePipeline(index)}><span>0{index + 1}</span><strong>{stage.mark}</strong><ChevronRight size={15} /></button>)}
+            {pipeline.map((stage, index) => <button type="button" role="tab" aria-selected={index === activePipeline} key={stage.mark} className={index === activePipeline ? 'is-active' : ''} onClick={() => setActivePipeline(index)}><span>0{index + 1}</span><span className="method-tab-copy"><strong>{stage.mark}</strong><small>{stage.title}</small></span><ChevronRight size={15} /></button>)}
           </div>
           <div className="method-stage" key={currentStage.mark}>
             <div className="method-stage-top"><span>{currentStage.eyebrow}</span><span>REEKY / 2026</span></div>
             <div className="method-stage-copy"><h3>{currentStage.title}</h3><p>{currentStage.body}</p></div>
-            <div className="method-stage-schematic"><span className="schematic-core"><Sparkles size={20} /></span><span className="schematic-line line-a" /><span className="schematic-line line-b" /><span className="schematic-node node-a">SOURCE</span><span className="schematic-node node-b">SHAPE</span><span className="schematic-node node-c">RECALL</span></div>
+            <div className="method-stage-schematic" aria-label="Source, shape, and recall form a connected learning loop">
+              <span className="schematic-orbit orbit-ring-one" /><span className="schematic-orbit orbit-ring-two" />
+              <span className="schematic-core"><CurrentStageIcon size={20} /></span>
+              <span className="schematic-line line-a" /><span className="schematic-line line-b" /><span className="schematic-line line-c" />
+              <span className="schematic-node node-a"><Database size={12} /><b>SOURCE</b><small>bring it in</small></span><span className="schematic-node node-b"><Sparkles size={12} /><b>SHAPE</b><small>make it yours</small></span><span className="schematic-node node-c"><Network size={12} /><b>RECALL</b><small>make it stick</small></span>
+              <span className="schematic-pulse pulse-a" /><span className="schematic-pulse pulse-b" /><span className="schematic-pulse pulse-c" />
+            </div>
           </div>
         </div>
       </section>
