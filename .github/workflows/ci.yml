@@ -26,6 +26,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
+          cache-dependency-path: ${{ matrix.project }}/package-lock.json
       - run: npm install
       - run: npm run lint || echo "No lint errors or lint not configured"
 
@@ -61,6 +62,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
+          cache-dependency-path: ${{ matrix.project }}/package-lock.json
       - run: npm install
       - run: npm run build
       - name: Upload build artifacts
