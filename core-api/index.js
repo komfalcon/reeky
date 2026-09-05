@@ -48,14 +48,21 @@ function safeParseJson(val) {
     }
 }
 
-// Set up MySQL connection pool
-const dbUrl = process.env.DATABASE_URL;
-const pool = mysql.createPool({
-    uri: dbUrl,
-    ssl: {
-        rejectUnauthorized: true
-    }
+import { createClient } from '@libsql/client';
+
+const tursoClient = createClient({
+    url: process.env.DATABASE_URL,
+    authToken: process.env.TURSO_AUTH_TOKEN
 });
+
+// Wrapper to make Turso act exactly like mysql2 so we don't have to rewrite the entire file
+const pool = {
+    execute: async (sql, args = []) => {
+        // Turso uses ? for placeholders just like MySQL, but we need to pass it as an object
+        const result = await tursoClient.execute({ sql, args });
+        return [result.rows, {}]; // Return an array where [0] is rows to mimic mysql2
+    }
+};
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID || '';
 const googleTokenClient = googleClientId ? new OAuth2Client(googleClientId) : null;
